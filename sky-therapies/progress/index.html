@@ -180,13 +180,13 @@ document.getElementById('progressBar').style.width=pct+'%';
 document.getElementById('countDone').textContent=c.done;
 document.getElementById('countProgress').textContent=c.progress;
 document.getElementById('countTodo').textContent=c.todo;
-var oc=TASKS.filter(function(t){return of==='all'||t.ownerType===of}).length;document.querySelector('#filterBar .filter-btn[data-filter="all"]').textContent='All ('+oc+')';
 document.getElementById('countP1').innerHTML=c.p1Done+'<span style="font-size:.875rem;opacity:.4">/8</span>';
 document.getElementById('countP2').innerHTML=c.p2Done+'<span style="font-size:.875rem;opacity:.4">/13</span>';
 document.getElementById('countP3').innerHTML=c.p3Done+'<span style="font-size:.875rem;opacity:.4">/4</span>';
 var ct=document.getElementById('taskContainer'),fl=filt(),gs=group(fl),h='';
 if(!fl.length){h='<div style="text-align:center;padding:3rem 0;color:var(--color-muted)">No tasks match this filter.</div>'}else{gs.forEach(function(g){var gd=g.tasks.filter(function(t){return ts[t.id]==='complete'}).length;h+='<div class="phase-group"><div class="phase-group-header"><span class="phase-dot '+g.priority+'"></span><h3>'+g.name+'</h3><span class="phase-count">'+gd+'/'+g.tasks.length+' done</span></div>';g.tasks.forEach(function(t){var s=ts[t.id]||'not-started',xp=ex[t.id]?' expanded':'';h+='<div class="task-item is-'+s+xp+'" data-id="'+t.id+'"><div class="task-row"><div class="task-checkbox" data-action="toggle" data-id="'+t.id+'">'+CI[s]+'</div><div class="task-content"><div class="task-title">'+t.title+'</div><div class="task-meta"><span class="owner-label '+t.ownerType+'">'+t.owner+'</span><span class="sep">|</span><span>'+t.time+'</span>';if(t.impact)h+='<span class="sep">|</span><span>'+t.impact+'</span>';h+='</div></div><span class="task-status-badge '+SX[s]+'">'+SL[s]+'</span><span class="task-expand-arrow">&#9660;</span></div><div class="task-instructions"><div class="task-instructions-inner">'+t.instructions+'</div></div></div>'});h+='</div>'})}
 ct.innerHTML=h;
+try{var oc=TASKS.filter(function(t){return of==='all'||t.ownerType===of}).length;var fb=document.querySelector('[data-filter="all"]');if(fb)fb.textContent='All ('+oc+')';}catch(e){}
 ct.querySelectorAll('.task-checkbox').forEach(function(cb){cb.addEventListener('click',function(e){cycle(parseInt(this.getAttribute('data-id')),e)})});
 ct.querySelectorAll('.task-row').forEach(function(r){r.addEventListener('click',function(e){if(e.target.closest('.task-checkbox'))return;toggle(parseInt(this.parentElement.getAttribute('data-id')))})})}
 document.getElementById('filterBar').addEventListener('click',function(e){var b=e.target.closest('.filter-btn');if(!b)return;cf=b.getAttribute('data-filter');document.querySelectorAll('.filter-btn').forEach(function(x){x.classList.remove('active')});b.classList.add('active');render()});
