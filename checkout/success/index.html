@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<script>try{var st=localStorage.getItem('moonraker-theme');if(st){document.documentElement.setAttribute('data-theme',st)}}catch(e){}</script>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment Confirmed - Moonraker</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+:root,[data-theme="light"]{--color-primary:#00D47E;--color-primary-hover:#00b86c;--color-primary-subtle:#DDF8F2;--color-bg:#F7FDFB;--color-surface:#FFFFFF;--color-border:#E2E8F0;--color-heading:#1E2A5E;--color-body:#333F70;--color-muted:#6B7599;--color-navy:#141C3A;--color-success:#00D47E}
+[data-theme="dark"]{--color-primary:#00D47E;--color-primary-hover:#00f598;--color-primary-subtle:#0D2E22;--color-bg:#080F0B;--color-surface:#0E1A14;--color-border:#1E3530;--color-heading:#E8F5EF;--color-body:#C8D8D0;--color-muted:#5A7A6E;--color-navy:#0A1630}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',-apple-system,sans-serif;color:var(--color-body);background:var(--color-bg);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:background .3s,color .3s}
+h1{font-family:'Outfit',sans-serif;font-weight:700;color:var(--color-heading)}
+.card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:20px;padding:3rem;text-align:center;max-width:480px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.06)}
+.check{width:64px;height:64px;background:var(--color-primary);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;animation:pop .5s cubic-bezier(.175,.885,.32,1.275)}
+.check svg{width:32px;height:32px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+@keyframes pop{0%{transform:scale(0)}100%{transform:scale(1)}}
+.card h1{font-size:1.5rem;margin-bottom:.5rem}
+.card p{color:var(--color-muted);font-size:.9375rem;margin-bottom:1.5rem;line-height:1.6}
+.btn{display:inline-block;background:var(--color-primary);color:#fff;font-family:'Outfit',sans-serif;font-weight:700;font-size:1rem;padding:.875rem 2.5rem;border-radius:10px;text-decoration:none;transition:all .25s}
+.btn:hover{background:var(--color-primary-hover);color:#fff;transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,212,126,.3)}
+.redirect-note{font-size:.75rem;color:var(--color-muted);margin-top:1rem}
+.logo{margin-bottom:2rem;opacity:.6}
+.logo img{height:32px}
+</style>
+</head>
+<body>
+
+<div class="logo"><a href="https://moonraker.ai"><img src="https://moonraker.ai/wp-content/uploads/2023/10/Moonraker-Logo-Transparent.png" alt="Moonraker"></a></div>
+
+<div class="card">
+  <div class="check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+  <h1>Payment Confirmed!</h1>
+  <p>Thank you for choosing Moonraker. We are excited to get started on your campaign. Your onboarding dashboard is ready.</p>
+  <a href="#" id="onboardingBtn" class="btn">Start Onboarding &#8594;</a>
+  <div class="redirect-note" id="redirectNote">Redirecting automatically in <span id="countdown">5</span> seconds...</div>
+</div>
+
+<script>
+(function() {
+  var SB_URL = 'https://ofmmwcjhdrhvxxkhcuww.supabase.co';
+  var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9mbW13Y2poZHJodnh4a2hjdXd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMjM1NTcsImV4cCI6MjA4OTg5OTU1N30.zMMHW0Fk9ixWjORngyxJTIoPOfx7GFsD4wBV4Foqqms';
+
+  // Get slug from localStorage (saved by checkout page before Stripe redirect)
+  var slug = '';
+  try { slug = localStorage.getItem('moonraker-checkout-slug') || ''; } catch(e) {}
+
+  // Fallback: check URL params for slug
+  if (!slug) {
+    var params = new URLSearchParams(window.location.search);
+    slug = params.get('slug') || '';
+  }
+
+  var onboardingUrl = slug ? '/' + slug + '/onboarding' : '/';
+
+  document.getElementById('onboardingBtn').href = onboardingUrl;
+
+  if (slug) {
+    // Flip contact status to 'onboarding'
+    fetch(SB_URL + '/rest/v1/contacts?slug=eq.' + slug, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SB_ANON,
+        'Authorization': 'Bearer ' + SB_ANON,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ status: 'onboarding' })
+    }).then(function() {
+      console.log('Status updated to onboarding for ' + slug);
+    }).catch(function(err) {
+      console.error('Status update failed:', err);
+    });
+
+    // Clean up localStorage
+    try { localStorage.removeItem('moonraker-checkout-slug'); } catch(e) {}
+
+    // Auto-redirect countdown
+    var count = 5;
+    var timer = setInterval(function() {
+      count--;
+      document.getElementById('countdown').textContent = count;
+      if (count <= 0) {
+        clearInterval(timer);
+        window.location.href = onboardingUrl;
+      }
+    }, 1000);
+  } else {
+    document.getElementById('redirectNote').textContent = 'Could not determine your account. Please contact support@moonraker.ai.';
+  }
+})();
+</script>
+</body>
+</html>
