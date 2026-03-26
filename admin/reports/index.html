@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<script>try{var st=localStorage.getItem('moonraker-theme');if(st){document.documentElement.setAttribute('data-theme',st)}}catch(e){}</script>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Report Scheduler - Moonraker Admin</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+:root, [data-theme="light"] {
+  --color-primary: #00D47E;
+  --color-primary-hover: #00b86c;
+  --color-primary-light: #B4EEE0;
+  --color-primary-subtle: #DDF8F2;
+  --color-bg: #F7FDFB;
+  --color-surface: #FFFFFF;
+  --color-border: #E2E8F0;
+  --color-heading: #1E2A5E;
+  --color-body: #333F70;
+  --color-muted: #6B7599;
+  --color-navy: #141C3A;
+  --color-success: #00D47E;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-info: #3B82F6;
+}
+[data-theme="dark"] {
+  --color-primary: #00D47E;
+  --color-primary-hover: #00f598;
+  --color-primary-light: #1A4A38;
+  --color-primary-subtle: #0D2E22;
+  --color-bg: #080F0B;
+  --color-surface: #0E1A14;
+  --color-border: #1E3530;
+  --color-heading: #E8F5EF;
+  --color-body: #C8D8D0;
+  --color-muted: #5A7A6E;
+  --color-navy: #0A1630;
+  --color-success: #00D47E;
+  --color-warning: #F59E0B;
+  --color-danger: #FF6B6B;
+  --color-info: #60A5FA;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; font-size: 16px; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-weight: 400; color: var(--color-body); background: var(--color-bg); line-height: 1.6; -webkit-font-smoothing: antialiased; transition: background .3s ease, color .3s ease; }
+h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; font-weight: 700; color: var(--color-heading); line-height: 1.2; }
+a { color: var(--color-primary); text-decoration: none; }
+a:hover { color: var(--color-primary-hover); }
+strong { font-weight: 600; color: var(--color-heading); }
+
+/* Layout */
+.container { max-width: 1200px; margin: 0 auto; padding: 0 2rem; }
+@media (max-width: 768px) { .container { padding: 0 1rem; } }
+
+/* Header */
+.header { background: var(--color-surface); border-bottom: 1px solid var(--color-border); padding: 1rem 0; position: sticky; top: 0; z-index: 100; }
+.header-inner { display: flex; align-items: center; justify-content: space-between; }
+.header-left { display: flex; align-items: center; gap: 1rem; }
+.header-left img { height: 28px; opacity: 0.8; }
+.header-left .divider { width: 1px; height: 24px; background: var(--color-border); }
+.header-left h1 { font-size: 1.15rem; font-weight: 600; }
+.header-right { display: flex; align-items: center; gap: .75rem; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: .5rem; padding: .5rem 1rem; border-radius: 8px; font-size: .85rem; font-weight: 500; border: none; cursor: pointer; transition: all .2s; font-family: inherit; }
+.btn-primary { background: var(--color-primary); color: #fff; }
+.btn-primary:hover { background: var(--color-primary-hover); }
+.btn-secondary { background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-body); }
+.btn-secondary:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.btn-danger { background: rgba(239,68,68,.1); color: var(--color-danger); border: 1px solid transparent; }
+.btn-danger:hover { border-color: var(--color-danger); }
+.btn-sm { padding: .35rem .75rem; font-size: .8rem; }
+.btn-icon { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Theme toggle */
+.theme-toggle { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 50%; width: 36px; height: 36px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: all .2s; }
+.theme-toggle:hover { border-color: var(--color-primary); }
+
+/* Cards */
+.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.5rem; transition: border-color .2s; }
+.card:hover { border-color: rgba(0,212,126,.3); }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+
+/* Status indicators */
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.status-dot.green { background: var(--color-success); box-shadow: 0 0 6px rgba(0,212,126,.4); }
+.status-dot.yellow { background: var(--color-warning); box-shadow: 0 0 6px rgba(245,158,11,.4); }
+.status-dot.red { background: var(--color-danger); box-shadow: 0 0 6px rgba(239,68,68,.4); }
+.status-dot.gray { background: var(--color-muted); }
+
+/* Tags */
+.tag { display: inline-flex; align-items: center; gap: .35rem; padding: .2rem .6rem; border-radius: 6px; font-size: .75rem; font-weight: 500; }
+.tag-success { background: rgba(0,212,126,.1); color: var(--color-success); }
+.tag-warning { background: rgba(245,158,11,.1); color: var(--color-warning); }
+.tag-danger { background: rgba(239,68,68,.1); color: var(--color-danger); }
+.tag-info { background: rgba(59,130,246,.1); color: var(--color-info); }
+.tag-muted { background: rgba(107,117,153,.1); color: var(--color-muted); }
+
+/* Client list */
+.client-grid { display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem; }
+.client-row { display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 1rem; align-items: center; padding: 1.25rem 1.5rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; cursor: pointer; transition: all .2s; }
+.client-row:hover { border-color: var(--color-primary); box-shadow: 0 2px 12px rgba(0,212,126,.08); }
+.client-row.expanded { border-color: var(--color-primary); box-shadow: 0 2px 12px rgba(0,212,126,.12); border-radius: 12px 12px 0 0; }
+.client-name { font-weight: 600; color: var(--color-heading); font-size: .95rem; }
+.client-slug { font-size: .8rem; color: var(--color-muted); margin-top: .15rem; }
+.source-indicators { display: flex; gap: .5rem; }
+.source-badge { display: flex; align-items: center; gap: .35rem; padding: .2rem .5rem; border-radius: 5px; font-size: .7rem; font-weight: 500; background: var(--color-primary-subtle); color: var(--color-muted); }
+.source-badge.connected { color: var(--color-success); }
+.source-badge.missing { color: var(--color-danger); opacity: .6; }
+
+/* Expanded detail panel */
+.detail-panel { background: var(--color-surface); border: 1px solid var(--color-primary); border-top: none; border-radius: 0 0 12px 12px; padding: 1.5rem; display: none; }
+.detail-panel.open { display: block; }
+
+/* Tabs */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--color-border); margin-bottom: 1.5rem; }
+.tab { padding: .6rem 1.25rem; font-size: .85rem; font-weight: 500; color: var(--color-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all .2s; background: none; border-top: none; border-left: none; border-right: none; font-family: inherit; }
+.tab:hover { color: var(--color-heading); }
+.tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Form elements */
+.form-group { margin-bottom: 1rem; }
+.form-label { display: block; font-size: .8rem; font-weight: 500; color: var(--color-muted); margin-bottom: .35rem; text-transform: uppercase; letter-spacing: .04em; }
+.form-input { width: 100%; padding: .5rem .75rem; border: 1px solid var(--color-border); border-radius: 8px; font-size: .85rem; font-family: inherit; color: var(--color-body); background: var(--color-bg); transition: border-color .2s; }
+.form-input:focus { outline: none; border-color: var(--color-primary); }
+.form-input::placeholder { color: var(--color-muted); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+
+/* Query list */
+.query-list { display: flex; flex-direction: column; gap: .5rem; }
+.query-item { display: grid; grid-template-columns: 1fr 160px 180px 32px; gap: .75rem; align-items: center; padding: .6rem .75rem; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; }
+.query-item input, .query-item select { padding: .4rem .6rem; border: 1px solid var(--color-border); border-radius: 6px; font-size: .8rem; font-family: inherit; color: var(--color-body); background: var(--color-surface); }
+.query-item input:focus, .query-item select:focus { outline: none; border-color: var(--color-primary); }
+.query-remove { width: 28px; height: 28px; border: none; background: none; color: var(--color-muted); cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+.query-remove:hover { background: rgba(239,68,68,.1); color: var(--color-danger); }
+
+/* Pipeline status */
+.pipeline { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.pipeline-step { display: flex; align-items: center; gap: .4rem; padding: .35rem .7rem; border-radius: 6px; font-size: .75rem; font-weight: 500; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-muted); }
+.pipeline-step.done { background: rgba(0,212,126,.08); border-color: rgba(0,212,126,.2); color: var(--color-success); }
+.pipeline-step.current { background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.2); color: var(--color-info); animation: pulse 2s infinite; }
+.pipeline-arrow { color: var(--color-muted); font-size: .7rem; }
+
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .6; } }
+
+/* Stats bar */
+.stats-bar { display: flex; gap: 1.5rem; padding: 1.25rem 0; margin: 1.5rem 0; border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); }
+.stat { text-align: center; }
+.stat-value { font-family: 'Outfit', sans-serif; font-size: 1.75rem; font-weight: 700; color: var(--color-heading); }
+.stat-label { font-size: .75rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: .04em; }
+
+/* Toast */
+.toast { position: fixed; bottom: 2rem; right: 2rem; padding: .75rem 1.25rem; border-radius: 10px; font-size: .85rem; font-weight: 500; z-index: 1000; transform: translateY(120%); transition: transform .3s ease; }
+.toast.show { transform: translateY(0); }
+.toast.success { background: var(--color-primary); color: #fff; }
+.toast.error { background: var(--color-danger); color: #fff; }
+.toast.info { background: var(--color-info); color: #fff; }
+
+/* Empty state */
+.empty-state { text-align: center; padding: 3rem; color: var(--color-muted); }
+.empty-state h3 { font-size: 1.1rem; margin-bottom: .5rem; color: var(--color-heading); }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .client-row { grid-template-columns: 1fr; gap: .75rem; }
+  .query-item { grid-template-columns: 1fr; }
+  .stats-bar { flex-wrap: wrap; gap: 1rem; }
+}
+
+/* Loading spinner */
+.spinner { width: 16px; height: 16px; border: 2px solid var(--color-border); border-top-color: var(--color-primary); border-radius: 50%; animation: spin .6s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Last compiled info */
+.compiled-info { display: flex; align-items: center; gap: .5rem; font-size: .8rem; color: var(--color-muted); }
+.compiled-info .time { color: var(--color-body); }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="container header-inner">
+    <div class="header-left">
+      <img src="https://moonraker.ai/wp-content/uploads/2023/10/Moonraker-Logo-Transparent.png" alt="Moonraker">
+      <div class="divider"></div>
+      <h1>Report Scheduler</h1>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-secondary btn-sm" id="refreshBtn" onclick="loadData()">&#x21bb; Refresh</button>
+      <button class="theme-toggle" id="themeBtn" aria-label="Toggle theme">&#x1F319;</button>
+    </div>
+  </div>
+</div>
+
+<!-- Stats Summary -->
+<div class="container">
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-value" id="statTotal">-</div>
+      <div class="stat-label">Total Clients</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="statConfigured">-</div>
+      <div class="stat-label">Configured</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="statPending">-</div>
+      <div class="stat-label">Needs Config</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="statCompiled">-</div>
+      <div class="stat-label">Compiled This Month</div>
+    </div>
+  </div>
+</div>
+
+<!-- Client List -->
+<div class="container" style="padding-bottom: 4rem;">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem;">
+    <h2 style="font-size: 1.35rem; margin-bottom: 0;">Client Configurations</h2>
+  </div>
+  <p style="color: var(--color-muted); font-size: .85rem; margin-bottom: 0;">Configure data sources and tracked queries for each active client. Once verified, trigger compilation from Claude.</p>
+
+  <div class="client-grid" id="clientGrid">
+    <div class="empty-state">
+      <div class="spinner" style="margin: 0 auto 1rem;"></div>
+      <p>Loading clients...</p>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ============================================================
+  // CONFIG
+  // ============================================================
+  var SUPABASE_URL = 'https://ofmmwcjhdrhvxxkhcuww.supabase.co';
+  var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9mbW13Y2poZHJodnh4a2hjdXd3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDMyMzU1NywiZXhwIjoyMDg5ODk5NTU3fQ.EyEyVh6er79xjWGgMIgKaF2pErkDz0fOxQsrNSup2fk';
+
+  var state = {
+    clients: [],
+    configs: {},
+    snapshots: {},
+    expanded: null,
+    saving: false
+  };
+
+  // ============================================================
+  // SUPABASE HELPERS
+  // ============================================================
+  function sbFetch(path, opts) {
+    opts = opts || {};
+    var headers = {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json'
+    };
+    if (opts.prefer) headers['Prefer'] = opts.prefer;
+    return fetch(SUPABASE_URL + '/rest/v1/' + path, {
+      method: opts.method || 'GET',
+      headers: headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    }).then(function(r) {
+      if (opts.method === 'PATCH' || opts.method === 'DELETE') return r.ok ? {} : r.json();
+      return r.json();
+    });
+  }
+
+  // ============================================================
+  // DATA LOADING
+  // ============================================================
+  function loadData() {
+    document.getElementById('refreshBtn').disabled = true;
+
+    Promise.all([
+      sbFetch('contacts?select=slug,status,practice_name,email,gsc_property,ga4_property&status=eq.active&order=practice_name'),
+      sbFetch('report_configs?select=*&order=client_slug'),
+      sbFetch('report_snapshots?select=client_slug,report_month,report_status,created_at&order=created_at.desc&limit=50')
+    ]).then(function(results) {
+      state.clients = results[0] || [];
+      state.configs = {};
+      (results[1] || []).forEach(function(c) { state.configs[c.client_slug] = c; });
+      state.snapshots = {};
+      (results[2] || []).forEach(function(s) {
+        if (!state.snapshots[s.client_slug]) state.snapshots[s.client_slug] = s;
+      });
+      render();
+      document.getElementById('refreshBtn').disabled = false;
+    }).catch(function(err) {
+      console.error('Load error:', err);
+      showToast('Failed to load data', 'error');
+      document.getElementById('refreshBtn').disabled = false;
+    });
+  }
+
+  // ============================================================
+  // RENDERING
+  // ============================================================
+  function render() {
+    var grid = document.getElementById('clientGrid');
+    var clients = state.clients;
+
+    // Stats
+    var configured = 0, compiled = 0;
+    var now = new Date();
+    var thisMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+
+    clients.forEach(function(c) {
+      var cfg = state.configs[c.slug];
+      if (cfg && cfg.tracked_queries && cfg.tracked_queries.length > 0) configured++;
+      var snap = state.snapshots[c.slug];
+      if (snap && snap.report_month && snap.report_month.substring(0, 7) === thisMonth) compiled++;
+    });
+
+    document.getElementById('statTotal').textContent = clients.length;
+    document.getElementById('statConfigured').textContent = configured;
+    document.getElementById('statPending').textContent = clients.length - configured;
+    document.getElementById('statCompiled').textContent = compiled;
+
+    if (clients.length === 0) {
+      grid.innerHTML = '<div class="empty-state"><h3>No Active Clients</h3><p>Active clients from Supabase will appear here with their report configuration.</p></div>';
+      return;
+    }
+
+    var html = '';
+    clients.forEach(function(client) {
+      var cfg = state.configs[client.slug] || {};
+      var snap = state.snapshots[client.slug];
+      var queries = cfg.tracked_queries || [];
+      var isExpanded = state.expanded === client.slug;
+
+      // Source status
+      var hasGSC = !!(cfg.gsc_property || client.gsc_property);
+      var hasGA4 = !!(cfg.ga4_property || client.ga4_property);
+      var hasLBM = !!cfg.lbm_location_id;
+      var hasQueries = queries.length > 0;
+
+      // Pipeline status
+      var lastCompiled = cfg.last_compiled_at ? timeAgo(cfg.last_compiled_at) : null;
+      var compiledStatus = cfg.last_compiled_status;
+
+      html += '<div class="client-row' + (isExpanded ? ' expanded' : '') + '" onclick="window._toggleClient(\'' + client.slug + '\')">';
+      html += '<div><div class="client-name">' + esc(client.practice_name || client.slug) + '</div>';
+      html += '<div class="client-slug">' + esc(client.slug) + (client.email ? ' &middot; ' + esc(client.email) : '') + '</div></div>';
+
+      // Source indicators
+      html += '<div class="source-indicators">';
+      html += '<div class="source-badge ' + (hasGSC ? 'connected' : 'missing') + '"><span class="status-dot ' + (hasGSC ? 'green' : 'red') + '"></span>GSC</div>';
+      html += '<div class="source-badge ' + (hasGA4 ? 'connected' : 'missing') + '"><span class="status-dot ' + (hasGA4 ? 'green' : 'red') + '"></span>GA4</div>';
+      html += '<div class="source-badge ' + (hasLBM ? 'connected' : 'missing') + '"><span class="status-dot ' + (hasLBM ? 'green' : 'gray') + '"></span>GBP</div>';
+      html += '<div class="source-badge ' + (hasQueries ? 'connected' : 'missing') + '"><span class="status-dot ' + (hasQueries ? 'green' : 'gray') + '"></span>AI (' + queries.length + ')</div>';
+      html += '</div>';
+
+      // Last compiled
+      if (lastCompiled) {
+        var statusClass = compiledStatus === 'success' ? 'tag-success' : (compiledStatus === 'partial' ? 'tag-warning' : 'tag-danger');
+        html += '<div class="compiled-info"><span class="tag ' + statusClass + '">' + esc(compiledStatus) + '</span><span class="time">' + esc(lastCompiled) + '</span></div>';
+      } else {
+        html += '<span class="tag tag-muted">Not compiled</span>';
+      }
+
+      // Last notified / published
+      if (cfg.last_published_at) {
+        html += '<span class="tag tag-success">Published</span>';
+      } else if (cfg.last_notified_at) {
+        html += '<span class="tag tag-info">Review pending</span>';
+      } else {
+        html += '<span class="tag tag-muted">--</span>';
+      }
+
+      // Expand arrow
+      html += '<span style="color:var(--color-muted);font-size:.85rem;">' + (isExpanded ? '&#9650;' : '&#9660;') + '</span>';
+      html += '</div>';
+
+      // Detail panel
+      html += '<div class="detail-panel' + (isExpanded ? ' open' : '') + '" id="panel-' + client.slug + '" onclick="event.stopPropagation()">';
+      html += renderDetail(client, cfg, snap);
+      html += '</div>';
+    });
+
+    grid.innerHTML = html;
+  }
+
+  function renderDetail(client, cfg, snap) {
+    var slug = client.slug;
+    var h = '';
+
+    // Tabs
+    h += '<div class="tabs">';
+    h += '<button class="tab active" onclick="window._switchTab(\'' + slug + '\', \'sources\', this)">Data Sources</button>';
+    h += '<button class="tab" onclick="window._switchTab(\'' + slug + '\', \'queries\', this)">Tracked Queries</button>';
+    h += '<button class="tab" onclick="window._switchTab(\'' + slug + '\', \'history\', this)">History</button>';
+    h += '</div>';
+
+    // Tab: Data Sources
+    h += '<div class="tab-content active" id="tab-sources-' + slug + '">';
+    h += '<div class="form-row">';
+    h += '<div class="form-group"><label class="form-label">GSC Property</label>';
+    h += '<input class="form-input" id="gsc-' + slug + '" value="' + esc(cfg.gsc_property || client.gsc_property || '') + '" placeholder="sc-domain:example.com"></div>';
+    h += '<div class="form-group"><label class="form-label">GA4 Property</label>';
+    h += '<input class="form-input" id="ga4-' + slug + '" value="' + esc(cfg.ga4_property || client.ga4_property || '') + '" placeholder="properties/123456789"></div>';
+    h += '</div>';
+    h += '<div class="form-row">';
+    h += '<div class="form-group"><label class="form-label">LBM Location ID</label>';
+    h += '<input class="form-input" id="lbm-' + slug + '" value="' + esc(cfg.lbm_location_id || '') + '" placeholder="e.g. v53rmqv5"></div>';
+    h += '<div class="form-group"><label class="form-label">LBM Report ID</label>';
+    h += '<input class="form-input" id="lbmr-' + slug + '" value="' + esc(cfg.lbm_report_id || '') + '" placeholder="e.g. 8lgo2w1z"></div>';
+    h += '</div>';
+    h += '<div class="form-row">';
+    h += '<div class="form-group"><label class="form-label">Report Day (1-28)</label>';
+    h += '<input class="form-input" id="day-' + slug + '" type="number" min="1" max="28" value="' + (cfg.report_day || 1) + '"></div>';
+    h += '<div class="form-group"><label class="form-label">Active</label>';
+    h += '<select class="form-input" id="active-' + slug + '"><option value="true"' + (cfg.active !== false ? ' selected' : '') + '>Active</option><option value="false"' + (cfg.active === false ? ' selected' : '') + '>Paused</option></select></div>';
+    h += '</div>';
+    h += '<div style="display:flex;gap:.75rem;margin-top:1rem;">';
+    h += '<button class="btn btn-primary" onclick="window._saveConfig(\'' + slug + '\')">Save Configuration</button>';
+    h += '</div>';
+    h += '</div>';
+
+    // Tab: Tracked Queries
+    h += '<div class="tab-content" id="tab-queries-' + slug + '">';
+    h += '<p style="font-size:.85rem;color:var(--color-muted);margin-bottom:1rem;">These queries will be checked against Google AI Mode and AI Overview each month to track whether the practice is being cited.</p>';
+    h += '<div class="query-list" id="queries-' + slug + '">';
+    var queries = cfg.tracked_queries || [];
+    if (queries.length === 0) {
+      h += '<div class="empty-state" style="padding:1.5rem;"><p>No queries configured yet. Add queries to track AI visibility.</p></div>';
+    } else {
+      h += '<div style="display:grid;grid-template-columns:1fr 160px 180px 32px;gap:.75rem;padding:0 .75rem;margin-bottom:.35rem;">';
+      h += '<span class="form-label" style="margin:0;">Search Query</span>';
+      h += '<span class="form-label" style="margin:0;">Engine</span>';
+      h += '<span class="form-label" style="margin:0;">Label</span>';
+      h += '<span></span></div>';
+      queries.forEach(function(q, i) {
+        h += '<div class="query-item">';
+        h += '<input type="text" value="' + esc(q.query) + '" data-field="query" data-slug="' + slug + '" data-idx="' + i + '" onchange="window._updateQuery(this)">';
+        h += '<select data-field="engine" data-slug="' + slug + '" data-idx="' + i + '" onchange="window._updateQuery(this)">';
+        h += '<option value="google_ai_mode"' + (q.engine === 'google_ai_mode' ? ' selected' : '') + '>AI Mode</option>';
+        h += '<option value="google"' + (q.engine === 'google' ? ' selected' : '') + '>AI Overview</option>';
+        h += '</select>';
+        h += '<input type="text" value="' + esc(q.label || '') + '" data-field="label" data-slug="' + slug + '" data-idx="' + i + '" onchange="window._updateQuery(this)" placeholder="Label">';
+        h += '<button class="query-remove" onclick="window._removeQuery(\'' + slug + '\',' + i + ')" title="Remove">&times;</button>';
+        h += '</div>';
+      });
+    }
+    h += '</div>';
+    h += '<div style="display:flex;gap:.75rem;margin-top:1rem;">';
+    h += '<button class="btn btn-secondary btn-sm" onclick="window._addQuery(\'' + slug + '\')">+ Add Query</button>';
+    h += '<button class="btn btn-primary btn-sm" onclick="window._saveQueries(\'' + slug + '\')">Save Queries</button>';
+    h += '</div>';
+    h += '</div>';
+
+    // Tab: History
+    h += '<div class="tab-content" id="tab-history-' + slug + '">';
+    if (snap) {
+      h += '<div class="card" style="margin-bottom:1rem;">';
+      h += '<h4 style="font-size:.95rem;margin-bottom:.5rem;">Latest Report: ' + esc(snap.report_month || 'Unknown') + '</h4>';
+      h += '<div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:.85rem;">';
+      h += '<span>Status: <strong>' + esc(snap.report_status || 'draft') + '</strong></span>';
+      h += '<span>Created: <strong>' + (snap.created_at ? new Date(snap.created_at).toLocaleDateString() : '-') + '</strong></span>';
+      h += '</div>';
+      h += '<div style="margin-top:.75rem;">';
+      h += '<a href="/'+slug+'/reports" target="_blank" class="btn btn-secondary btn-sm">View Report Page &#8599;</a>';
+      h += '</div>';
+      h += '</div>';
+    } else {
+      h += '<div class="empty-state" style="padding:1.5rem;"><p>No reports compiled yet for this client.</p></div>';
+    }
+
+    // Pipeline visualization
+    h += '<h4 style="font-size:.95rem;margin-top:1rem;margin-bottom:.75rem;">Report Pipeline</h4>';
+    h += '<div class="pipeline">';
+    var steps = ['Configure', 'Compile', 'Notify Team', 'Review', 'Publish', 'Send to Client'];
+    var currentStep = 0;
+    if (cfg.id) currentStep = 1;
+    if (cfg.last_compiled_at) currentStep = 2;
+    if (cfg.last_notified_at) currentStep = 3;
+    if (cfg.last_published_at) currentStep = 5;
+    steps.forEach(function(step, i) {
+      if (i > 0) h += '<span class="pipeline-arrow">&#9654;</span>';
+      var cls = i < currentStep ? 'done' : (i === currentStep ? 'current' : '');
+      h += '<div class="pipeline-step ' + cls + '">';
+      if (i < currentStep) h += '&#10003; ';
+      h += step + '</div>';
+    });
+    h += '</div>';
+
+    // Compilation errors
+    if (cfg.last_compiled_errors && cfg.last_compiled_errors.length > 0) {
+      h += '<div style="margin-top:1rem;padding:.75rem;background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.15);border-radius:8px;">';
+      h += '<h4 style="font-size:.85rem;color:var(--color-danger);margin-bottom:.35rem;">Last Compilation Errors</h4>';
+      cfg.last_compiled_errors.forEach(function(e) {
+        h += '<div style="font-size:.8rem;color:var(--color-danger);margin-bottom:.25rem;">&bull; ' + esc(typeof e === 'string' ? e : JSON.stringify(e)) + '</div>';
+      });
+      h += '</div>';
+    }
+
+    h += '</div>';
+
+    return h;
+  }
+
+  // ============================================================
+  // ACTIONS
+  // ============================================================
+
+  window._toggleClient = function(slug) {
+    state.expanded = (state.expanded === slug) ? null : slug;
+    render();
+  };
+
+  window._switchTab = function(slug, tab, btn) {
+    var panel = document.getElementById('panel-' + slug);
+    panel.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+    panel.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById('tab-' + tab + '-' + slug).classList.add('active');
+  };
+
+  window._saveConfig = function(slug) {
+    var gsc = document.getElementById('gsc-' + slug).value.trim();
+    var ga4 = document.getElementById('ga4-' + slug).value.trim();
+    var lbm = document.getElementById('lbm-' + slug).value.trim();
+    var lbmr = document.getElementById('lbmr-' + slug).value.trim();
+    var day = parseInt(document.getElementById('day-' + slug).value) || 1;
+    var active = document.getElementById('active-' + slug).value === 'true';
+
+    var body = {
+      client_slug: slug,
+      gsc_property: gsc || null,
+      ga4_property: ga4 || null,
+      lbm_location_id: lbm || null,
+      lbm_report_id: lbmr || null,
+      report_day: day,
+      active: active
+    };
+
+    // Keep existing queries if we have them
+    if (state.configs[slug] && state.configs[slug].tracked_queries) {
+      body.tracked_queries = state.configs[slug].tracked_queries;
+    }
+
+    var existing = state.configs[slug];
+    var promise;
+    if (existing && existing.id) {
+      promise = sbFetch('report_configs?id=eq.' + existing.id, { method: 'PATCH', body: body, prefer: 'return=representation' });
+    } else {
+      promise = sbFetch('report_configs', { method: 'POST', body: body, prefer: 'return=representation' });
+    }
+
+    promise.then(function() {
+      showToast('Configuration saved', 'success');
+      loadData();
+    }).catch(function(err) {
+      showToast('Save failed: ' + err.message, 'error');
+    });
+  };
+
+  window._addQuery = function(slug) {
+    if (!state.configs[slug]) state.configs[slug] = { tracked_queries: [] };
+    if (!state.configs[slug].tracked_queries) state.configs[slug].tracked_queries = [];
+    state.configs[slug].tracked_queries.push({ query: '', engine: 'google_ai_mode', label: '' });
+    render();
+    // Re-expand and switch to queries tab
+    state.expanded = slug;
+    render();
+    setTimeout(function() {
+      var panel = document.getElementById('panel-' + slug);
+      if (panel) {
+        var tabs = panel.querySelectorAll('.tab');
+        if (tabs[1]) tabs[1].click();
+      }
+    }, 50);
+  };
+
+  window._removeQuery = function(slug, idx) {
+    if (state.configs[slug] && state.configs[slug].tracked_queries) {
+      state.configs[slug].tracked_queries.splice(idx, 1);
+      render();
+      state.expanded = slug;
+      render();
+      setTimeout(function() {
+        var panel = document.getElementById('panel-' + slug);
+        if (panel) {
+          var tabs = panel.querySelectorAll('.tab');
+          if (tabs[1]) tabs[1].click();
+        }
+      }, 50);
+    }
+  };
+
+  window._updateQuery = function(el) {
+    var slug = el.dataset.slug;
+    var idx = parseInt(el.dataset.idx);
+    var field = el.dataset.field;
+    if (state.configs[slug] && state.configs[slug].tracked_queries && state.configs[slug].tracked_queries[idx]) {
+      state.configs[slug].tracked_queries[idx][field] = el.value;
+    }
+  };
+
+  window._saveQueries = function(slug) {
+    var cfg = state.configs[slug];
+    if (!cfg || !cfg.id) {
+      showToast('Save data sources first to create the config', 'error');
+      return;
+    }
+
+    var body = { tracked_queries: cfg.tracked_queries || [] };
+
+    sbFetch('report_configs?id=eq.' + cfg.id, { method: 'PATCH', body: body, prefer: 'return=representation' })
+      .then(function() {
+        showToast(body.tracked_queries.length + ' queries saved', 'success');
+        loadData();
+      }).catch(function(err) {
+        showToast('Save failed: ' + err.message, 'error');
+      });
+  };
+
+  // ============================================================
+  // UTILITIES
+  // ============================================================
+  function esc(str) {
+    if (!str) return '';
+    var d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  function timeAgo(dateStr) {
+    var d = new Date(dateStr);
+    var now = new Date();
+    var diff = Math.floor((now - d) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+    return d.toLocaleDateString();
+  }
+
+  function showToast(msg, type) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast ' + (type || 'info') + ' show';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function() { t.classList.remove('show'); }, 3000);
+  }
+
+  // ============================================================
+  // THEME TOGGLE
+  // ============================================================
+  var themeBtn = document.getElementById('themeBtn');
+  if (themeBtn) {
+    var current = document.documentElement.getAttribute('data-theme');
+    themeBtn.innerHTML = current === 'dark' ? '&#9728;&#65039;' : '&#x1F319;';
+    themeBtn.addEventListener('click', function() {
+      var h = document.documentElement;
+      if (h.getAttribute('data-theme') === 'light') {
+        h.setAttribute('data-theme', 'dark');
+        themeBtn.innerHTML = '&#9728;&#65039;';
+        try{localStorage.setItem('moonraker-theme','dark')}catch(e){}
+      } else {
+        h.setAttribute('data-theme', 'light');
+        themeBtn.innerHTML = '&#x1F319;';
+        try{localStorage.setItem('moonraker-theme','light')}catch(e){}
+      }
+    });
+  }
+
+  // ============================================================
+  // INIT
+  // ============================================================
+  loadData();
+})();
+</script>
+</body>
+</html>
