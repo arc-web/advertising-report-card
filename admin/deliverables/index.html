@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<script>try{var st=localStorage.getItem('moonraker-theme');if(st){document.documentElement.setAttribute('data-theme',st)}}catch(e){}</script>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deliverables - Moonraker Admin</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+:root, [data-theme="light"] {
+  --color-primary: #00D47E; --color-primary-hover: #00b86c; --color-primary-light: #B4EEE0;
+  --color-primary-subtle: #DDF8F2; --color-bg: #F7FDFB; --color-surface: #FFFFFF;
+  --color-border: #E2E8F0; --color-heading: #1E2A5E; --color-body: #333F70;
+  --color-muted: #6B7599; --color-navy: #141C3A; --color-success: #00D47E;
+  --color-warning: #F59E0B; --color-danger: #EF4444; --color-info: #3B82F6;
+  --sidebar-bg: #FAFDFB; --sidebar-border: #E8F0EC; --sidebar-hover: #EEF8F3;
+}
+[data-theme="dark"] {
+  --color-primary: #00D47E; --color-primary-hover: #00f598; --color-primary-light: #1A4A38;
+  --color-primary-subtle: #0D2E22; --color-bg: #080F0B; --color-surface: #0E1A14;
+  --color-border: #1E3530; --color-heading: #E8F5EF; --color-body: #C8D8D0;
+  --color-muted: #5A7A6E; --color-navy: #0A1630; --color-success: #00D47E;
+  --color-warning: #F59E0B; --color-danger: #FF6B6B; --color-info: #60A5FA;
+  --sidebar-bg: #0A120E; --sidebar-border: #162820; --sidebar-hover: #12201A;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-weight: 400; color: var(--color-body); background: var(--color-bg); line-height: 1.6; -webkit-font-smoothing: antialiased; transition: background .3s, color .3s; overflow-x: hidden; }
+h1,h2,h3,h4 { font-family: 'Outfit', sans-serif; font-weight: 700; color: var(--color-heading); line-height: 1.2; }
+a { color: var(--color-primary); text-decoration: none; }
+a:hover { color: var(--color-primary-hover); }
+
+.sidebar { width: 240px; background: var(--sidebar-bg); border-right: 1px solid var(--sidebar-border); position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; display: flex; flex-direction: column; transition: transform .25s ease; }
+.sidebar-header { padding: 1.25rem 1.25rem .75rem; display: flex; align-items: center; gap: .75rem; }
+.sidebar-header img { height: 22px; opacity: .7; }
+.sidebar-header span { font-family: 'Outfit', sans-serif; font-weight: 600; font-size: .85rem; color: var(--color-heading); }
+.sidebar-nav { flex: 1; padding: .5rem .75rem; display: flex; flex-direction: column; gap: 2px; }
+.sidebar-nav a { display: flex; align-items: center; gap: .65rem; padding: .55rem .75rem; border-radius: 8px; font-size: .82rem; font-weight: 500; color: var(--color-muted); text-decoration: none; transition: all .15s; }
+.sidebar-nav a:hover { background: var(--sidebar-hover); color: var(--color-heading); }
+.sidebar-nav a.active { background: var(--color-primary-subtle); color: var(--color-primary); font-weight: 600; }
+.sidebar-nav .nav-icon { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: .95rem; flex-shrink: 0; opacity: .7; }
+.sidebar-nav a.active .nav-icon { opacity: 1; }
+.nav-section { font-size: .65rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--color-muted); padding: .75rem .75rem .25rem; opacity: .6; }
+.sidebar-footer { padding: .75rem 1rem; border-top: 1px solid var(--sidebar-border); }
+
+.main { flex: 1; margin-left: 240px; min-width: 0; }
+.topbar { position: sticky; top: 0; z-index: 100; background: var(--color-surface); border-bottom: 1px solid var(--color-border); padding: 0 2rem; height: 56px; display: flex; align-items: center; gap: 1rem; }
+.topbar-right { display: flex; align-items: center; gap: .5rem; margin-left: auto; }
+.content { padding: 2rem; max-width: 1400px; }
+
+.tag { display: inline-flex; align-items: center; gap: .3rem; padding: .15rem .5rem; border-radius: 6px; font-size: .72rem; font-weight: 500; white-space: nowrap; }
+.tag-delivered { background: rgba(0,212,126,.1); color: var(--color-success); }
+.tag-in_progress { background: rgba(59,130,246,.08); color: var(--color-info); }
+.tag-not_started { background: var(--color-bg); color: var(--color-muted); border: 1px solid var(--color-border); }
+.tag-pending_review { background: rgba(245,158,11,.08); color: var(--color-warning); }
+.tag-blocked { background: rgba(239,68,68,.08); color: var(--color-danger); }
+.tag-active { background: rgba(0,212,126,.1); color: var(--color-success); }
+.tag-client_action { background: rgba(59,130,246,.1); color: #3B82F6; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+.stat-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.1rem; }
+.stat-card .stat-label { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--color-muted); margin-bottom: .3rem; }
+.stat-card .stat-value { font-family: 'Outfit', sans-serif; font-size: 1.75rem; font-weight: 700; color: var(--color-heading); line-height: 1; }
+.stat-card .stat-sub { font-size: .72rem; color: var(--color-muted); margin-top: .3rem; }
+
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .25rem; flex-wrap: wrap; gap: .5rem; }
+.section-header h2 { font-size: 1.35rem; margin: 0; }
+.section-desc { font-size: .84rem; color: var(--color-muted); margin-bottom: 1.5rem; }
+
+/* View toggle */
+.view-toggle { display: flex; gap: 2px; background: var(--color-bg); border-radius: 8px; padding: 2px; }
+.view-btn { padding: .35rem .7rem; border-radius: 6px; font-size: .78rem; font-weight: 500; border: none; cursor: pointer; font-family: inherit; color: var(--color-muted); background: none; transition: all .15s; }
+.view-btn.active { background: var(--color-surface); color: var(--color-heading); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+
+/* Filter pills */
+.filter-row { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.25rem; }
+.filter-pill { padding: .3rem .65rem; border-radius: 6px; font-size: .72rem; font-weight: 500; border: 1px solid var(--color-border); background: none; color: var(--color-muted); cursor: pointer; font-family: inherit; transition: all .15s; }
+.filter-pill:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.filter-pill.active { background: var(--color-primary-subtle); border-color: var(--color-primary); color: var(--color-primary); }
+
+/* Client select */
+.client-select { padding: .35rem .7rem; border-radius: 8px; font-size: .78rem; font-family: inherit; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-body); cursor: pointer; }
+.client-select:focus { outline: none; border-color: var(--color-primary); }
+
+/* Phase group */
+.phase-group { margin-bottom: 1.5rem; }
+.phase-header { display: flex; align-items: center; gap: .5rem; padding: .5rem 0; margin-bottom: .5rem; border-bottom: 1px solid var(--color-border); cursor: pointer; }
+.phase-header:hover .phase-title { color: var(--color-primary); }
+.phase-icon { font-size: .8rem; color: var(--color-muted); transition: transform .2s; }
+.phase-icon.collapsed { transform: rotate(-90deg); }
+.phase-title { font-family: 'Outfit', sans-serif; font-weight: 600; font-size: .9rem; color: var(--color-heading); }
+.phase-count { font-size: .7rem; color: var(--color-muted); }
+.phase-body { display: block; }
+.phase-body.collapsed { display: none; }
+
+/* Deliverable row */
+.del-row { display: grid; grid-template-columns: 2fr 1.2fr 1fr .8fr .8fr; gap: .5rem; align-items: center; padding: .6rem .75rem; border-bottom: 1px solid var(--color-border); font-size: .82rem; transition: background .1s; }
+.del-row:hover { background: var(--sidebar-hover); }
+.del-row.header { font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); border-bottom: 1px solid var(--color-border); padding: .4rem .75rem; }
+.del-row.header:hover { background: none; }
+.del-title { font-weight: 500; color: var(--color-heading); }
+.del-type { font-size: .72rem; color: var(--color-muted); }
+.del-client { display: flex; align-items: center; gap: .4rem; }
+.del-client-avatar { width: 22px; height: 22px; border-radius: 6px; background: var(--color-primary-subtle); color: var(--color-primary); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: .6rem; flex-shrink: 0; }
+.del-client-name { font-size: .78rem; color: var(--color-heading); cursor: pointer; }
+.del-client-name:hover { color: var(--color-primary); }
+.del-date { font-size: .75rem; color: var(--color-muted); }
+.del-links { display: flex; gap: .25rem; }
+.del-link { font-size: .75rem; color: var(--color-muted); padding: .15rem .35rem; border-radius: 4px; transition: all .15s; }
+.del-link:hover { color: var(--color-primary); background: var(--color-primary-subtle); }
+
+/* Template matrix */
+.matrix-wrap { overflow-x: auto; }
+.matrix-table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 700px; }
+.matrix-table th { text-align: center; padding: .35rem .25rem; font-size: .6rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--color-muted); border-bottom: 1px solid var(--color-border); position: sticky; top: 0; background: var(--color-bg); z-index: 1; }
+.matrix-table th:first-child { text-align: left; min-width: 200px; position: sticky; left: 0; background: var(--color-bg); z-index: 2; }
+.matrix-table td { padding: .35rem .25rem; text-align: center; border-bottom: 1px solid var(--color-border); }
+.matrix-table td:first-child { text-align: left; position: sticky; left: 0; background: var(--color-surface); z-index: 1; }
+.matrix-table tbody tr:hover td { background: var(--sidebar-hover); }
+.matrix-table tbody tr:hover td:first-child { background: var(--sidebar-hover); }
+.matrix-phase-row td { background: var(--color-bg) !important; font-size: .65rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); padding: .6rem .25rem .3rem; }
+.matrix-del { font-size: .75rem; color: var(--color-heading); padding-left: .5rem; }
+
+.matrix-dot { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: .55rem; cursor: default; }
+.matrix-dot.delivered { background: rgba(0,212,126,.15); color: var(--color-success); }
+.matrix-dot.in_progress { background: rgba(59,130,246,.12); color: var(--color-info); }
+.matrix-dot.pending_review { background: rgba(245,158,11,.1); color: var(--color-warning); }
+.matrix-dot.not_started { background: var(--color-bg); border: 1px solid var(--color-border); color: transparent; }
+.matrix-dot.na { background: none; color: var(--color-muted); font-size: .6rem; }
+.matrix-dot.missing { background: rgba(239,68,68,.08); border: 1px dashed rgba(239,68,68,.3); color: transparent; }
+.matrix-client { display: flex; align-items: center; gap: .4rem; cursor: pointer; }
+.matrix-client:hover .matrix-cname { color: var(--color-primary); }
+.matrix-avatar { width: 24px; height: 24px; border-radius: 6px; background: var(--color-primary-subtle); color: var(--color-primary); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: .6rem; flex-shrink: 0; }
+.matrix-cname { font-size: .78rem; font-weight: 500; color: var(--color-heading); }
+
+/* Legend */
+.legend { display: flex; flex-wrap: wrap; gap: .75rem; margin-bottom: 1.25rem; font-size: .72rem; color: var(--color-muted); }
+.legend-item { display: flex; align-items: center; gap: .3rem; }
+
+.empty-state { text-align: center; padding: 3rem; color: var(--color-muted); }
+.spinner { width: 20px; height: 20px; border: 2px solid var(--color-border); border-top-color: var(--color-primary); border-radius: 50%; animation: spin .6s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.theme-toggle { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 50%; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: .9rem; transition: all .2s; }
+.theme-toggle:hover { border-color: var(--color-primary); }
+
+.mobile-toggle { display: none; background: none; border: none; color: var(--color-heading); font-size: 1.25rem; cursor: pointer; padding: .25rem; }
+@media (max-width: 860px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,.15); }
+  .main { margin-left: 0; }
+  .mobile-toggle { display: block; }
+  .del-row { grid-template-columns: 1.5fr 1fr .8fr; }
+  .del-row .hide-mobile { display: none; }
+}
+@media (max-width: 560px) { .content { padding: 1rem; } .topbar { padding: 0 1rem; } }
+</style>
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <img src="https://moonraker.ai/wp-content/uploads/2023/10/Moonraker-Logo-Transparent.png" alt="Moonraker">
+    <span>Client HQ</span>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <a href="/admin"><span class="nav-icon">&#9632;</span> Dashboard</a>
+    <a href="/admin/clients"><span class="nav-icon">&#9823;</span> Clients</a>
+    <div class="nav-section">Workflows</div>
+    <a href="/admin/onboarding"><span class="nav-icon">&#9654;</span> Onboarding</a>
+    <a href="/admin/audits"><span class="nav-icon">&#9881;</span> Audits</a>
+    <a href="/admin/deliverables" class="active"><span class="nav-icon">&#9744;</span> Deliverables</a>
+    <a href="/admin/reports"><span class="nav-icon">&#9636;</span> Reports</a>
+  </nav>
+  <div class="sidebar-footer">
+    <button class="theme-toggle" id="themeBtn" aria-label="Toggle theme">&#x1F319;</button>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">&#9776;</button>
+    <div style="font-family:'Outfit',sans-serif;font-weight:600;font-size:.95rem;color:var(--color-heading);">Deliverables</div>
+    <div class="topbar-right">
+      <select class="client-select" id="clientFilter"><option value="all">All Clients</option></select>
+      <span style="font-size:.78rem;color:var(--color-muted);" id="lastRefresh"></span>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="section-header">
+      <h2>Campaign Deliverables</h2>
+      <div class="view-toggle" id="viewToggle">
+        <button class="view-btn active" data-view="list">List</button>
+        <button class="view-btn" data-view="matrix">Template Matrix</button>
+      </div>
+    </div>
+    <p class="section-desc">Track deliverables across all clients. The Template Matrix shows expected vs. delivered items against the standard CORE campaign.</p>
+
+    <div class="stat-grid" id="statGrid"></div>
+
+    <!-- LIST VIEW -->
+    <div id="listView">
+      <div class="filter-row" id="phaseFilters"></div>
+      <div id="listContent"></div>
+    </div>
+
+    <!-- MATRIX VIEW -->
+    <div id="matrixView" style="display:none;">
+      <div class="legend">
+        <div class="legend-item"><span class="matrix-dot delivered" style="width:14px;height:14px;">&#10003;</span> Delivered</div>
+        <div class="legend-item"><span class="matrix-dot in_progress" style="width:14px;height:14px;">&#9654;</span> In Progress</div>
+        <div class="legend-item"><span class="matrix-dot pending_review" style="width:14px;height:14px;">&#9679;</span> Pending Review</div>
+        <div class="legend-item"><span class="matrix-dot not_started" style="width:14px;height:14px;"></span> Not Started</div>
+        <div class="legend-item"><span class="matrix-dot missing" style="width:14px;height:14px;"></span> Expected / Missing</div>
+        <div class="legend-item"><span style="font-size:.65rem;color:var(--color-muted);">-</span> N/A</div>
+      </div>
+      <div class="matrix-wrap" id="matrixContent"></div>
+    </div>
+
+    <div id="loadingState" style="text-align:center;padding:4rem;">
+      <div class="spinner" style="width:24px;height:24px;"></div>
+      <p style="margin-top:.75rem;font-size:.85rem;color:var(--color-muted);">Loading deliverables...</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  var SB = 'https://ofmmwcjhdrhvxxkhcuww.supabase.co';
+  var SK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9mbW13Y2poZHJodnh4a2hjdXd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMjM1NTcsImV4cCI6MjA4OTg5OTU1N30.zMMHW0Fk9ixWjORngyxJTIoPOfx7GFsD4wBV4Foqqms';
+
+  // ============================================================
+  // DELIVERABLE TAXONOMY
+  // ============================================================
+  var PHASES = [
+    {
+      key: 'setup', label: 'Setup & Technical Foundation', icon: '&#9881;',
+      types: [
+        { key: 'gsc_setup', label: 'Search Console Setup' },
+        { key: 'ga4_setup', label: 'Analytics Setup' },
+        { key: 'gtm_setup', label: 'Tag Manager Setup' },
+        { key: 'gbp_setup', label: 'GBP Setup / Verification' },
+        { key: 'instant_page', label: 'instant.page Installation' },
+        { key: 'speed_optimization', label: 'Speed Optimization' },
+        { key: 'security_optimization', label: 'Security Optimization' }
+      ]
+    },
+    {
+      key: 'audit', label: 'Surge Audits & Content Buildout', icon: '&#128269;',
+      types: [
+        { key: 'surge_entity', label: 'Surge Entity Audit' },
+        { key: 'surge_page', label: 'Surge Page Audit', multi: true },
+        { key: 'surge_sitewide', label: 'Surge Sitewide Audit' },
+        { key: 'audit_diagnosis', label: 'Audit Diagnosis Page' },
+        { key: 'audit_action_plan', label: 'Audit Action Plan Page' },
+        { key: 'audit_progress', label: 'Audit Progress Tracker' },
+        { key: 'target_page', label: 'Target Page', multi: true, expected: 5 },
+        { key: 'bio_page', label: 'Bio Page', multi: true },
+        { key: 'faq_page', label: 'General FAQ Page' },
+        { key: 'location_page', label: 'Location Page' },
+        { key: 'schema', label: 'Schema Implementation' }
+      ]
+    },
+    {
+      key: 'offpage', label: 'Off-Page Foundation', icon: '&#127760;',
+      types: [
+        { key: 'press_release', label: 'Press Release' },
+        { key: 'citations', label: 'Directory Listings' },
+        { key: 'gbp_optimization', label: 'GBP Optimization' },
+        { key: 'social_profiles', label: 'Social Profile Buildout' },
+        { key: 'entity_veracity_hub', label: 'VHub Activation' },
+        { key: 'neo_images', label: 'NEO Image Placement' }
+      ]
+    },
+    {
+      key: 'ongoing', label: 'Ongoing (Month 3-12)', icon: '&#128260;',
+      types: [
+        { key: 'social_posts', label: 'Social Content Distribution' },
+        { key: 'neo_distribution', label: 'NEO Distribution' },
+        { key: 'livedrive', label: 'LiveDrive' },
+        { key: 'youtube_video', label: 'YouTube Video' },
+        { key: 'endorsement', label: 'Endorsement Collection' },
+        { key: 'report', label: 'Monthly Report', multi: true },
+        { key: 'quarterly_reaudit', label: 'Quarterly Re-Audit', multi: true }
+      ]
+    },
+    {
+      key: 'sales', label: 'Sales / Pre-Campaign', icon: '&#128176;',
+      types: [
+        { key: 'proposal', label: 'Sales Proposal' },
+        { key: 'checkout', label: 'Checkout Page' },
+        { key: 'onboarding', label: 'Onboarding Wizard' }
+      ]
+    },
+    {
+      key: 'addon', label: 'Add-Ons', icon: '&#10133;',
+      types: [
+        { key: 'nap_update', label: 'NAP-W Update' },
+        { key: 'engage_chatbot', label: 'Engage AI Chatbot' },
+        { key: 'pt_profile_update', label: 'Psychology Today Update' },
+        { key: 'additional_page', label: 'Additional Target Page', multi: true },
+        { key: 'additional_pr', label: 'Additional Press Release', multi: true }
+      ]
+    }
+  ];
+
+  // Build lookups
+  var TYPE_LABELS = {};
+  var TYPE_PHASE = {};
+  PHASES.forEach(function(p) {
+    p.types.forEach(function(t) { TYPE_LABELS[t.key] = t.label; TYPE_PHASE[t.key] = p.key; });
+  });
+
+  var STATUS_LABELS = {
+    delivered: 'Delivered', in_progress: 'In Progress', not_started: 'Not Started',
+    pending_review: 'Pending Review', blocked: 'Blocked', client_action: 'Client Action'
+  };
+  var STATUS_ICONS = { delivered: '\u2713', in_progress: '\u25B6', pending_review: '\u25CF', not_started: '', blocked: '\u2716', client_action: '\u25CF' };
+
+  var state = { contacts: [], deliverables: [], clientFilter: 'all', phaseFilter: 'all', view: 'list' };
+
+  function sb(path) {
+    return fetch(SB + '/rest/v1/' + path, {
+      headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK }
+    }).then(function(r) { return r.json(); });
+  }
+
+  function loadData() {
+    Promise.all([
+      sb('contacts?select=id,slug,status,practice_name,first_name,last_name,email,website_platform&order=practice_name'),
+      sb('deliverables?select=*&order=created_at.desc')
+    ]).then(function(res) {
+      state.contacts = res[0] || [];
+      state.deliverables = res[1] || [];
+
+      document.getElementById('loadingState').style.display = 'none';
+
+      // Populate client filter
+      var sel = document.getElementById('clientFilter');
+      state.contacts.forEach(function(c) {
+        var opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.practice_name || c.slug;
+        sel.appendChild(opt);
+      });
+
+      renderStats();
+      renderPhaseFilters();
+      render();
+      document.getElementById('lastRefresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    });
+  }
+
+  function getFiltered() {
+    var dels = state.deliverables;
+    if (state.clientFilter !== 'all') {
+      dels = dels.filter(function(d) { return d.contact_id === state.clientFilter; });
+    }
+    if (state.phaseFilter !== 'all') {
+      dels = dels.filter(function(d) { return TYPE_PHASE[d.deliverable_type] === state.phaseFilter; });
+    }
+    return dels;
+  }
+
+  function renderStats() {
+    var all = state.deliverables;
+    var delivered = all.filter(function(d) { return d.status === 'delivered'; }).length;
+    var ip = all.filter(function(d) { return d.status === 'in_progress'; }).length;
+    var pr = all.filter(function(d) { return d.status === 'pending_review'; }).length;
+    var ns = all.filter(function(d) { return d.status === 'not_started'; }).length;
+    var clients = {};
+    all.forEach(function(d) { clients[d.contact_id] = true; });
+    var pct = all.length > 0 ? Math.round(delivered / all.length * 100) : 0;
+
+    document.getElementById('statGrid').innerHTML =
+      '<div class="stat-card"><div class="stat-label">Total Deliverables</div><div class="stat-value">' + all.length + '</div><div class="stat-sub">' + Object.keys(clients).length + ' clients</div></div>' +
+      '<div class="stat-card"><div class="stat-label">Delivered</div><div class="stat-value" style="color:var(--color-success);">' + delivered + '</div><div class="stat-sub">' + pct + '% complete</div></div>' +
+      '<div class="stat-card"><div class="stat-label">In Progress</div><div class="stat-value" style="color:var(--color-info);">' + ip + '</div></div>' +
+      '<div class="stat-card"><div class="stat-label">Pending Review</div><div class="stat-value" style="color:var(--color-warning);">' + pr + '</div></div>' +
+      '<div class="stat-card"><div class="stat-label">Not Started</div><div class="stat-value">' + ns + '</div></div>';
+  }
+
+  function renderPhaseFilters() {
+    var html = '<button class="filter-pill active" data-phase="all">All Phases</button>';
+    PHASES.forEach(function(p) {
+      html += '<button class="filter-pill" data-phase="' + p.key + '">' + p.icon + ' ' + esc(p.label) + '</button>';
+    });
+    document.getElementById('phaseFilters').innerHTML = html;
+  }
+
+  function render() {
+    if (state.view === 'list') {
+      document.getElementById('listView').style.display = 'block';
+      document.getElementById('matrixView').style.display = 'none';
+      renderList();
+    } else {
+      document.getElementById('listView').style.display = 'none';
+      document.getElementById('matrixView').style.display = 'block';
+      renderMatrix();
+    }
+  }
+
+  // ============================================================
+  // LIST VIEW
+  // ============================================================
+  function renderList() {
+    var dels = getFiltered();
+    var contactMap = {};
+    state.contacts.forEach(function(c) { contactMap[c.id] = c; });
+
+    if (dels.length === 0) {
+      document.getElementById('listContent').innerHTML = '<div class="empty-state"><p>No deliverables match this filter.</p></div>';
+      return;
+    }
+
+    // Group by phase
+    var grouped = {};
+    PHASES.forEach(function(p) { grouped[p.key] = []; });
+    grouped._other = [];
+
+    dels.forEach(function(d) {
+      var ph = TYPE_PHASE[d.deliverable_type];
+      if (ph && grouped[ph]) grouped[ph].push(d);
+      else grouped._other.push(d);
+    });
+
+    var html = '';
+    PHASES.forEach(function(p) {
+      var items = grouped[p.key];
+      if (items.length === 0 && state.phaseFilter !== 'all' && state.phaseFilter !== p.key) return;
+      if (items.length === 0 && state.phaseFilter === 'all') return;
+
+      html += '<div class="phase-group">';
+      html += '<div class="phase-header" onclick="togglePhase(this)">';
+      html += '<span class="phase-icon">&#9660;</span>';
+      html += '<span class="phase-title">' + p.icon + ' ' + esc(p.label) + '</span>';
+      html += '<span class="phase-count">' + items.length + ' items</span>';
+      html += '</div>';
+      html += '<div class="phase-body">';
+
+      html += '<div class="del-row header"><div>Deliverable</div><div>Client</div><div>Status</div><div class="hide-mobile">Date</div><div class="hide-mobile">Links</div></div>';
+
+      items.forEach(function(d) {
+        var c = contactMap[d.contact_id] || {};
+        var initials = ((c.first_name || '')[0] || '') + ((c.last_name || '')[0] || '') || (c.slug || '?')[0].toUpperCase();
+        var statusClass = 'tag-' + (d.status || 'not_started');
+        var statusLabel = STATUS_LABELS[d.status] || d.status || 'Not Started';
+        var typeLabel = TYPE_LABELS[d.deliverable_type] || d.deliverable_type;
+
+        html += '<div class="del-row">';
+        html += '<div><div class="del-title">' + esc(d.title || typeLabel) + '</div><div class="del-type">' + esc(typeLabel) + (d.notes ? ' - ' + esc(d.notes.substring(0, 50)) : '') + '</div></div>';
+        html += '<div class="del-client"><div class="del-client-avatar">' + esc(initials) + '</div><span class="del-client-name" onclick="window.location.href=\'/admin/clients?slug=' + esc(c.slug || '') + '\'">' + esc(c.practice_name || c.slug || '?') + '</span></div>';
+        html += '<div><span class="tag ' + statusClass + '">' + esc(statusLabel) + '</span></div>';
+        html += '<div class="del-date hide-mobile">' + (d.delivered_at ? formatDate(d.delivered_at) : d.created_at ? formatDate(d.created_at) : '-') + '</div>';
+        html += '<div class="del-links hide-mobile">';
+        if (d.page_url) html += '<a href="' + esc(d.page_url) + '" target="_blank" class="del-link" title="View">&#128279;</a>';
+        if (d.drive_url) html += '<a href="' + esc(d.drive_url) + '" target="_blank" class="del-link" title="Drive">&#128193;</a>';
+        html += '</div>';
+        html += '</div>';
+      });
+
+      html += '</div></div>';
+    });
+
+    if (grouped._other.length > 0) {
+      html += '<div class="phase-group"><div class="phase-header"><span class="phase-icon">&#9660;</span><span class="phase-title">Other</span><span class="phase-count">' + grouped._other.length + '</span></div><div class="phase-body">';
+      grouped._other.forEach(function(d) {
+        var c = contactMap[d.contact_id] || {};
+        html += '<div class="del-row"><div class="del-title">' + esc(d.title || d.deliverable_type) + '</div><div>' + esc(c.practice_name || '?') + '</div><div><span class="tag tag-' + (d.status || 'not_started') + '">' + esc(d.status || 'not started') + '</span></div><div class="hide-mobile">-</div><div class="hide-mobile"></div></div>';
+      });
+      html += '</div></div>';
+    }
+
+    document.getElementById('listContent').innerHTML = html;
+  }
+
+  // ============================================================
+  // TEMPLATE MATRIX VIEW
+  // ============================================================
+  function renderMatrix() {
+    // Only active/onboarding clients
+    var clients = state.contacts.filter(function(c) { return c.status === 'active' || c.status === 'onboarding'; });
+    if (clients.length === 0) {
+      document.getElementById('matrixContent').innerHTML = '<div class="empty-state"><p>No active or onboarding clients to show.</p></div>';
+      return;
+    }
+
+    // Build deliverable index: contactId -> type -> array of deliverables
+    var delIndex = {};
+    state.deliverables.forEach(function(d) {
+      if (!delIndex[d.contact_id]) delIndex[d.contact_id] = {};
+      if (!delIndex[d.contact_id][d.deliverable_type]) delIndex[d.contact_id][d.deliverable_type] = [];
+      delIndex[d.contact_id][d.deliverable_type].push(d);
+    });
+
+    // Standard campaign expected deliverables (single-instance types from setup, audit, offpage)
+    var standardPhases = ['setup', 'audit', 'offpage', 'ongoing'];
+
+    var html = '<table class="matrix-table"><thead><tr><th>Deliverable</th>';
+    clients.forEach(function(c) {
+      var initials = ((c.first_name || '')[0] || '') + ((c.last_name || '')[0] || '') || c.slug[0].toUpperCase();
+      html += '<th><div class="matrix-client" onclick="window.location.href=\'/admin/clients?slug=' + c.slug + '\'"><div class="matrix-avatar">' + esc(initials.toUpperCase()) + '</div><div class="matrix-cname">' + esc((c.practice_name || c.slug).split(' ').slice(0, 2).join(' ')) + '</div></div></th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    PHASES.forEach(function(phase) {
+      if (standardPhases.indexOf(phase.key) === -1) return; // Only show standard campaign phases in matrix
+
+      html += '<tr class="matrix-phase-row"><td colspan="' + (clients.length + 1) + '">' + phase.icon + ' ' + esc(phase.label) + '</td></tr>';
+
+      phase.types.forEach(function(t) {
+        html += '<tr><td class="matrix-del">' + esc(t.label) + '</td>';
+
+        clients.forEach(function(c) {
+          var cDels = delIndex[c.id] || {};
+          var matches = cDels[t.key] || [];
+
+          if (matches.length > 0) {
+            // Find the best status to show
+            var best = matches[0];
+            matches.forEach(function(m) {
+              if (m.status === 'delivered') best = m;
+              else if (m.status === 'in_progress' && best.status !== 'delivered') best = m;
+            });
+            var st = best.status || 'not_started';
+            var icon = STATUS_ICONS[st] || '';
+            var count = t.multi && matches.length > 1 ? matches.length : '';
+            html += '<td><span class="matrix-dot ' + st + '" title="' + esc(STATUS_LABELS[st] || st) + (count ? ' (' + count + ')' : '') + '">' + icon + (count ? '<span style="font-size:.5rem;position:absolute;bottom:-2px;right:-4px;">' + count + '</span>' : '') + '</span></td>';
+          } else {
+            // Check if it should be expected for this client
+            var isWp = (c.website_platform || '').toLowerCase().indexOf('wordpress') >= 0;
+            var isExpected = true;
+
+            // Platform-specific
+            if (t.key === 'speed_optimization' && !isWp) isExpected = false;
+            if (t.key === 'security_optimization' && !isWp) isExpected = false;
+
+            // Client status checks
+            if (phase.key === 'ongoing' && c.status !== 'active') isExpected = false;
+
+            if (isExpected) {
+              html += '<td><span class="matrix-dot missing" title="Expected but not started"></span></td>';
+            } else {
+              html += '<td><span style="font-size:.6rem;color:var(--color-muted);">-</span></td>';
+            }
+          }
+        });
+
+        html += '</tr>';
+      });
+    });
+
+    html += '</tbody></table>';
+    document.getElementById('matrixContent').innerHTML = html;
+  }
+
+  // ============================================================
+  // EVENTS
+  // ============================================================
+  // View toggle
+  document.getElementById('viewToggle').addEventListener('click', function(e) {
+    var btn = e.target.closest('.view-btn');
+    if (!btn) return;
+    document.querySelectorAll('.view-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    state.view = btn.dataset.view;
+    render();
+  });
+
+  // Phase filters
+  document.getElementById('phaseFilters').addEventListener('click', function(e) {
+    var pill = e.target.closest('.filter-pill');
+    if (!pill) return;
+    document.querySelectorAll('.filter-pill').forEach(function(p) { p.classList.remove('active'); });
+    pill.classList.add('active');
+    state.phaseFilter = pill.dataset.phase;
+    render();
+  });
+
+  // Client filter
+  document.getElementById('clientFilter').addEventListener('change', function() {
+    state.clientFilter = this.value;
+    render();
+  });
+
+  // Phase collapse
+  window.togglePhase = function(el) {
+    var icon = el.querySelector('.phase-icon');
+    var body = el.nextElementSibling;
+    if (body.classList.contains('collapsed')) {
+      body.classList.remove('collapsed');
+      icon.classList.remove('collapsed');
+    } else {
+      body.classList.add('collapsed');
+      icon.classList.add('collapsed');
+    }
+  };
+
+  // Mobile sidebar
+  document.getElementById('mobileToggle').addEventListener('click', function() {
+    document.getElementById('sidebar').classList.toggle('open');
+  });
+
+  // Theme
+  var themeBtn = document.getElementById('themeBtn');
+  var cur = document.documentElement.getAttribute('data-theme');
+  themeBtn.innerHTML = cur === 'dark' ? '&#9728;&#65039;' : '&#x1F319;';
+  themeBtn.addEventListener('click', function() {
+    var h = document.documentElement;
+    if (h.getAttribute('data-theme') === 'light') {
+      h.setAttribute('data-theme', 'dark');
+      themeBtn.innerHTML = '&#9728;&#65039;';
+      try { localStorage.setItem('moonraker-theme', 'dark'); } catch(e) {}
+    } else {
+      h.setAttribute('data-theme', 'light');
+      themeBtn.innerHTML = '&#x1F319;';
+      try { localStorage.setItem('moonraker-theme', 'light'); } catch(e) {}
+    }
+  });
+
+  function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function formatDate(d) {
+    if (!d) return '';
+    try { return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
+    catch(e) { return d; }
+  }
+
+  loadData();
+})();
+</script>
+</body>
+</html>
