@@ -51,19 +51,26 @@ module.exports = async function handler(req, res) {
 
       if (anthropicRes.status !== 529) break;
 
-      // 529 = overloaded, retry with exponential backoff
+      // 529 = overloaded, wait and retry
       if (attempt < maxRetries) {
-        var delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
-        console.log('Anthropic 529 overloaded, retry ' + (attempt + 1) + '/' + maxRetries + ' in ' + delay + 'ms');
-        await new Promise(function(resolve) { setTimeout(resolve, delay); });
+        var delay = Math.pow(2, attempt) * 1000 + Math.random() * 500;
+        console.log('Anthropic 529 (attempt ' + (attempt + 1) + '/' + maxRetries + '), retrying in ' + Math.round(delay) + 'ms');
+        await new Promise(function(r) { setTimeout(r, delay); });
       }
     }
 
     if (!anthropicRes.ok) {
       var errText = await anthropicRes.text();
       console.error('Anthropic API error:', anthropicRes.status, errText);
+
+      // User-friendly error messages
+      var userMsg = 'API error';
+      if (anthropicRes.status === 529) userMsg = 'Claude is experiencing high demand. Please try again in a moment.';
+      else if (anthropicRes.status === 401) userMsg = 'API key is invalid. Check ANTHROPIC_API_KEY in Vercel settings.';
+      else if (anthropicRes.status === 429) userMsg = 'Rate limit reached. Please wait a moment.';
+
       return res.status(anthropicRes.status).json({
-        error: 'Anthropic API error',
+        error: userMsg,
         status: anthropicRes.status,
         detail: errText
       });
