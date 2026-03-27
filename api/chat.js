@@ -1,5 +1,10 @@
 // /api/chat.js - Streaming Anthropic API proxy for Client HQ
 
+var PRIMARY_MODEL = 'claude-opus-4-6';
+var FALLBACK_MODEL = 'claude-sonnet-4-20250514';
+var MAX_RETRIES = 3;
+var RETRY_DELAYS = [1000, 2000, 4000];
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -27,38 +32,63 @@ module.exports = async function handler(req, res) {
     }
 
     var systemPrompt = buildSystemPrompt(context);
+    var model = PRIMARY_MODEL;
+    var anthropicRes = null;
+    var lastStatus = 0;
 
-    var anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-6',
-        max_tokens: 8192,
-        stream: true,
-        system: systemPrompt,
-        messages: messages
-      })
-    });
+    for (var attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt === MAX_RETRIES) {
+        model = FALLBACK_MODEL;
+        console.log('Falling back to Sonnet after ' + MAX_RETRIES + ' Opus retries');
+      }
 
-    if (!anthropicRes.ok) {
-      var errText = await anthropicRes.text();
-      console.error('Anthropic API error:', anthropicRes.status, errText);
-      return res.status(anthropicRes.status).json({
-        error: 'Anthropic API error',
-        status: anthropicRes.status,
-        detail: errText
+      anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: model,
+          max_tokens: 8192,
+          stream: true,
+          system: systemPrompt,
+          messages: messages
+        })
+      });
+
+      lastStatus = anthropicRes.status;
+
+      if (anthropicRes.ok) break;
+
+      if (lastStatus === 529 && attempt < MAX_RETRIES) {
+        console.log('Opus 529 on attempt ' + (attempt + 1) + ', retrying in ' + RETRY_DELAYS[attempt] + 'ms...');
+        await new Promise(function(r) { setTimeout(r, RETRY_DELAYS[attempt]); });
+        continue;
+      }
+
+      if (lastStatus !== 529) {
+        var errText = await anthropicRes.text();
+        console.error('Anthropic API error:', lastStatus, errText);
+        return res.status(lastStatus).json({ error: 'Anthropic API error', status: lastStatus, detail: errText });
+      }
+    }
+
+    if (!anthropicRes || !anthropicRes.ok) {
+      return res.status(529).json({
+        error: 'API overloaded',
+        detail: 'Both Opus and Sonnet are at capacity. Please try again in a moment.'
       });
     }
 
-    // Stream the SSE response directly
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
+    if (model === FALLBACK_MODEL) {
+      res.setHeader('X-Model-Used', 'sonnet-fallback');
+    }
 
     var reader = anthropicRes.body.getReader();
     try {
