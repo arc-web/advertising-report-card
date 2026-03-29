@@ -107,7 +107,9 @@ a:hover { color: var(--color-primary-hover); }
 .del-status-select:hover { border-color: var(--color-border); }
 .del-status-select option { background: var(--color-surface); color: var(--color-body); }
 .del-status-select.st-not_started { background: rgba(107,117,153,.1); color: var(--color-muted); }
-.del-status-select.st-in_progress { background: rgba(245,158,11,.1); color: #D97706; }
+.del-status-select.st-in_progress { background: rgba(59,130,246,.1); color: #3B82F6; }
+.del-status-select.st-internal_review { background: rgba(139,92,246,.1); color: #8B5CF6; }
+.del-status-select.st-waiting_on_client { background: rgba(245,158,11,.1); color: #D97706; }
 .del-status-select.st-delivered { background: rgba(0,212,126,.1); color: #00b86c; }
 .urgency-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: .35rem; flex-shrink: 0; }
 .urgency-dot.high { background: var(--color-danger); }
@@ -588,6 +590,8 @@ a:hover { color: var(--color-primary-hover); }
         html += '<select class="del-status-select st-' + (d.status || 'not_started') + '" onchange="setDelStatus(\'' + d.id + '\', this.value, event)">';
         html += '<option value="not_started"' + (d.status === 'not_started' ? ' selected' : '') + '>Not Started</option>';
         html += '<option value="in_progress"' + (d.status === 'in_progress' ? ' selected' : '') + '>In Progress</option>';
+        html += '<option value="internal_review"' + (d.status === 'internal_review' ? ' selected' : '') + '>Internal Review</option>';
+        html += '<option value="waiting_on_client"' + (d.status === 'waiting_on_client' ? ' selected' : '') + '>Waiting on Client</option>';
         html += '<option value="delivered"' + (d.status === 'delivered' ? ' selected' : '') + '>Delivered</option>';
         html += '</select></div>';
         html += '<div class="del-date hide-mobile">' + (d.delivered_at ? formatDate(d.delivered_at) : d.created_at ? formatDate(d.created_at) : '-') + '</div>';
