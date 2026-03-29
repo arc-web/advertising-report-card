@@ -465,7 +465,7 @@ a:hover { color: var(--color-primary-hover); }
     return { score: Math.round(score * 10) / 10, level: level };
   }
 
-  function cycleDelStatus(delId, evt) {
+  window.cycleDelStatus = function cycleDelStatus(delId, evt) {
     if (evt) evt.stopPropagation();
     var del = state.deliverables.find(function(dd) { return dd.id === delId; });
     if (!del) return;
@@ -766,6 +766,7 @@ a:hover { color: var(--color-primary-hover); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
