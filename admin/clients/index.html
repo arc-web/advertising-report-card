@@ -640,6 +640,15 @@ strong { font-weight: 600; color: var(--color-heading); }
       document.getElementById('directoryView').style.display = 'block';
       renderDirectory();
       refreshTime();
+
+      // Wire up chat panel context
+      if (window.MoonrakerChat) {
+        var summary = { total: state.contacts.length };
+        ['active','onboarding','prospect','lead'].forEach(function(s) {
+          summary[s] = state.contacts.filter(function(c) { return c.status === s; }).length;
+        });
+        window.MoonrakerChat.setContext({ clientData: { contacts: state.contacts, summary: summary } });
+      }
     });
   }
 
@@ -695,6 +704,22 @@ strong { font-weight: 600; color: var(--color-heading); }
       document.getElementById('detailView').style.display = 'block';
       renderDetail();
       refreshTime();
+
+      // Wire up chat panel context with full client data
+      if (window.MoonrakerChat) {
+        window.MoonrakerChat.setContext({
+          clientSlug: slug,
+          clientData: {
+            contact: state.contact,
+            practice: state.practice,
+            onboarding: state.onboarding,
+            tasks: state.tasks.map(function(t) { return { id: t.id, title: t.title, status: t.status, owner: t.owner, priority: t.priority, category: t.category }; }),
+            scores: state.scores,
+            deliverables: state.deliverables.map(function(d) { return { id: d.id, deliverable_type: d.deliverable_type, title: d.title, status: d.status, contact_id: d.contact_id }; }),
+            snapshots: state.snapshots.map(function(s) { return { report_month: s.report_month, report_status: s.report_status, campaign_month: s.campaign_month, gsc_clicks: s.gsc_clicks, gsc_impressions: s.gsc_impressions }; })
+          }
+        });
+      }
 
       // Track recent
       try {
@@ -1357,4 +1382,5 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
