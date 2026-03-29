@@ -68,16 +68,27 @@
       font-size: .7rem; color: var(--color-muted, #5A7A6E);
       font-weight: 400;
     }
-    .mr-chat-close, .mr-chat-clear {
+    .mr-chat-clear {
       width: 28px; height: 28px; border-radius: 6px;
       border: none; cursor: pointer;
       background: transparent; color: var(--color-muted, #5A7A6E);
       display: flex; align-items: center; justify-content: center;
       font-size: .85rem; transition: background .1s, color .1s;
     }
-    .mr-chat-close:hover, .mr-chat-clear:hover {
+    .mr-chat-clear:hover {
       background: var(--color-bg, #080F0B);
       color: var(--color-heading, #E8F5EF);
+    }
+    .mr-chat-close {
+      width: 36px; height: 36px; border-radius: 8px;
+      border: none; cursor: pointer;
+      background: var(--color-bg, #080F0B); color: var(--color-muted, #5A7A6E);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; font-weight: 600; transition: background .1s, color .1s;
+    }
+    .mr-chat-close:hover {
+      background: var(--color-danger, #EF4444);
+      color: #fff;
     }
 
     .mr-chat-messages {
@@ -807,4 +818,5 @@
   };
 
 })();
+
 
