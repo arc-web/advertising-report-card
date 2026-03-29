@@ -984,15 +984,13 @@ strong { font-weight: 600; color: var(--color-heading); }
       pending: '&#9711;'
     };
 
-    var stepIndex = { confirm_info: 1, sign_agreement: 2, book_intro_call: 3, connect_accounts: 4, practice_details: 5, bio_materials: 6, social_profiles: 7, checkins_and_drive: 8 };
 
     var html = '';
     steps.forEach(function(s) {
       var label = stepLabels[s.step_key] || s.step_key;
       var statusText = s.status.replace(/_/g, ' ');
-      var stepNum = stepIndex[s.step_key] || 1;
       html += '<div class="ob-step ' + s.status + '">';
-      html += '<a href="/' + esc(slug) + '/onboarding#step-' + stepNum + '" target="_blank" class="ob-step-link">';
+      html += '<a href="/' + esc(slug) + '/onboarding#' + s.step_key + '" target="_blank" class="ob-step-link">';
       html += '<div class="ob-icon">' + (icons[s.status] || '&#9711;') + '</div>';
       html += '<div class="ob-label">' + esc(label) + '</div>';
       html += '<div class="ob-status">' + esc(statusText) + '</div>';
@@ -1115,7 +1113,8 @@ strong { font-weight: 600; color: var(--color-heading); }
     {v:'endorsement',l:'Endorsements'},{v:'surge_page',l:'Surge Page Audit'},
     {v:'surge_entity',l:'Surge Entity Audit'},{v:'gsc_setup',l:'GSC Setup'},
     {v:'ga4_setup',l:'GA4 Setup'},{v:'gtm_setup',l:'GTM Setup'},{v:'gbp_setup',l:'GBP Setup'},
-    {v:'instant_page',l:'instant.page'},{v:'report',l:'Monthly Report'}
+    {v:'instant_page',l:'instant.page'},{v:'report',l:'Monthly Report'},
+    {v:'custom',l:'Custom'}
   ];
   var DEL_PHASE = {
     gsc_setup:1,ga4_setup:1,gtm_setup:1,gbp_setup:1,instant_page:1,
@@ -1141,7 +1140,7 @@ strong { font-weight: 600; color: var(--color-heading); }
     return { score: Math.round(score * 10) / 10, level: level };
   }
 
-  function cycleDelStatus(delId) {
+  window.cycleDelStatus = function cycleDelStatus(delId) {
     var del = state.deliverables.find(function(d) { return d.id === delId; });
     if (!del) return;
     var next = del.status === 'not_started' ? 'in_progress' : del.status === 'in_progress' ? 'delivered' : 'not_started';
@@ -1161,7 +1160,7 @@ strong { font-weight: 600; color: var(--color-heading); }
     });
   }
 
-  function addDeliverable() {
+  window.addDeliverable = function addDeliverable() {
     var typeEl = document.getElementById('newDelType');
     var titleEl = document.getElementById('newDelTitle');
     if (!typeEl.value) return;
@@ -1505,6 +1504,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
