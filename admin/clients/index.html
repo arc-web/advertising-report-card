@@ -266,6 +266,21 @@ strong { font-weight: 600; color: var(--color-heading); }
 .del-phase-pill { padding: .3rem .65rem; border-radius: 6px; font-size: .72rem; font-weight: 500; border: 1px solid var(--color-border); background: transparent; color: var(--color-muted); cursor: pointer; font-family: inherit; transition: all .15s; }
 .del-phase-pill:hover { border-color: var(--color-primary); color: var(--color-heading); }
 .del-phase-pill.active { background: var(--color-primary-subtle); border-color: var(--color-primary); color: var(--color-primary); }
+.field-value.editable { cursor: pointer; padding: .15rem .35rem; margin: -.15rem -.35rem; border-radius: 4px; transition: background .15s; border: 1px solid transparent; min-height: 1.4em; }
+.field-value.editable:hover { background: var(--color-bg); border-color: var(--color-border); }
+.field-value.editable.empty { color: var(--color-muted); font-style: italic; }
+.field-edit-input {
+  width: 100%; padding: .3rem .45rem; border-radius: 6px;
+  border: 1px solid var(--color-primary); background: var(--color-surface);
+  color: var(--color-body); font-family: inherit; font-size: .84rem;
+  outline: none; box-shadow: 0 0 0 2px rgba(0,212,126,.15);
+}
+.field-edit-input:focus { border-color: var(--color-primary); }
+.notes-editable { cursor: pointer; padding: .5rem; margin: -.5rem; border-radius: 6px; transition: background .15s; border: 1px solid transparent; min-height: 2em; }
+.notes-editable:hover { background: var(--color-bg); border-color: var(--color-border); }
+.notes-edit-area { width: 100%; min-height: 80px; padding: .5rem; border-radius: 6px; border: 1px solid var(--color-primary); background: var(--color-surface); color: var(--color-body); font-family: inherit; font-size: .84rem; resize: vertical; outline: none; }
+.field-save-indicator { display: inline-block; font-size: .7rem; color: var(--color-success); margin-left: .5rem; opacity: 0; transition: opacity .3s; }
+.field-save-indicator.show { opacity: 1; }
 .add-del-bar { display: flex; gap: .5rem; align-items: center; margin-bottom: 1rem; }
 .add-del-bar select, .add-del-bar input { padding: .4rem .6rem; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-body); font-size: .8rem; font-family: inherit; }
 .add-del-bar select { min-width: 180px; }
@@ -912,56 +927,60 @@ strong { font-weight: 600; color: var(--color-heading); }
   // ---- OVERVIEW TAB ----
   function renderOverview(c, p) {
     var cf = document.getElementById('contactFields');
-    cf.innerHTML = fieldRow('Name', [c.first_name, c.last_name].filter(Boolean).join(' '))
-      + fieldRow('Email', c.email, true)
-      + fieldRow('Phone', c.phone)
-      + fieldRow('Credentials', c.credentials)
-      + fieldRow('Location', [c.city, c.state_province, c.country].filter(Boolean).join(', '))
-      + fieldRow('Timezone', c.timezone)
-      + fieldRow('Team Size', c.team_size)
-      + fieldRow('Source', c.source);
+    cf.innerHTML = editField('contacts', 'first_name', 'First Name', c.first_name)
+      + editField('contacts', 'last_name', 'Last Name', c.last_name)
+      + editField('contacts', 'email', 'Email', c.email)
+      + editField('contacts', 'phone', 'Phone', c.phone)
+      + editField('contacts', 'credentials', 'Credentials', c.credentials)
+      + editField('contacts', 'city', 'City', c.city)
+      + editField('contacts', 'state_province', 'State/Province', c.state_province)
+      + editField('contacts', 'country', 'Country', c.country)
+      + editField('contacts', 'timezone', 'Timezone', c.timezone)
+      + editField('contacts', 'team_size', 'Team Size', c.team_size)
+      + editField('contacts', 'source', 'Source', c.source);
 
     var pf = document.getElementById('practiceFields');
     if (p) {
-      pf.innerHTML = fieldRow('Practice Type', p.practice_type)
-        + fieldRow('Num Therapists', p.num_therapists)
-        + fieldRow('Specialties', arrJoin(p.specialties))
-        + fieldRow('Modalities', arrJoin(p.modalities))
-        + fieldRow('Populations', arrJoin(p.populations))
-        + fieldRow('Insurance/Private Pay', p.insurance_or_private_pay)
-        + fieldRow('Licensed States', arrJoin(p.licensed_states))
-        + fieldRow('Content Approval', p.content_approval);
+      pf.innerHTML = editField('practice_details', 'practice_type', 'Practice Type', p.practice_type)
+        + editField('practice_details', 'num_therapists', 'Num Therapists', p.num_therapists)
+        + editField('practice_details', 'specialties', 'Specialties', p.specialties, {isArray:true})
+        + editField('practice_details', 'modalities', 'Modalities', p.modalities, {isArray:true})
+        + editField('practice_details', 'populations', 'Populations', p.populations, {isArray:true})
+        + editField('practice_details', 'insurance_or_private_pay', 'Insurance/Private Pay', p.insurance_or_private_pay)
+        + editField('practice_details', 'licensed_states', 'Licensed States', p.licensed_states, {isArray:true})
+        + editField('practice_details', 'content_approval', 'Content Approval', p.content_approval);
     } else {
       pf.innerHTML = '<div class="empty-state" style="padding:1rem;"><p>No practice details yet.</p></div>';
     }
 
     var campf = document.getElementById('campaignFields');
-    campf.innerHTML = fieldRow('Campaign Start', c.campaign_start ? formatDate(c.campaign_start) : null)
-      + fieldRow('Campaign End', c.campaign_end ? formatDate(c.campaign_end) : null)
-      + fieldRow('Website Platform', c.website_platform)
-      + fieldRow('Website Builder', c.website_builder)
-      + fieldRow('GSC Property', c.gsc_property)
-      + fieldRow('GA4 Property', c.ga4_property)
-      + fieldRow('GTM Container', c.gtm_container)
-      + fieldRow('GBP Place ID', c.gbp_place_id)
-      + fieldRow('NPI Number', c.npi_number);
+    campf.innerHTML = editField('contacts', 'campaign_start', 'Campaign Start', c.campaign_start, {isDate:true})
+      + editField('contacts', 'campaign_end', 'Campaign End', c.campaign_end, {isDate:true})
+      + editField('contacts', 'website_url', 'Website URL', c.website_url)
+      + editField('contacts', 'website_platform', 'Website Platform', c.website_platform)
+      + editField('contacts', 'website_builder', 'Website Builder', c.website_builder)
+      + editField('contacts', 'gsc_property', 'GSC Property', c.gsc_property)
+      + editField('contacts', 'ga4_property', 'GA4 Property', c.ga4_property)
+      + editField('contacts', 'gtm_container', 'GTM Container', c.gtm_container)
+      + editField('contacts', 'gbp_place_id', 'GBP Place ID', c.gbp_place_id)
+      + editField('contacts', 'npi_number', 'NPI Number', c.npi_number);
 
     var sf = document.getElementById('socialFields');
-    var socials = [
-      { label: 'YouTube', val: c.youtube_url },
-      { label: 'LinkedIn', val: c.linkedin_url },
-      { label: 'Facebook', val: c.facebook_url },
-      { label: 'Instagram', val: c.instagram_url },
-      { label: 'TikTok', val: c.tiktok_url },
-      { label: 'Pinterest', val: c.pinterest_url },
-      { label: 'Quora', val: c.quora_url },
-      { label: 'X / Twitter', val: c.x_url }
-    ];
-    sf.innerHTML = socials.map(function(s) { return fieldRow(s.label, s.val, true); }).join('');
+    sf.innerHTML = editField('contacts', 'youtube_url', 'YouTube', c.youtube_url)
+      + editField('contacts', 'linkedin_url', 'LinkedIn', c.linkedin_url)
+      + editField('contacts', 'facebook_url', 'Facebook', c.facebook_url)
+      + editField('contacts', 'instagram_url', 'Instagram', c.instagram_url)
+      + editField('contacts', 'tiktok_url', 'TikTok', c.tiktok_url)
+      + editField('contacts', 'pinterest_url', 'Pinterest', c.pinterest_url)
+      + editField('contacts', 'quora_url', 'Quora', c.quora_url)
+      + editField('contacts', 'x_url', 'X / Twitter', c.x_url);
 
     var notes = document.getElementById('notesContent');
-    notes.textContent = c.notes || 'No notes.';
+    notes.className = 'notes-editable';
+    notes.setAttribute('onclick', 'startEditNotes()');
+    notes.textContent = c.notes || 'Click to add notes...';
     if (!c.notes) notes.style.color = 'var(--color-muted)';
+    else notes.style.color = '';
   }
 
   // ---- ONBOARDING TAB ----
@@ -1491,6 +1510,111 @@ strong { font-weight: 600; color: var(--color-heading); }
   // HELPERS
   // ============================================================
   function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  // Editable field row: table, col, value, label, opts
+  function editField(table, col, label, value, opts) {
+    opts = opts || {};
+    var displayVal = value;
+    if (opts.isDate && value) {
+      try { displayVal = new Date(value).toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'}); } catch(e) {}
+    }
+    if (opts.isArray && Array.isArray(value)) displayVal = value.join(', ');
+
+    var isEmpty = !value && value !== 0;
+    var displayText = isEmpty ? 'Click to add' : esc(String(displayVal));
+    var emptyClass = isEmpty ? ' empty' : '';
+
+    var id = 'ef-' + table + '-' + col;
+    return '<div class="field"><div class="field-label">' + esc(label) + '<span class="field-save-indicator" id="' + id + '-saved">Saved</span></div>' +
+      '<div class="field-value editable' + emptyClass + '" ' +
+      'onclick="startEdit(\'' + table + '\', \'' + col + '\', ' + (opts.isDate ? 'true' : 'false') + ', ' + (opts.isArray ? 'true' : 'false') + ')" ' +
+      'id="' + id + '">' + displayText + '</div></div>';
+  }
+
+  window.startEdit = function startEdit(table, col, isDate, isArray) {
+    var el = document.getElementById('ef-' + table + '-' + col);
+    if (!el || el.querySelector('input,textarea')) return;
+
+    // Get current raw value from state
+    var rawVal = '';
+    if (table === 'contacts' && state.contact) rawVal = state.contact[col] || '';
+    else if (table === 'practice_details' && state.practice) rawVal = state.practice[col] || '';
+
+    if (isArray && Array.isArray(rawVal)) rawVal = rawVal.join(', ');
+    if (isDate && rawVal) rawVal = rawVal.substring(0, 10); // YYYY-MM-DD
+
+    var inputType = isDate ? 'date' : 'text';
+    el.innerHTML = '<input type="' + inputType + '" class="field-edit-input" value="' + esc(String(rawVal)) + '" />';
+    var inp = el.querySelector('input');
+    inp.focus();
+
+    function save() {
+      var newVal = inp.value.trim();
+      if (isArray) newVal = newVal.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+      if (isDate && !newVal) newVal = null;
+
+      var data = {};
+      data[col] = isArray ? newVal : (newVal || null);
+
+      var filters = {};
+      if (table === 'contacts') filters.id = state.contact.id;
+      else if (table === 'practice_details') filters.contact_id = state.contact.id;
+
+      // Update local state
+      if (table === 'contacts') state.contact[col] = isArray ? newVal : (newVal || null);
+      else if (table === 'practice_details') {
+        if (!state.practice) state.practice = {};
+        state.practice[col] = isArray ? newVal : (newVal || null);
+      }
+
+      // Re-render
+      renderOverview(state.contact, state.practice);
+
+      // Show saved indicator
+      var indicator = document.getElementById('ef-' + table + '-' + col + '-saved');
+      if (indicator) { indicator.classList.add('show'); setTimeout(function() { indicator.classList.remove('show'); }, 1500); }
+
+      // Save to Supabase
+      fetch('/api/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_record', table: table, filters: filters, data: data })
+      });
+    }
+
+    inp.addEventListener('blur', save);
+    inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); save(); }
+      if (e.key === 'Escape') { renderOverview(state.contact, state.practice); }
+    });
+  }
+
+  window.startEditNotes = function startEditNotes() {
+    var el = document.getElementById('notesContent');
+    if (el.querySelector('textarea')) return;
+    var current = state.contact.notes || '';
+    el.innerHTML = '<textarea class="notes-edit-area">' + esc(current) + '</textarea>';
+    var ta = el.querySelector('textarea');
+    ta.focus();
+
+    function save() {
+      var newVal = ta.value.trim() || null;
+      state.contact.notes = newVal;
+      el.innerHTML = '';
+      el.textContent = newVal || 'No notes.';
+      el.style.color = newVal ? '' : 'var(--color-muted)';
+      fetch('/api/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_record', table: 'contacts', filters: { id: state.contact.id }, data: { notes: newVal } })
+      });
+    }
+
+    ta.addEventListener('blur', save);
+    ta.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { renderOverview(state.contact, state.practice); }
+    });
+  }
 
   function fieldRow(label, value, isLink, linkUrl) {
     var val;
