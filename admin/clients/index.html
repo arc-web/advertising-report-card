@@ -241,9 +241,16 @@ strong { font-weight: 600; color: var(--color-heading); }
 /* ---- DELIVERABLE ROW ---- */
 .del-row { display: flex; align-items: center; gap: .75rem; padding: .65rem .75rem; border-bottom: 1px solid var(--color-border); font-size: .84rem; }
 .del-row:hover { background: var(--sidebar-hover); }
-.del-status-btn { cursor: pointer; transition: transform .1s; user-select: none; }
-.del-status-btn:hover { transform: scale(1.05); }
-.del-status-btn:active { transform: scale(.95); }
+.del-status-select {
+  padding: .25rem .4rem; border-radius: 6px; font-size: .72rem; font-weight: 500;
+  font-family: inherit; cursor: pointer; border: 1px solid transparent;
+  transition: border-color .15s;
+}
+.del-status-select:hover { border-color: var(--color-border); }
+.del-status-select option { background: var(--color-surface); color: var(--color-body); }
+.del-status-select.st-not_started { background: rgba(107,117,153,.1); color: var(--color-muted); }
+.del-status-select.st-in_progress { background: rgba(245,158,11,.1); color: #D97706; }
+.del-status-select.st-delivered { background: rgba(0,212,126,.1); color: #00b86c; }
 .urgency-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .urgency-dot.high { background: var(--color-danger); }
 .urgency-dot.medium { background: var(--color-warning); }
@@ -253,6 +260,10 @@ strong { font-weight: 600; color: var(--color-heading); }
 .ob-step-link:hover .ob-label { color: var(--color-primary); }
 .ob-step .link-arrow { font-size: .75rem; color: var(--color-muted); transition: color .15s; }
 .ob-step:hover .link-arrow { color: var(--color-primary); }
+.del-phase-bar { display: flex; gap: .25rem; margin-bottom: .75rem; flex-wrap: wrap; }
+.del-phase-pill { padding: .3rem .65rem; border-radius: 6px; font-size: .72rem; font-weight: 500; border: 1px solid var(--color-border); background: transparent; color: var(--color-muted); cursor: pointer; font-family: inherit; transition: all .15s; }
+.del-phase-pill:hover { border-color: var(--color-primary); color: var(--color-heading); }
+.del-phase-pill.active { background: var(--color-primary-subtle); border-color: var(--color-primary); color: var(--color-primary); }
 .add-del-bar { display: flex; gap: .5rem; align-items: center; margin-bottom: 1rem; }
 .add-del-bar select, .add-del-bar input { padding: .4rem .6rem; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-body); font-size: .8rem; font-family: inherit; }
 .add-del-bar select { min-width: 180px; }
@@ -544,6 +555,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       <!-- TAB: Deliverables -->
       <div class="tab-panel" id="tab-deliverables">
         <div id="delForm"></div>
+        <div id="delPhaseBar"></div>
         <div id="delList"></div>
         <div class="empty-state" id="delEmpty" style="display:none;"><p>No deliverables tracked yet.</p></div>
       </div>
@@ -1140,12 +1152,11 @@ strong { font-weight: 600; color: var(--color-heading); }
     return { score: Math.round(score * 10) / 10, level: level };
   }
 
-  window.cycleDelStatus = function cycleDelStatus(delId) {
+  window.setDelStatus = function setDelStatus(delId, newStatus) {
     var del = state.deliverables.find(function(d) { return d.id === delId; });
-    if (!del) return;
-    var next = del.status === 'not_started' ? 'in_progress' : del.status === 'in_progress' ? 'delivered' : 'not_started';
-    var data = { status: next };
-    if (next === 'delivered') data.delivered_at = new Date().toISOString();
+    if (!del || del.status === newStatus) return;
+    var data = { status: newStatus };
+    if (newStatus === 'delivered') data.delivered_at = new Date().toISOString();
     else data.delivered_at = null;
     fetch('/api/action', {
       method: 'POST',
@@ -1153,11 +1164,18 @@ strong { font-weight: 600; color: var(--color-heading); }
       body: JSON.stringify({ action: 'update_record', table: 'deliverables', filters: { id: delId }, data: data })
     }).then(function(r) { return r.json(); }).then(function(res) {
       if (res.success) {
-        del.status = next;
+        del.status = newStatus;
         del.delivered_at = data.delivered_at;
         renderDeliverables();
+        setTabCount('deliverables', state.deliverables.length);
       }
     });
+  }
+
+  var delPhaseFilter = 'all';
+  window.setDelPhase = function setDelPhase(phase) {
+    delPhaseFilter = phase;
+    renderDeliverables();
   }
 
   window.addDeliverable = function addDeliverable() {
@@ -1224,9 +1242,7 @@ strong { font-weight: 600; color: var(--color-heading); }
     var html = '';
     sorted.forEach(function(d) {
       var icon = typeIcons[d.deliverable_type] || '&#128196;';
-      var statusTag = d.status === 'delivered' ? '<span class="tag tag-active">delivered</span>'
-        : d.status === 'in_progress' ? '<span class="tag tag-onboarding">in progress</span>'
-        : '<span class="tag tag-lead">' + esc(d.status) + '</span>';
+      // Status dropdown instead of tag
 
       var urg = getUrgency(d);
       html += '<div class="del-row">';
@@ -1234,7 +1250,11 @@ strong { font-weight: 600; color: var(--color-heading); }
       html += '<div class="del-icon">' + icon + '</div>';
       html += '<div class="del-info"><div class="del-title">' + esc(d.title) + '</div>';
       html += '<div class="del-date">' + (d.delivered_at ? formatDate(d.delivered_at) : 'Pending') + (d.notes ? ' - ' + esc(d.notes.substring(0, 60)) : '') + '</div></div>';
-      html += '<span class="del-status-btn" onclick="cycleDelStatus(\'' + d.id + '\')" title="Click to change status">' + statusTag + '</span>';
+      html += '<select class="del-status-select st-' + d.status + '" onchange="setDelStatus(\'' + d.id + '\', this.value)">';
+      html += '<option value="not_started"' + (d.status === 'not_started' ? ' selected' : '') + '>Not Started</option>';
+      html += '<option value="in_progress"' + (d.status === 'in_progress' ? ' selected' : '') + '>In Progress</option>';
+      html += '<option value="delivered"' + (d.status === 'delivered' ? ' selected' : '') + '>Delivered</option>';
+      html += '</select>';
       html += '<div class="del-actions">';
       if (d.page_url) html += '<a href="' + esc(d.page_url) + '" target="_blank" class="btn btn-ghost btn-sm" title="View">&#128279;</a>';
       if (d.drive_url) html += '<a href="' + esc(d.drive_url) + '" target="_blank" class="btn btn-ghost btn-sm" title="Drive">&#128193;</a>';
@@ -1274,6 +1294,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       html += '<div class="rpt-month">' + esc(s.report_month || '--') + '</div>';
       html += '<div style="flex:1;font-size:.78rem;color:var(--color-muted);">' + formatDateTime(s.created_at) + '</div>';
       html += statusTag;
+      html += '<a href="/' + esc(slug) + '/reports" target="_blank" class="btn btn-ghost btn-sm" title="View report" style="margin-left:.5rem;">&#128279; View</a>';
       html += '</div>';
     });
     document.getElementById('rptList').innerHTML = html;
@@ -1504,6 +1525,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
