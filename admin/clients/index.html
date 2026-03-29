@@ -1454,7 +1454,6 @@ strong { font-weight: 600; color: var(--color-heading); }
 
       var urg = getUrgency(d);
       html += '<div class="del-row">';
-      html += '<div class="urgency-dot ' + urg.level + '" title="Urgency: ' + urg.score + '"></div>';
       html += '<div class="del-icon">' + icon + '</div>';
       html += '<div class="del-info"><div class="del-title">' + esc(d.title) + '</div>';
       html += '<div class="del-date">' + (d.delivered_at ? formatDate(d.delivered_at) : 'Pending') + (d.notes ? ' - ' + esc(d.notes.substring(0, 60)) : '') + '</div></div>';
@@ -1465,6 +1464,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       html += '<option value="waiting_on_client"' + (d.status === 'waiting_on_client' ? ' selected' : '') + '>Waiting on Client</option>';
       html += '<option value="delivered"' + (d.status === 'delivered' ? ' selected' : '') + '>Delivered</option>';
       html += '</select>';
+      if (urg.level !== 'none') html += '<div class="urgency-dot ' + urg.level + '" title="Urgency: ' + urg.score + '"></div>';
       html += '<div class="del-actions">';
       if (d.page_url) html += '<a href="' + esc(d.page_url) + '" target="_blank" class="btn btn-ghost btn-sm" title="View">&#128279;</a>';
       if (d.drive_url) html += '<a href="' + esc(d.drive_url) + '" target="_blank" class="btn btn-ghost btn-sm" title="Drive">&#128193;</a>';
@@ -1888,6 +1888,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
