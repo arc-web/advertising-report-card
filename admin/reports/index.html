@@ -733,7 +733,8 @@ strong { font-weight: 600; color: var(--color-heading); }
           html += '<div class="digest-entry">';
           html += '<span class="de-time">' + time + '</span>';
           html += '<span class="de-badge ' + esc(log.table_name) + '">' + esc(log.table_name.replace(/_/g,' ')) + '</span>';
-          html += '<span>' + esc(log.field_name) + ': ' + esc(log.old_value || '-') + ' &rarr; ' + esc(log.new_value || '-') + '</span>';
+          var entryLabel = log.record_label ? '<strong>' + esc(log.record_label) + '</strong> - ' : '';
+          html += '<span>' + entryLabel + esc(log.field_name) + ': ' + esc(log.old_value || '-') + ' &rarr; ' + esc(log.new_value || '-') + '</span>';
           html += '</div>';
         });
         html += '</div>';
