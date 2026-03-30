@@ -36,6 +36,16 @@ module.exports = async function handler(req, res) {
       'Prefer': 'return=representation'
     };
 
+    if (action === 'read_records') {
+      var select = body.select || '*';
+      var fp0 = filters ? buildFilter(filters) : '';
+      var url0 = baseUrl + '?select=' + encodeURIComponent(select) + (fp0 ? '&' + fp0 : '') + '&limit=' + (body.limit || 50);
+      var r0 = await fetch(url0, { method: 'GET', headers: headers });
+      var result0 = await r0.json();
+      if (!r0.ok) return res.status(r0.status).json({ error: 'Supabase error', detail: result0 });
+      return res.status(200).json({ success: true, action: 'read', data: result0, count: Array.isArray(result0) ? result0.length : 0 });
+    }
+
     if (action === 'create_record') {
       if (!data) return res.status(400).json({ error: 'data required' });
       var r = await fetch(baseUrl, { method: 'POST', headers: headers, body: JSON.stringify(data) });
@@ -81,3 +91,4 @@ function buildFilter(filters) {
   }
   return parts.join('&');
 }
+
