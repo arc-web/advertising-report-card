@@ -310,10 +310,17 @@ strong { font-weight: 600; color: var(--color-heading); }
 .digest-preview h3 { font-size: .95rem; margin: 0 0 .5rem; font-family: 'Outfit', sans-serif; }
 .preview-header { font-size: .82rem; color: var(--color-muted); }
 
-.digest-stats { display: flex; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+/* digest-stats grid defined below */
 .digest-stat { background: var(--color-bg); border-radius: 10px; padding: .75rem 1rem; min-width: 100px; text-align: center; }
 .digest-stat .ds-val { font-size: 1.3rem; font-weight: 700; color: var(--color-heading); font-family: 'Outfit', sans-serif; }
 .digest-stat .ds-label { font-size: .7rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: .03em; margin-top: .15rem; }
+.digest-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; margin-bottom: .75rem; }
+.digest-stat.ds-amber { background: rgba(245,158,11,.06); border-color: rgba(245,158,11,.2); }
+.digest-stat.ds-amber .ds-val { color: #D97706; }
+.digest-stat.ds-blue { background: rgba(59,130,246,.06); border-color: rgba(59,130,246,.2); }
+.digest-stat.ds-blue .ds-val { color: #3B82F6; }
+.digest-stat.ds-green { background: rgba(0,212,126,.06); border-color: rgba(0,212,126,.2); }
+.digest-stat.ds-green .ds-val { color: #00b86c; }
 
 .digest-client { margin-bottom: 1rem; }
 .digest-client h4 { font-size: .88rem; margin: 0 0 .35rem; padding-bottom: .35rem; border-bottom: 1px solid var(--color-border); }
@@ -669,8 +676,14 @@ strong { font-weight: 600; color: var(--color-heading); }
 
       // Stats
       function arrow(curr, prev) { if (prev > 0 && curr > prev) return ' <span style="color:var(--color-success);">&#9650;</span>'; if (prev > 0 && curr < prev) return ' <span style="color:var(--color-danger);">&#9660;</span>'; return ''; }
+      // Row 1: Sales pipeline (colored)
       html += '<div class="digest-stats">';
-      html += '<div class="digest-stat"><div class="ds-val">' + totalChanges + arrow(totalChanges, prevTotal) + '</div><div class="ds-label">Total Changes</div></div>';
+      html += '<div class="digest-stat ds-amber"><div class="ds-val">' + leads.length + '</div><div class="ds-label">New Leads</div></div>';
+      html += '<div class="digest-stat ds-blue"><div class="ds-val">' + proposals.length + '</div><div class="ds-label">Proposals Sent</div></div>';
+      html += '<div class="digest-stat ds-green"><div class="ds-val">' + signups.length + '</div><div class="ds-label">Clients Signed</div></div>';
+      html += '</div>';
+      // Row 2: Activity (neutral)
+      html += '<div class="digest-stats">';
       html += '<div class="digest-stat"><div class="ds-val">' + delCompleted + arrow(delCompleted, prevDel) + '</div><div class="ds-label">Deliverables Done</div></div>';
       html += '<div class="digest-stat"><div class="ds-val">' + tasksCompleted + arrow(tasksCompleted, prevTasks) + '</div><div class="ds-label">Audit Tasks Done</div></div>';
       html += '<div class="digest-stat"><div class="ds-val">' + Object.keys(byClient).length + arrow(Object.keys(byClient).length, prevClients) + '</div><div class="ds-label">Clients Active</div></div>';
@@ -686,15 +699,15 @@ strong { font-weight: 600; color: var(--color-heading); }
       if (signups.length > 0 || proposals.length > 0 || leads.length > 0) {
         html += '<div class="digest-client"><h4>Pipeline</h4>';
         if (signups.length > 0) {
-          html += '<div style="font-size:.7rem;font-weight:600;color:var(--color-success);text-transform:uppercase;margin:.5rem 0 .25rem;">Clients Signed (' + signups.length + ')</div>';
+          html += '<div style="font-size:.7rem;font-weight:600;color:var(--color-heading);text-transform:uppercase;margin:.5rem 0 .25rem;">Clients Signed (' + signups.length + ')</div>';
           signups.forEach(function(cl) { html += '<div class="digest-entry"><span class="de-badge signed">signed</span><span>' + esc(cl.practice_name || cl.slug) + '</span></div>'; });
         }
         if (proposals.length > 0) {
-          html += '<div style="font-size:.7rem;font-weight:600;color:var(--color-info);text-transform:uppercase;margin:.5rem 0 .25rem;">Proposals Sent (' + proposals.length + ')</div>';
+          html += '<div style="font-size:.7rem;font-weight:600;color:var(--color-heading);text-transform:uppercase;margin:.5rem 0 .25rem;">Proposals Sent (' + proposals.length + ')</div>';
           proposals.forEach(function(cl) { html += '<div class="digest-entry"><span class="de-badge proposal">proposal</span><span>' + esc(cl.practice_name || cl.slug) + '</span></div>'; });
         }
         if (leads.length > 0) {
-          html += '<div style="font-size:.7rem;font-weight:600;color:#D97706;text-transform:uppercase;margin:.5rem 0 .25rem;">New Leads (' + leads.length + ')</div>';
+          html += '<div style="font-size:.7rem;font-weight:600;color:var(--color-heading);text-transform:uppercase;margin:.5rem 0 .25rem;">New Leads (' + leads.length + ')</div>';
           leads.forEach(function(cl) { html += '<div class="digest-entry"><span class="de-badge contacts">lead</span><span>' + esc(cl.practice_name || cl.slug) + '</span></div>'; });
         }
         html += '</div>';
