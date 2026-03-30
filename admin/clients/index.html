@@ -1119,10 +1119,12 @@ strong { font-weight: 600; color: var(--color-heading); }
       var pct = Math.round(tc / tasks.length * 100);
 
       document.getElementById('auditStats').innerHTML =
-        '<div class="stat-mini"><div class="stat-label">Total Tasks</div><div class="stat-value">' + tasks.length + '</div></div>' +
-        '<div class="stat-mini"><div class="stat-label">Complete</div><div class="stat-value" style="color:var(--color-success);">' + tc + '</div><div class="stat-sub">' + pct + '%</div></div>' +
-        '<div class="stat-mini"><div class="stat-label">In Progress</div><div class="stat-value" style="color:var(--color-info);">' + tip + '</div></div>' +
-        '<div class="stat-mini"><div class="stat-label">Not Started</div><div class="stat-value">' + tns + '</div></div>';
+        '<div class="stat-mini"><div class="stat-label">Total Tasks</div><div class="stat-value">' + tasks.length + '</div><div class="stat-sub">' + pct + '% complete</div></div>' +
+        '<div class="stat-mini"><div class="stat-label">Not Started</div><div class="stat-value">' + tns + '</div></div>' +
+        '<div class="stat-mini"><div class="stat-label">In Progress</div><div class="stat-value" style="color:#3B82F6;">' + tip + '</div></div>' +
+        '<div class="stat-mini"><div class="stat-label">Internal Review</div><div class="stat-value" style="color:#8B5CF6;">' + tir + '</div></div>' +
+        '<div class="stat-mini"><div class="stat-label">Waiting on Client</div><div class="stat-value" style="color:#D97706;">' + twc + '</div></div>' +
+        '<div class="stat-mini"><div class="stat-label">Complete</div><div class="stat-value" style="color:var(--color-success);">' + tc + '</div></div>';
 
       // Filters
       var owners = {};
@@ -1888,6 +1890,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
