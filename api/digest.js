@@ -117,7 +117,7 @@ function formatDateRange(fromStr, toStr) {
   var f = new Date(fromStr + 'T00:00:00Z');
   var t = new Date(toStr + 'T00:00:00Z');
   if (f.getUTCMonth() === t.getUTCMonth() && f.getUTCFullYear() === t.getUTCFullYear()) {
-    return months[f.getUTCMonth()] + ' ' + f.getUTCDate() + '-' + t.getUTCDate();
+    return months[f.getUTCMonth()] + ' ' + f.getUTCDate() + ' - ' + t.getUTCDate();
   } else if (f.getUTCFullYear() === t.getUTCFullYear()) {
     return months[f.getUTCMonth()] + ' ' + f.getUTCDate() + ' - ' + months[t.getUTCMonth()] + ' ' + t.getUTCDate();
   }
