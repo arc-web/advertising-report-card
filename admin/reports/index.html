@@ -596,12 +596,23 @@ strong { font-weight: 600; color: var(--color-heading); }
     var toEnd = to + 'T23:59:59Z';
     var fromStart = from + 'T00:00:00Z';
 
+    // Calculate previous period
+    var fromDate = new Date(from);
+    var toDate = new Date(to);
+    var periodMs = toDate - fromDate;
+    var prevTo = new Date(fromDate.getTime() - 86400000);
+    var prevFrom = new Date(prevTo.getTime() - periodMs);
+    var prevFromStart = prevFrom.toISOString().split('T')[0] + 'T00:00:00Z';
+    var prevToEnd = prevTo.toISOString().split('T')[0] + 'T23:59:59Z';
+
     Promise.all([
       sbGet('activity_log?select=*&created_at=gte.' + fromStart + '&created_at=lte.' + toEnd + '&order=created_at.desc&limit=500'),
+      sbGet('activity_log?select=*&created_at=gte.' + prevFromStart + '&created_at=lte.' + prevToEnd + '&order=created_at.desc&limit=500'),
       sbGet('contacts?select=id,slug,practice_name,status,created_at&order=practice_name')
     ]).then(function(results) {
       var logs = results[0];
-      var clients = results[1];
+      var prevLogs = results[1];
+      var clients = results[2];
       var clientMap = {};
       clients.forEach(function(cl) { clientMap[cl.id] = cl; clientMap[cl.slug] = cl; });
 
@@ -613,37 +624,70 @@ strong { font-weight: 600; color: var(--color-heading); }
         byClient[slug].push(log);
       });
 
-      // Check for new clients in range
-      var newClients = clients.filter(function(cl) { return cl.created_at >= fromStart && cl.created_at <= toEnd; });
+      // New contacts in range
+      var newInRange = clients.filter(function(cl) { return cl.created_at >= fromStart && cl.created_at <= toEnd; });
+      var proposals = newInRange.filter(function(cl) { return cl.status === 'prospect' || cl.status === 'lead'; });
+      var signups = newInRange.filter(function(cl) { return cl.status === 'onboarding' || cl.status === 'active'; });
 
       // Stats
       var totalChanges = logs.length;
       var delCompleted = logs.filter(function(l) { return l.table_name === 'deliverables' && l.new_value === 'delivered'; }).length;
       var tasksCompleted = logs.filter(function(l) { return l.table_name === 'checklist_items' && l.new_value === 'complete'; }).length;
+      var prevTotal = prevLogs.length;
+      var prevDel = prevLogs.filter(function(l) { return l.table_name === 'deliverables' && l.new_value === 'delivered'; }).length;
+      var prevTasks = prevLogs.filter(function(l) { return l.table_name === 'checklist_items' && l.new_value === 'complete'; }).length;
+      var prevClients = Object.keys(prevLogs.reduce(function(a, l) { if (l.client_slug) a[l.client_slug] = true; return a; }, {})).length;
+
+      // Generate insights
+      var insights = [];
+      if (prevTotal > 0) {
+        var pct = Math.round(((totalChanges - prevTotal) / prevTotal) * 100);
+        if (pct > 0) insights.push('Activity up ' + pct + '% vs previous period (' + totalChanges + ' vs ' + prevTotal + ').');
+        else if (pct < 0) insights.push('Activity down ' + Math.abs(pct) + '% vs previous period (' + totalChanges + ' vs ' + prevTotal + ').');
+        else insights.push('Activity steady at ' + totalChanges + ' changes.');
+      } else if (totalChanges > 0) {
+        insights.push(totalChanges + ' changes this period (no previous data to compare).');
+      }
+      if (delCompleted > 0) { var d = delCompleted + ' deliverable' + (delCompleted !== 1 ? 's' : '') + ' done.'; if (prevDel > 0) d += ' Prev: ' + prevDel + '.'; insights.push(d); }
+      if (tasksCompleted > 0) { var t = tasksCompleted + ' audit task' + (tasksCompleted !== 1 ? 's' : '') + ' completed.'; if (prevTasks > 0) t += ' Prev: ' + prevTasks + '.'; insights.push(t); }
+      if (proposals.length > 0) insights.push(proposals.length + ' new proposal' + (proposals.length !== 1 ? 's' : '') + ' sent.');
+      if (signups.length > 0) insights.push(signups.length + ' new client' + (signups.length !== 1 ? 's' : '') + ' signed up!');
+      if (insights.length === 0) insights.push('Quiet period.');
 
       var html = '';
 
-      // Stats bar
-      html += '<div class="digest-stats">';
-      html += '<div class="digest-stat"><div class="ds-val">' + totalChanges + '</div><div class="ds-label">Total Changes</div></div>';
-      html += '<div class="digest-stat"><div class="ds-val">' + delCompleted + '</div><div class="ds-label">Delivered</div></div>';
-      html += '<div class="digest-stat"><div class="ds-val">' + tasksCompleted + '</div><div class="ds-label">Tasks Done</div></div>';
-      html += '<div class="digest-stat"><div class="ds-val">' + Object.keys(byClient).length + '</div><div class="ds-label">Clients Active</div></div>';
-      html += '<div class="digest-stat"><div class="ds-val">' + newClients.length + '</div><div class="ds-label">New Clients</div></div>';
+      // Insights
+      html += '<div style="border-left:3px solid var(--color-primary);padding:.75rem 1rem;margin-bottom:1rem;background:var(--color-bg);border-radius:0 8px 8px 0;">';
+      html += '<div style="font-size:.8rem;font-weight:600;color:var(--color-heading);margin-bottom:.35rem;">Key Insights</div>';
+      insights.forEach(function(i) { html += '<div style="font-size:.78rem;color:var(--color-body);margin:.2rem 0;line-height:1.5;">' + esc(i) + '</div>'; });
       html += '</div>';
 
-      html += '<div style="font-size:.75rem;color:var(--color-muted);margin-bottom:1rem;">' + from + ' to ' + to + ' &middot; ' + totalChanges + ' activities</div>';
+      // Stats
+      function arrow(curr, prev) { if (prev > 0 && curr > prev) return ' <span style="color:var(--color-success);">&#9650;</span>'; if (prev > 0 && curr < prev) return ' <span style="color:var(--color-danger);">&#9660;</span>'; return ''; }
+      html += '<div class="digest-stats">';
+      html += '<div class="digest-stat"><div class="ds-val">' + totalChanges + arrow(totalChanges, prevTotal) + '</div><div class="ds-label">Total Changes</div></div>';
+      html += '<div class="digest-stat"><div class="ds-val">' + delCompleted + arrow(delCompleted, prevDel) + '</div><div class="ds-label">Deliverables Done</div></div>';
+      html += '<div class="digest-stat"><div class="ds-val">' + tasksCompleted + arrow(tasksCompleted, prevTasks) + '</div><div class="ds-label">Audit Tasks Done</div></div>';
+      html += '<div class="digest-stat"><div class="ds-val">' + Object.keys(byClient).length + arrow(Object.keys(byClient).length, prevClients) + '</div><div class="ds-label">Clients Active</div></div>';
+      html += '</div>';
 
-      if (totalChanges === 0 && newClients.length === 0) {
+      html += '<div style="font-size:.72rem;color:var(--color-muted);margin-bottom:1rem;">' + from + ' to ' + to + '</div>';
+
+      if (totalChanges === 0 && proposals.length === 0 && signups.length === 0) {
         html += '<div class="empty-state" style="padding:1.5rem;"><p>No activity in this date range.</p></div>';
       }
 
-      // New clients
-      if (newClients.length > 0) {
-        html += '<div class="digest-client"><h4>New Clients</h4>';
-        newClients.forEach(function(cl) {
-          html += '<div class="digest-entry"><span class="de-badge contacts">new</span><span>' + esc(cl.practice_name || cl.slug) + ' (' + cl.status + ')</span></div>';
-        });
+      // Pipeline
+      if (signups.length > 0 || proposals.length > 0) {
+        html += '<div class="digest-client"><h4>Pipeline</h4>';
+        if (signups.length > 0) {
+          html += '<div style="font-size:.7rem;font-weight:600;color:var(--color-success);text-transform:uppercase;margin:.5rem 0 .25rem;">Clients Signed (' + signups.length + ')</div>';
+          signups.forEach(function(cl) { html += '<div class="digest-entry"><span class="de-badge checklist_items">signed</span><span>' + esc(cl.practice_name || cl.slug) + '</span></div>'; });
+        }
+        if (proposals.length > 0) {
+          html += '<div style="font-size:.7rem;font-weight:600;color:var(--color-info);text-transform:uppercase;margin:.5rem 0 .25rem;">Proposals Sent (' + proposals.length + ')</div>';
+          proposals.forEach(function(cl) { html += '<div class="digest-entry"><span class="de-badge deliverables">proposal</span><span>' + esc(cl.practice_name || cl.slug) + '</span></div>'; });
+        }
         html += '</div>';
       }
 
@@ -653,12 +697,12 @@ strong { font-weight: 600; color: var(--color-heading); }
         var entries = byClient[slug];
         var cl = clientMap[slug];
         var name = cl ? (cl.practice_name || slug) : slug;
-        html += '<div class="digest-client"><h4>' + esc(name) + ' <span style="font-size:.7rem;font-weight:400;color:var(--color-muted);">(' + entries.length + ' changes)</span></h4>';
+        html += '<div class="digest-client"><h4>' + esc(name) + ' <span style="font-size:.7rem;font-weight:400;color:var(--color-muted);">(' + entries.length + ')</span></h4>';
         entries.forEach(function(log) {
           var time = new Date(log.created_at).toLocaleDateString('en-US', {month:'short',day:'numeric'});
           html += '<div class="digest-entry">';
           html += '<span class="de-time">' + time + '</span>';
-          html += '<span class="de-badge ' + esc(log.table_name) + '">' + esc(log.table_name.replace('_',' ')) + '</span>';
+          html += '<span class="de-badge ' + esc(log.table_name) + '">' + esc(log.table_name.replace(/_/g,' ')) + '</span>';
           html += '<span>' + esc(log.field_name) + ': ' + esc(log.old_value || '-') + ' &rarr; ' + esc(log.new_value || '-') + '</span>';
           html += '</div>';
         });
@@ -1190,6 +1234,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
