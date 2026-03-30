@@ -88,7 +88,7 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({
         from: 'Client HQ <notifications@clients.moonraker.ai>',
         to: recipients,
-        subject: 'Team Digest: ' + from + ' to ' + to,
+        subject: 'Team Digest: ' + formatDateRange(from, to),
         html: html
       })
     });
@@ -111,6 +111,18 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'Internal error', detail: err.message });
   }
 };
+
+function formatDateRange(fromStr, toStr) {
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var f = new Date(fromStr + 'T00:00:00Z');
+  var t = new Date(toStr + 'T00:00:00Z');
+  if (f.getUTCMonth() === t.getUTCMonth() && f.getUTCFullYear() === t.getUTCFullYear()) {
+    return months[f.getUTCMonth()] + ' ' + f.getUTCDate() + '-' + t.getUTCDate();
+  } else if (f.getUTCFullYear() === t.getUTCFullYear()) {
+    return months[f.getUTCMonth()] + ' ' + f.getUTCDate() + ' - ' + months[t.getUTCMonth()] + ' ' + t.getUTCDate();
+  }
+  return months[f.getUTCMonth()] + ' ' + f.getUTCDate() + ', ' + f.getUTCFullYear() + ' - ' + months[t.getUTCMonth()] + ' ' + t.getUTCDate() + ', ' + t.getUTCFullYear();
+}
 
 async function sbGet(url, headers, path) {
   var r = await fetch(url + '/rest/v1/' + path, { headers: headers });
@@ -174,7 +186,7 @@ function buildDigestEmail(data) {
   h += '<div style="text-align:center;padding:24px 0 16px;">';
   h += '<img src="https://moonraker.ai/wp-content/uploads/2023/10/Moonraker-Logo-Transparent.png" alt="Moonraker" style="height:32px;opacity:.7;">';
   h += '<h1 style="font-size:22px;color:#1E2A5E;margin:12px 0 4px;">Team Digest</h1>';
-  h += '<p style="font-size:14px;color:#6B7599;margin:0;">' + esc(data.from) + ' to ' + esc(data.to) + '</p>';
+  h += '<p style="font-size:14px;color:#6B7599;margin:0;">' + formatDateRange(data.from, data.to) + '</p>';
   h += '</div>';
 
   // Key Insights
@@ -199,7 +211,7 @@ function buildDigestEmail(data) {
   ];
   salesRow.forEach(function(s, i) {
     if (i > 0) h += '<td width="12"></td>';
-    h += '<td style="background:' + s.bg + ';border:1px solid ' + s.bc + ';border-radius:10px;padding:12px 16px;text-align:center;">';
+    h += '<td width="33%" style="background:' + s.bg + ';border:1px solid ' + s.bc + ';border-radius:10px;padding:12px 16px;text-align:center;">';
     h += '<div style="font-size:24px;font-weight:700;color:' + s.nc + ';">' + s.val + '</div>';
     h += '<div style="font-size:10px;color:#6B7599;text-transform:uppercase;letter-spacing:.5px;">' + s.label + '</div></td>';
   });
@@ -213,7 +225,7 @@ function buildDigestEmail(data) {
   ];
   actRow.forEach(function(s, i) {
     if (i > 0) h += '<td width="12"></td>';
-    h += '<td style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:12px 16px;text-align:center;">';
+    h += '<td width="33%" style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:12px 16px;text-align:center;">';
     h += '<div style="font-size:24px;font-weight:700;color:#1E2A5E;">' + s.val + emailArrow(s.val, s.prev) + '</div>';
     h += '<div style="font-size:10px;color:#6B7599;text-transform:uppercase;letter-spacing:.5px;">' + s.label + '</div></td>';
   });
@@ -257,15 +269,16 @@ function buildDigestEmail(data) {
       h += '<h4 style="font-size:14px;color:#1E2A5E;margin:0 0 8px;">' + esc(name) + ' <span style="font-size:11px;font-weight:400;color:#6B7599;">(' + entries.length + ')</span></h4>';
       entries.forEach(function(e) {
         var date = new Date(e.created_at);
-        var dateStr = (date.getMonth() + 1) + '/' + date.getDate();
-        var badgeColor, label;
-        if (e.table_name === 'deliverables') { badgeColor = 'rgba(107,117,153,.12);color:#6B7599'; label = 'DELIVERABLE'; }
-        else if (e.table_name === 'checklist_items') { badgeColor = 'rgba(107,117,153,.12);color:#6B7599'; label = 'AUDIT TASK'; }
-        else { badgeColor = 'rgba(245,158,11,.1);color:#D97706'; label = e.table_name.replace(/_/g,' ').toUpperCase(); }
-        h += '<div style="padding:3px 0;font-size:13px;color:#333F70;display:flex;align-items:center;gap:6px;">';
-        h += '<span style="color:#6B7599;font-size:12px;min-width:36px;">' + dateStr + '</span>';
-        h += '<span style="background:' + badgeColor + ';font-size:9px;font-weight:600;padding:2px 5px;border-radius:3px;">' + label + '</span>';
-        h += '<span>' + esc(e.field_name) + ': ' + esc(e.old_value || '-') + ' &rarr; ' + esc(e.new_value || '-') + '</span>';
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var dateStr = months[date.getMonth()] + ' ' + date.getDate();
+        var badgeBg, badgeColor, label;
+        if (e.table_name === 'deliverables') { badgeBg = 'rgba(107,117,153,.12)'; badgeColor = '#6B7599'; label = 'DELIVERABLE'; }
+        else if (e.table_name === 'checklist_items') { badgeBg = 'rgba(107,117,153,.12)'; badgeColor = '#6B7599'; label = 'AUDIT TASK'; }
+        else { badgeBg = 'rgba(245,158,11,.1)'; badgeColor = '#D97706'; label = e.table_name.replace(/_/g,' ').toUpperCase(); }
+        h += '<div style="padding:4px 0;font-size:13px;color:#333F70;">';
+        h += '<span style="color:#6B7599;font-size:12px;">' + dateStr + '</span> ';
+        h += '<span style="background:' + badgeBg + ';color:' + badgeColor + ';font-size:9px;font-weight:600;padding:2px 5px;border-radius:3px;">' + label + '</span> ';
+        h += esc(e.field_name) + ': ' + esc(e.old_value || '-') + ' &rarr; ' + esc(e.new_value || '-');
         h += '</div>';
       });
       h += '</div>';
