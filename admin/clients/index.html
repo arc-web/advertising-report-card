@@ -67,7 +67,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 /* ---- SIDEBAR ---- */
 .sidebar { width: 240px; background: var(--sidebar-bg); border-right: 1px solid var(--sidebar-border); position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; display: flex; flex-direction: column; transition: transform .25s ease; }
 .sidebar-header { padding: 1.25rem 1.15rem .75rem; display: flex; align-items: center; gap: .75rem; }
-.sidebar-header img { height: 22px; padding: 4px; background: var(--color-primary-subtle); border: 1px solid rgba(0,212,126,.15); border-radius: 8px; }
+.sidebar-header img { height: 28px; padding: 5px; background: var(--color-primary-subtle); border: 1px solid rgba(0,212,126,.15); border-radius: 8px; }
 .sidebar-header span { font-family: 'Outfit', sans-serif; font-weight: 600; font-size: .85rem; color: var(--color-heading); }
 .sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .sidebar-nav a, .sidebar-nav button { display: flex; align-items: center; gap: .65rem; padding: .55rem .75rem; border-radius: 8px; font-size: .82rem; font-weight: 500; color: var(--color-muted); text-decoration: none; transition: all .15s; border: none; background: none; cursor: pointer; width: 100%; text-align: left; font-family: inherit; }
@@ -374,6 +374,24 @@ strong { font-weight: 600; color: var(--color-heading); }
 .theme-toggle { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 50%; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: .9rem; transition: all .2s; }
 .theme-toggle:hover { border-color: var(--color-primary); }
 
+/* ---- NEW CLIENT MODAL ---- */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 900; display: flex; align-items: center; justify-content: center; animation: fadeIn .2s; }
+.modal-box { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; padding: 1.75rem; width: 480px; max-width: 90vw; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.2); }
+.modal-box h2 { font-size: 1.1rem; margin: 0 0 .25rem; }
+.modal-box .modal-desc { font-size: .82rem; color: var(--color-muted); margin-bottom: 1.25rem; }
+.modal-form-group { margin-bottom: .85rem; }
+.modal-form-group label { display: block; font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); margin-bottom: .3rem; }
+.modal-form-group input, .modal-form-group select { width: 100%; padding: .45rem .6rem; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-body); font-family: inherit; font-size: .85rem; transition: border-color .15s; }
+.modal-form-group input:focus, .modal-form-group select:focus { border-color: var(--color-primary); outline: none; box-shadow: 0 0 0 2px rgba(0,212,126,.12); }
+.modal-form-group .help { font-size: .72rem; color: var(--color-muted); margin-top: .2rem; }
+.modal-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--color-border); }
+.modal-actions .btn-cancel { padding: .45rem 1rem; border-radius: 8px; border: 1px solid var(--color-border); background: transparent; color: var(--color-muted); cursor: pointer; font-family: inherit; font-size: .82rem; }
+.modal-actions .btn-cancel:hover { background: var(--color-bg); }
+.modal-actions .btn-create { padding: .45rem 1.25rem; border-radius: 8px; border: none; background: var(--color-primary); color: #fff; cursor: pointer; font-family: inherit; font-size: .82rem; font-weight: 600; }
+.modal-actions .btn-create:hover { background: var(--color-primary-hover); }
+.modal-actions .btn-create:disabled { opacity: .5; cursor: not-allowed; }
+
 /* ---- TOAST ---- */
 .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; padding: .65rem 1.1rem; border-radius: 10px; font-size: .82rem; font-weight: 500; z-index: 1000; transform: translateY(120%); transition: transform .3s; }
 .toast.show { transform: translateY(0); }
@@ -509,7 +527,7 @@ strong { font-weight: 600; color: var(--color-heading); }
     <div id="directoryView" style="display:none;">
       <div class="section-header">
         <h2>All Clients</h2>
-        <button class="btn btn-primary btn-sm" onclick="toast('Create new client from Claude chat','success')">+ New Client</button>
+        <button class="btn btn-primary btn-sm" onclick="openNewClientModal()">+ New Client</button>
       </div>
       <p class="section-desc">Click any row to view full client details.</p>
 
@@ -1857,6 +1875,105 @@ strong { font-weight: 600; color: var(--color-heading); }
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'update_record', table: 'contacts', filters: { id: state.contact.id }, data: data })
+    });
+  }
+
+  // ---- NEW CLIENT MODAL ----
+  window.openNewClientModal = function() {
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'newClientModal';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    overlay.innerHTML = '<div class="modal-box">' +
+      '<h2>New Client</h2>' +
+      '<p class="modal-desc">Create a new contact in the system. You can fill in more details from the overview tab after creation.</p>' +
+      '<div class="modal-form-row">' +
+        '<div class="modal-form-group"><label>First Name *</label><input type="text" id="nc_first" placeholder="Rebecca"></div>' +
+        '<div class="modal-form-group"><label>Last Name *</label><input type="text" id="nc_last" placeholder="Branda"></div>' +
+      '</div>' +
+      '<div class="modal-form-group"><label>Practice Name *</label><input type="text" id="nc_practice" placeholder="Birth Feelings"></div>' +
+      '<div class="modal-form-row">' +
+        '<div class="modal-form-group"><label>Email</label><input type="email" id="nc_email" placeholder="rebecca@birthfeelings.com"></div>' +
+        '<div class="modal-form-group"><label>Phone</label><input type="tel" id="nc_phone" placeholder="(310) 926-1437"></div>' +
+      '</div>' +
+      '<div class="modal-form-row">' +
+        '<div class="modal-form-group"><label>Status</label><select id="nc_status"><option value="lead">Lead</option><option value="prospect" selected>Prospect</option><option value="onboarding">Onboarding</option><option value="active">Active</option></select></div>' +
+        '<div class="modal-form-group"><label>Credentials</label><input type="text" id="nc_creds" placeholder="PsyD, LCSW, LMFT..."></div>' +
+      '</div>' +
+      '<div class="modal-form-row">' +
+        '<div class="modal-form-group"><label>City</label><input type="text" id="nc_city" placeholder="Los Angeles"></div>' +
+        '<div class="modal-form-group"><label>State / Province</label><input type="text" id="nc_state" placeholder="CA"></div>' +
+      '</div>' +
+      '<div class="modal-form-group"><label>Website</label><input type="url" id="nc_website" placeholder="https://birthfeelings.com"></div>' +
+      '<div class="modal-form-group"><label>Slug</label><input type="text" id="nc_slug" placeholder="auto-generated from practice name"><div class="help">URL-safe identifier. Auto-generated if left blank.</div></div>' +
+      '<div class="modal-actions">' +
+        '<button class="btn-cancel" onclick="document.getElementById(\'newClientModal\').remove()">Cancel</button>' +
+        '<button class="btn-create" id="nc_submit" onclick="submitNewClient()">Create Client</button>' +
+      '</div>' +
+    '</div>';
+
+    document.body.appendChild(overlay);
+    document.getElementById('nc_first').focus();
+
+    // Auto-generate slug from practice name
+    document.getElementById('nc_practice').addEventListener('input', function() {
+      var slugEl = document.getElementById('nc_slug');
+      if (!slugEl.dataset.manual) {
+        slugEl.value = this.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      }
+    });
+    document.getElementById('nc_slug').addEventListener('input', function() {
+      this.dataset.manual = 'true';
+    });
+  }
+
+  window.submitNewClient = function() {
+    var first = document.getElementById('nc_first').value.trim();
+    var last = document.getElementById('nc_last').value.trim();
+    var practice = document.getElementById('nc_practice').value.trim();
+    if (!first || !last || !practice) { alert('First name, last name, and practice name are required.'); return; }
+
+    var slug = document.getElementById('nc_slug').value.trim() || practice.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    var btn = document.getElementById('nc_submit');
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+
+    var data = {
+      slug: slug,
+      first_name: first,
+      last_name: last,
+      practice_name: practice,
+      email: document.getElementById('nc_email').value.trim() || null,
+      phone: document.getElementById('nc_phone').value.trim() || null,
+      status: document.getElementById('nc_status').value,
+      credentials: document.getElementById('nc_creds').value.trim() || null,
+      city: document.getElementById('nc_city').value.trim() || null,
+      state_province: document.getElementById('nc_state').value.trim() || null,
+      website_url: document.getElementById('nc_website').value.trim() || null
+    };
+
+    fetch('/api/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create_record', table: 'contacts', data: data })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success && res.data && res.data[0]) {
+        document.getElementById('newClientModal').remove();
+        toast('Client created: ' + practice, 'success');
+        // Navigate to the new client
+        setTimeout(function() {
+          window.location.href = '/admin/clients?slug=' + slug;
+        }, 800);
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Create Client';
+        alert('Error creating client: ' + (res.error || 'Unknown error'));
+      }
+    }).catch(function(err) {
+      btn.disabled = false;
+      btn.textContent = 'Create Client';
+      alert('Network error: ' + err.message);
     });
   }
 
