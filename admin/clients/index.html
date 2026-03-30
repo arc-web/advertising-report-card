@@ -119,6 +119,19 @@ strong { font-weight: 600; color: var(--color-heading); }
 .tag-active { background: rgba(0,212,126,.1); color: var(--color-success); }
 .tag-onboarding { background: rgba(59,130,246,.08); color: var(--color-info); }
 .tag-prospect { background: rgba(245,158,11,.08); color: var(--color-warning); }
+.tag-lost { background: rgba(239,68,68,.08); color: var(--color-danger); }
+.follow-up-badge { font-size: .68rem; padding: .15rem .45rem; border-radius: 4px; font-weight: 500; }
+.follow-up-badge.overdue { background: rgba(239,68,68,.1); color: var(--color-danger); }
+.follow-up-badge.upcoming { background: rgba(245,158,11,.1); color: #D97706; }
+.follow-up-badge.future { background: rgba(107,117,153,.08); color: var(--color-muted); }
+.lost-banner { background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.15); border-radius: 10px; padding: .75rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: .75rem; }
+.lost-banner .lost-icon { font-size: 1.1rem; }
+.lost-banner .lost-text { font-size: .84rem; color: var(--color-danger); font-weight: 500; }
+.lost-banner .lost-reason { font-size: .78rem; color: var(--color-muted); }
+.btn-mark-lost { padding: .35rem .75rem; border-radius: 6px; font-size: .75rem; font-weight: 500; border: 1px solid rgba(239,68,68,.3); background: transparent; color: var(--color-danger); cursor: pointer; font-family: inherit; transition: all .15s; }
+.btn-mark-lost:hover { background: rgba(239,68,68,.08); }
+.btn-restore { padding: .35rem .75rem; border-radius: 6px; font-size: .75rem; font-weight: 500; border: 1px solid var(--color-border); background: transparent; color: var(--color-muted); cursor: pointer; font-family: inherit; transition: all .15s; }
+.btn-restore:hover { background: var(--color-bg); color: var(--color-heading); }
 .tag-lead { background: rgba(107,117,153,.08); color: var(--color-muted); }
 .tag-moonraker { background: rgba(0,212,126,.12); color: #00b86c; }
 .tag-client { background: rgba(59,130,246,.1); color: #3B82F6; }
@@ -506,6 +519,7 @@ strong { font-weight: 600; color: var(--color-heading); }
         <button class="filter-tab" data-filter="onboarding">Onboarding</button>
         <button class="filter-tab" data-filter="prospect">Prospects</button>
         <button class="filter-tab" data-filter="lead">Leads</button>
+        <button class="filter-tab" data-filter="lost">Lost</button>
       </div>
 
       <table class="client-table">
@@ -572,6 +586,12 @@ strong { font-weight: 600; color: var(--color-heading); }
           <div class="card">
             <div class="card-header"><h3>Campaign &amp; Technical</h3></div>
             <div class="field-group" id="campaignFields"></div>
+          </div>
+        </div>
+        <div style="margin-top:1rem;">
+          <div class="card">
+            <div class="card-header"><h3>Follow-up &amp; CRM</h3></div>
+            <div class="field-group" id="crmFields"></div>
           </div>
         </div>
         <div style="margin-top:1rem;">
@@ -703,7 +723,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 
   function loadDirectoryData() {
     Promise.all([
-      sb('contacts?select=id,slug,status,practice_name,email,first_name,last_name,campaign_start,website_url,phone,state_province,city,team_size&order=practice_name'),
+      sb('contacts?select=id,slug,status,practice_name,email,first_name,last_name,campaign_start,website_url,phone,state_province,city,team_size,lost,follow_up_date&order=practice_name'),
       sb('onboarding_steps?select=contact_id,step_key,status'),
       sb('checklist_items?select=client_slug,status')
     ]).then(function(res) {
@@ -840,7 +860,14 @@ strong { font-weight: 600; color: var(--color-heading); }
       }
     });
 
-    var filtered = state.filter === 'all' ? contacts : contacts.filter(function(c) { return c.status === state.filter; });
+    var filtered;
+    if (state.filter === 'all') {
+      filtered = contacts.filter(function(c) { return !c.lost; });
+    } else if (state.filter === 'lost') {
+      filtered = contacts.filter(function(c) { return c.lost; });
+    } else {
+      filtered = contacts.filter(function(c) { return c.status === state.filter && !c.lost; });
+    }
     var tbody = document.getElementById('dirBody');
 
     if (filtered.length === 0) {
@@ -851,7 +878,7 @@ strong { font-weight: 600; color: var(--color-heading); }
     var html = '';
     filtered.forEach(function(c) {
       var initials = ((c.first_name || '')[0] || '') + ((c.last_name || '')[0] || '') || c.slug[0].toUpperCase();
-      var statusTag = '<span class="tag tag-' + c.status + '">' + c.status + '</span>';
+      var statusTag = c.lost ? '<span class="tag tag-lost">lost</span>' : '<span class="tag tag-' + c.status + '">' + c.status + '</span>';
 
       var obSteps = state.allOnboarding[c.id] || [];
       var obC = obSteps.filter(function(s) { return s.status === 'complete'; }).length;
@@ -877,7 +904,16 @@ strong { font-weight: 600; color: var(--color-heading); }
       html += '<td class="hide-mobile">' + start + '</td>';
       html += '<td class="hide-mobile">' + obHtml + '</td>';
       html += '<td class="hide-mobile">' + tHtml + '</td>';
-      html += '<td style="text-align:right;"><span style="color:var(--color-muted);font-size:.8rem;">&#8250;</span></td>';
+      var fuHtml = '';
+      if (c.follow_up_date && !c.lost) {
+        var fuDate = new Date(c.follow_up_date);
+        var today = new Date(); today.setHours(0,0,0,0);
+        var diff = Math.round((fuDate - today) / 86400000);
+        var fuClass = diff < 0 ? 'overdue' : diff <= 3 ? 'upcoming' : 'future';
+        var fuLabel = diff < 0 ? 'Overdue' : diff === 0 ? 'Today' : diff <= 3 ? 'Soon' : formatDate(c.follow_up_date);
+        fuHtml = '<span class="follow-up-badge ' + fuClass + '">' + fuLabel + '</span>';
+      }
+      html += '<td style="text-align:right;">' + fuHtml + '<span style="color:var(--color-muted);font-size:.8rem;margin-left:.5rem;">&#8250;</span></td>';
       html += '</tr>';
     });
 
@@ -1002,6 +1038,22 @@ strong { font-weight: 600; color: var(--color-heading); }
       + editField('contacts', 'gtm_container', 'GTM Container', c.gtm_container)
       + editField('contacts', 'gbp_place_id', 'GBP Place ID', c.gbp_place_id)
       + editField('contacts', 'npi_number', 'NPI Number', c.npi_number);
+
+    // CRM fields
+    var crmf = document.getElementById('crmFields');
+    if (crmf) {
+      var lostBanner = '';
+      if (c.lost) {
+        lostBanner = '<div class="lost-banner"><span class="lost-icon">&#9888;</span><div><div class="lost-text">Marked as Lost</div>';
+        if (c.lost_reason) lostBanner += '<div class="lost-reason">Reason: ' + esc(c.lost_reason) + '</div>';
+        if (c.lost_at) lostBanner += '<div class="lost-reason">' + formatDate(c.lost_at) + '</div>';
+        lostBanner += '</div><button class="btn-restore" onclick="restoreClient()">Restore</button></div>';
+      }
+      crmf.innerHTML = lostBanner
+        + editField('contacts', 'follow_up_date', 'Follow-up Date', c.follow_up_date, {isDate:true})
+        + editField('contacts', 'follow_up_notes', 'Follow-up Notes', c.follow_up_notes)
+        + (c.lost ? '' : '<div style="margin-top:.75rem;"><button class="btn-mark-lost" onclick="markAsLost()">Mark as Lost</button></div>');
+    }
 
     var sf = document.getElementById('socialFields');
     sf.innerHTML = editField('contacts', 'youtube_url', 'YouTube', c.youtube_url)
@@ -1777,6 +1829,41 @@ strong { font-weight: 600; color: var(--color-heading); }
     }
   }
 
+  window.markAsLost = function markAsLost() {
+    var reasons = ['No response', 'Price too high', 'Bad timing', 'Went elsewhere', 'Not a fit', 'Other'];
+    var reason = prompt('Why is this client lost?\n\n' + reasons.map(function(r,i) { return (i+1) + '. ' + r; }).join('\n') + '\n\nEnter a number or type your reason:');
+    if (!reason) return;
+    var idx = parseInt(reason);
+    if (idx >= 1 && idx <= reasons.length) reason = reasons[idx - 1];
+
+    var data = { lost: true, lost_reason: reason, lost_at: new Date().toISOString() };
+    state.contact.lost = true;
+    state.contact.lost_reason = reason;
+    state.contact.lost_at = data.lost_at;
+    renderOverview(state.contact, state.practice);
+
+    fetch('/api/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_record', table: 'contacts', filters: { id: state.contact.id }, data: data })
+    });
+  }
+
+  window.restoreClient = function restoreClient() {
+    if (!confirm('Restore this client to active pipeline?')) return;
+    var data = { lost: false, lost_reason: null, lost_at: null };
+    state.contact.lost = false;
+    state.contact.lost_reason = null;
+    state.contact.lost_at = null;
+    renderOverview(state.contact, state.practice);
+
+    fetch('/api/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_record', table: 'contacts', filters: { id: state.contact.id }, data: data })
+    });
+  }
+
   window.startEditNotes = function startEditNotes() {
     var el = document.getElementById('notesContent');
     if (el.querySelector('textarea')) return;
@@ -1890,6 +1977,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
