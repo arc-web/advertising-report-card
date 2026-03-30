@@ -703,6 +703,15 @@
     var data = actionData.data || {};
     var filters = actionData.filters || {};
 
+    // Auto-execute read actions (no confirmation needed)
+    if (action === 'read_records') {
+      setTimeout(function() { autoExecuteRead(actionData, cardId); }, 100);
+      return '<div class="mr-action-card" data-card-id="' + cardId + '" id="read-card-' + cardId + '">' +
+        '<div class="mr-action-card-header">&#128269; READING ' + esc(table).toUpperCase() + '</div>' +
+        '<div class="mr-action-card-body" style="color:var(--color-muted);">Loading data...</div>' +
+        '</div>';
+    }
+
     var label = action.replace(/_/g, ' ').toUpperCase();
     var desc = '';
 
@@ -744,6 +753,52 @@
   // ============================================================
   // ACTION EXECUTION
   // ============================================================
+  function autoExecuteRead(actionData, cardId) {
+    fetch(ACTION_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(actionData)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      var card = document.getElementById('read-card-' + cardId);
+      if (!card) return;
+      if (result.success && result.data) {
+        var count = result.data.length || 0;
+        var preview = '';
+        if (count === 0) {
+          preview = '<em>No records found.</em>';
+        } else {
+          // Show compact summary
+          preview = '<strong>' + count + ' record' + (count !== 1 ? 's' : '') + ' found</strong>';
+          result.data.slice(0, 5).forEach(function(row) {
+            var summary = Object.keys(row).slice(0, 4).map(function(k) {
+              var v = row[k];
+              if (v === null || v === undefined) return '';
+              if (typeof v === 'object') v = JSON.stringify(v);
+              return '<strong>' + esc(k) + ':</strong> ' + esc(String(v).substring(0, 40));
+            }).filter(Boolean).join(' | ');
+            preview += '<div style="margin-top:.3rem;font-size:.72rem;padding:.25rem .4rem;background:var(--color-bg);border-radius:4px;">' + summary + '</div>';
+          });
+          if (count > 5) preview += '<div style="font-size:.7rem;color:var(--color-muted);margin-top:.25rem;">...and ' + (count - 5) + ' more</div>';
+        }
+        card.querySelector('.mr-action-card-header').innerHTML = '&#9889; DATA LOADED';
+        card.querySelector('.mr-action-card-body').innerHTML = preview;
+        card.style.borderColor = 'rgba(0,212,126,.3)';
+
+        // Feed result back as context for follow-up questions
+        if (!window._mrReadResults) window._mrReadResults = {};
+        window._mrReadResults[cardId] = result.data;
+      } else {
+        card.querySelector('.mr-action-card-body').innerHTML = '<span style="color:var(--color-danger);">Failed: ' + esc(result.error || 'Unknown') + '</span>';
+      }
+    })
+    .catch(function(err) {
+      var card = document.getElementById('read-card-' + cardId);
+      if (card) card.querySelector('.mr-action-card-body').innerHTML = '<span style="color:var(--color-danger);">Error: ' + esc(err.message) + '</span>';
+    });
+  }
+
   function executeAction(cardId) {
     var card = messagesEl.querySelector('[data-card-id="' + cardId + '"]');
     if (!card) return;
@@ -767,8 +822,6 @@
         // Trigger page data refresh if available
         if (typeof window.loadData === 'function') {
           setTimeout(window.loadData, 500);
-        } else {
-          setTimeout(function() { window.location.reload(); }, 1500);
         }
       } else {
         card.querySelector('.mr-action-card-actions').innerHTML = '<span style="font-size:.75rem;color:var(--color-danger);">Failed: ' + esc(result.error || 'Unknown error') + '</span>';
