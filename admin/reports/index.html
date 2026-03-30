@@ -626,7 +626,8 @@ strong { font-weight: 600; color: var(--color-heading); }
 
       // New contacts in range
       var newInRange = clients.filter(function(cl) { return cl.created_at >= fromStart && cl.created_at <= toEnd; });
-      var proposals = newInRange.filter(function(cl) { return cl.status === 'prospect' || cl.status === 'lead'; });
+      var leads = newInRange.filter(function(cl) { return cl.status === 'lead'; });
+      var proposals = newInRange.filter(function(cl) { return cl.status === 'prospect'; });
       var signups = newInRange.filter(function(cl) { return cl.status === 'onboarding' || cl.status === 'active'; });
 
       // Stats
@@ -650,7 +651,8 @@ strong { font-weight: 600; color: var(--color-heading); }
       }
       if (delCompleted > 0) { var d = delCompleted + ' deliverable' + (delCompleted !== 1 ? 's' : '') + ' done.'; if (prevDel > 0) d += ' Prev: ' + prevDel + '.'; insights.push(d); }
       if (tasksCompleted > 0) { var t = tasksCompleted + ' audit task' + (tasksCompleted !== 1 ? 's' : '') + ' completed.'; if (prevTasks > 0) t += ' Prev: ' + prevTasks + '.'; insights.push(t); }
-      if (proposals.length > 0) insights.push(proposals.length + ' new proposal' + (proposals.length !== 1 ? 's' : '') + ' sent.');
+      if (leads.length > 0) insights.push(leads.length + ' new lead' + (leads.length !== 1 ? 's' : '') + ' added.');
+      if (proposals.length > 0) insights.push(proposals.length + ' proposal' + (proposals.length !== 1 ? 's' : '') + ' sent.');
       if (signups.length > 0) insights.push(signups.length + ' new client' + (signups.length !== 1 ? 's' : '') + ' signed up!');
       if (insights.length === 0) insights.push('Quiet period.');
 
@@ -673,12 +675,12 @@ strong { font-weight: 600; color: var(--color-heading); }
 
       html += '<div style="font-size:.72rem;color:var(--color-muted);margin-bottom:1rem;">' + from + ' to ' + to + '</div>';
 
-      if (totalChanges === 0 && proposals.length === 0 && signups.length === 0) {
+      if (totalChanges === 0 && leads.length === 0 && proposals.length === 0 && signups.length === 0) {
         html += '<div class="empty-state" style="padding:1.5rem;"><p>No activity in this date range.</p></div>';
       }
 
       // Pipeline
-      if (signups.length > 0 || proposals.length > 0) {
+      if (signups.length > 0 || proposals.length > 0 || leads.length > 0) {
         html += '<div class="digest-client"><h4>Pipeline</h4>';
         if (signups.length > 0) {
           html += '<div style="font-size:.7rem;font-weight:600;color:var(--color-success);text-transform:uppercase;margin:.5rem 0 .25rem;">Clients Signed (' + signups.length + ')</div>';
@@ -687,6 +689,10 @@ strong { font-weight: 600; color: var(--color-heading); }
         if (proposals.length > 0) {
           html += '<div style="font-size:.7rem;font-weight:600;color:var(--color-info);text-transform:uppercase;margin:.5rem 0 .25rem;">Proposals Sent (' + proposals.length + ')</div>';
           proposals.forEach(function(cl) { html += '<div class="digest-entry"><span class="de-badge deliverables">proposal</span><span>' + esc(cl.practice_name || cl.slug) + '</span></div>'; });
+        }
+        if (leads.length > 0) {
+          html += '<div style="font-size:.7rem;font-weight:600;color:#D97706;text-transform:uppercase;margin:.5rem 0 .25rem;">New Leads (' + leads.length + ')</div>';
+          leads.forEach(function(cl) { html += '<div class="digest-entry"><span class="de-badge contacts">lead</span><span>' + esc(cl.practice_name || cl.slug) + '</span></div>'; });
         }
         html += '</div>';
       }
@@ -1234,6 +1240,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
