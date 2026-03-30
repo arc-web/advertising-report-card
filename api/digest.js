@@ -246,8 +246,8 @@ function buildDigestEmail(data) {
         var date = new Date(e.created_at);
         var dateStr = (date.getMonth() + 1) + '/' + date.getDate();
         var badgeColor, label;
-        if (e.table_name === 'deliverables') { badgeColor = 'rgba(59,130,246,.1);color:#3B82F6'; label = 'DELIVERABLE'; }
-        else if (e.table_name === 'checklist_items') { badgeColor = 'rgba(0,212,126,.1);color:#00b86c'; label = 'AUDIT TASK'; }
+        if (e.table_name === 'deliverables') { badgeColor = 'rgba(107,117,153,.12);color:#6B7599'; label = 'DELIVERABLE'; }
+        else if (e.table_name === 'checklist_items') { badgeColor = 'rgba(107,117,153,.12);color:#6B7599'; label = 'AUDIT TASK'; }
         else { badgeColor = 'rgba(245,158,11,.1);color:#D97706'; label = e.table_name.replace(/_/g,' ').toUpperCase(); }
         h += '<div style="padding:3px 0;font-size:13px;color:#333F70;display:flex;align-items:center;gap:6px;">';
         h += '<span style="color:#6B7599;font-size:12px;min-width:36px;">' + dateStr + '</span>';
