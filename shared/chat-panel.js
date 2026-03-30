@@ -703,8 +703,12 @@
     var data = actionData.data || {};
     var filters = actionData.filters || {};
 
-    // Auto-execute read actions (no confirmation needed)
+    // Auto-execute read actions (no confirmation needed) - but not during follow-up summaries
     if (action === 'read_records') {
+      if (isAutoReadFollowUp) {
+        // Swallow the action block during follow-up - don't render or execute
+        return '';
+      }
       setTimeout(function() { autoExecuteRead(actionData, cardId); }, 100);
       return '<div class="mr-action-card" data-card-id="' + cardId + '" id="read-card-' + cardId + '">' +
         '<div class="mr-action-card-header">&#128269; READING ' + esc(table).toUpperCase() + '</div>' +
@@ -780,10 +784,11 @@
         // Auto-trigger a follow-up to get a conversational summary
         messages.push({
           role: 'user',
-          content: '[System: The data above was auto-fetched. Please provide a concise, conversational summary of what you found. Do not output another read_records action. Just interpret the data naturally.]'
+          content: '[System: The data above was auto-fetched. Please provide a concise, conversational summary of what you found. Do NOT output any action blocks. Just interpret the data naturally in plain text.]'
         });
 
-        // Trigger the AI to respond
+        // Trigger the AI to respond (with guard flag)
+        isAutoReadFollowUp = true;
         isStreaming = true;
         sendBtn.disabled = true;
         currentStreamText = '';
@@ -1000,6 +1005,7 @@
   }
 
   var displayedText = '';
+  var isAutoReadFollowUp = false;
   var typewriterTimer = null;
   var TYPEWRITER_SPEED = 8; // ms per character - very fast but smooth
 
@@ -1037,6 +1043,7 @@
   function finishStream() {
     if (!isStreaming) return;
     isStreaming = false;
+    isAutoReadFollowUp = false;
     sendBtn.disabled = false;
 
     // Flush any remaining buffered text
