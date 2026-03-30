@@ -168,6 +168,8 @@
     }
 
     /* Streaming indicator */
+    .mr-msg-ai.streaming { transition: none; }
+    .mr-msg-ai.streaming .mr-msg-content { transition: none; }
     .mr-msg-ai.streaming::after {
       content: ''; display: inline-block;
       width: 6px; height: 14px; margin-left: 2px;
@@ -799,6 +801,7 @@
     isStreaming = true;
     sendBtn.disabled = true;
     currentStreamText = '';
+    userScrolledUp = false;
 
     // Add empty AI message placeholder
     var aiDiv = document.createElement('div');
@@ -908,16 +911,25 @@
     }
   }
 
+  var streamRafPending = false;
   function updateStreamDisplay() {
     if (!currentStreamEl) return;
-    currentStreamEl.innerHTML = '<div class="mr-msg-label">Moonraker AI</div>' + formatAIMessage(currentStreamText, messages.length);
-    scrollToBottom();
+    if (streamRafPending) return;
+    streamRafPending = true;
+    requestAnimationFrame(function() {
+      streamRafPending = false;
+      if (!currentStreamEl) return;
+      currentStreamEl.innerHTML = '<div class="mr-msg-label">Moonraker AI</div>' + formatAIMessage(currentStreamText, messages.length);
+      scrollToBottom();
+    });
   }
 
   function finishStream() {
     if (!isStreaming) return;
     isStreaming = false;
     sendBtn.disabled = false;
+    userScrolledUp = false;
+    scrollToBottom(true);
 
     if (currentStreamEl) {
       currentStreamEl.classList.remove('streaming');
@@ -932,6 +944,7 @@
     renderMessages();
     currentStreamEl = null;
     currentStreamText = '';
+    userScrolledUp = false;
   }
 
   function addSystemMessage(text) {
@@ -943,8 +956,18 @@
   // ============================================================
   // UTILITIES
   // ============================================================
-  function scrollToBottom() {
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+  var userScrolledUp = false;
+
+  // Detect if user has scrolled up to read
+  messagesEl.addEventListener('scroll', function() {
+    var atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 60;
+    userScrolledUp = !atBottom;
+  });
+
+  function scrollToBottom(force) {
+    if (force || !userScrolledUp) {
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
   }
 
   function saveHistory() {
@@ -985,6 +1008,7 @@
   };
 
 })();
+
 
 
 
