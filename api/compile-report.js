@@ -4,11 +4,10 @@
 //
 // Sources:
 //   1. Google Search Console (via Google API + service account)
-//   2. Google Analytics 4  (via Google API + service account)
-//   3. Local Brand Manager (via LBM API)
-//   4. DataForSEO          (AI visibility: Google AI Mode, Gemini, ChatGPT, Perplexity, Claude scrapers)
-//   5. Supabase            (task progress from checklist_items)
-//   6. Supabase            (previous month snapshot for deltas)
+//   2. Local Brand Manager   (via LBM API for GBP data)
+//   3. DataForSEO            (AI visibility: Google AI Mode, Gemini, ChatGPT, Perplexity, Claude scrapers)
+//   4. Supabase              (task progress from checklist_items)
+//   5. Supabase              (previous month snapshot for deltas)
 //
 // Outputs:
 //   - report_snapshots row (status: internal_review)
@@ -165,40 +164,7 @@ module.exports = async function handler(req, res) {
     };
   });
 
-  // ─── STEP 4: Pull Google Analytics 4 data ─────────────────────
-  var ga4Data = await safe('ga4', async function() {
-    if (!googleSA || !config.ga4_property) {
-      warnings.push('GA4: skipped (no credentials or property configured)');
-      return null;
-    }
-    var token = await getGoogleAccessToken(googleSA);
-    if (!token) { warnings.push('GA4: could not get access token'); return null; }
-
-    var ga4Resp = await fetch('https://analyticsdata.googleapis.com/v1beta/' + config.ga4_property + ':runReport', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        dateRanges: [{ startDate: range.start, endDate: range.end }],
-        metrics: [
-          { name: 'sessions' },
-          { name: 'totalUsers' },
-          { name: 'newUsers' },
-          { name: 'engagementRate' }
-        ]
-      })
-    });
-    var ga4Result = await ga4Resp.json();
-    var row = (ga4Result.rows && ga4Result.rows[0] && ga4Result.rows[0].metricValues) || [];
-
-    return {
-      sessions: parseInt(row[0] && row[0].value || '0'),
-      users: parseInt(row[1] && row[1].value || '0'),
-      new_users: parseInt(row[2] && row[2].value || '0'),
-      engagement_rate: Math.round(parseFloat(row[3] && row[3].value || '0') * 10000) / 100
-    };
-  });
-
-  // ─── STEP 5: Pull GBP data from Local Brand Manager ───────────
+  // ─── STEP 4: Pull GBP data from Local Brand Manager ────────────
   var gbpData = await safe('lbm', async function() {
     if (!lbmKey || !config.lbm_location_id) {
       warnings.push('LBM/GBP: skipped (no key or location configured)');
@@ -384,16 +350,6 @@ module.exports = async function handler(req, res) {
     gbp_website_clicks_prev: prevSnap ? prevSnap.gbp_website_clicks : null,
     gbp_photo_views_prev: prevSnap ? prevSnap.gbp_photo_views : null,
 
-    // GA4
-    ga4_sessions: ga4Data ? ga4Data.sessions : null,
-    ga4_users: ga4Data ? ga4Data.users : null,
-    ga4_new_users: ga4Data ? ga4Data.new_users : null,
-    ga4_engagement_rate: ga4Data ? ga4Data.engagement_rate : null,
-    ga4_sessions_prev: prevSnap ? prevSnap.ga4_sessions : null,
-    ga4_users_prev: prevSnap ? prevSnap.ga4_users : null,
-    ga4_new_users_prev: prevSnap ? prevSnap.ga4_new_users : null,
-    ga4_engagement_rate_prev: prevSnap ? prevSnap.ga4_engagement_rate : null,
-
     // CORE scores (carry forward from previous or null)
     score_credibility: prevSnap ? prevSnap.score_credibility : null,
     score_optimization: prevSnap ? prevSnap.score_optimization : null,
@@ -409,7 +365,6 @@ module.exports = async function handler(req, res) {
     // Detail JSON
     gsc_detail: gscData ? { date_range: range, pages: gscData.pages, queries: gscData.queries } : {},
     gbp_detail: gbpData ? { reviews: gbpData.reviews } : {},
-    ga4_detail: ga4Data || {},
     ai_visibility: aiData || {},
     neo_data: {},
     deliverables: [],
@@ -507,7 +462,6 @@ module.exports = async function handler(req, res) {
         + '<p style="color:#6B7599;margin:0 0 16px">Month ' + campaignMonth + ' report for <strong style="color:#1E2A5E">' + practiceName + '</strong> has been compiled.</p>'
         + '<table style="width:100%;border-collapse:collapse;margin:16px 0">'
         + (gscData ? '<tr><td style="padding:8px 0;color:#6B7599;border-bottom:1px solid #E2E8F0">GSC Clicks</td><td style="padding:8px 0;text-align:right;font-weight:600;color:#1E2A5E;border-bottom:1px solid #E2E8F0">' + gscData.clicks.toLocaleString() + '</td></tr>' : '')
-        + (ga4Data ? '<tr><td style="padding:8px 0;color:#6B7599;border-bottom:1px solid #E2E8F0">GA4 Sessions</td><td style="padding:8px 0;text-align:right;font-weight:600;color:#1E2A5E;border-bottom:1px solid #E2E8F0">' + ga4Data.sessions.toLocaleString() + '</td></tr>' : '')
         + (gbpData ? '<tr><td style="padding:8px 0;color:#6B7599;border-bottom:1px solid #E2E8F0">GBP Calls</td><td style="padding:8px 0;text-align:right;font-weight:600;color:#1E2A5E;border-bottom:1px solid #E2E8F0">' + gbpData.calls + '</td></tr>' : '')
         + (aiSummary ? '<tr><td style="padding:8px 0;color:#6B7599;border-bottom:1px solid #E2E8F0">AI Visibility</td><td style="padding:8px 0;text-align:right;font-weight:600;color:#1E2A5E;border-bottom:1px solid #E2E8F0">' + aiSummary + '</td></tr>' : '')
         + '</table>'
@@ -546,7 +500,6 @@ module.exports = async function handler(req, res) {
     status: 'internal_review',
     data_sources: {
       gsc: gscData ? 'ok' : 'skipped',
-      ga4: ga4Data ? 'ok' : 'skipped',
       gbp: gbpData ? 'ok' : 'skipped',
       ai_visibility: aiData ? { engines_citing: aiData.engines_citing, engines_checked: aiData.engines_checked, ai_search_volume: aiData.ai_search_volume, ai_impressions: aiData.ai_impressions } : 'skipped',
       tasks: taskData ? 'ok' : 'skipped'
@@ -571,7 +524,7 @@ async function getGoogleAccessToken(saJson) {
     var now = Math.floor(Date.now() / 1000);
     var claims = Buffer.from(JSON.stringify({
       iss: sa.client_email,
-      scope: 'https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/analytics.readonly',
+      scope: 'https://www.googleapis.com/auth/webmasters.readonly',
       aud: 'https://oauth2.googleapis.com/token',
       iat: now,
       exp: now + 3600
@@ -784,11 +737,6 @@ async function generateHighlights(snapshot, prevSnap, practiceName, apiKey) {
   if (snapshot.gsc_clicks !== null) {
     metricsContext += 'GSC: ' + snapshot.gsc_clicks + ' clicks, ' + snapshot.gsc_impressions + ' impressions, ' + snapshot.gsc_ctr + '% CTR, pos ' + snapshot.gsc_avg_position;
     if (snapshot.gsc_clicks_prev !== null) metricsContext += ' (prev: ' + snapshot.gsc_clicks_prev + ' clicks)';
-    metricsContext += '\n';
-  }
-  if (snapshot.ga4_sessions !== null) {
-    metricsContext += 'GA4: ' + snapshot.ga4_sessions + ' sessions, ' + snapshot.ga4_users + ' users, ' + snapshot.ga4_engagement_rate + '% engagement';
-    if (snapshot.ga4_sessions_prev !== null) metricsContext += ' (prev: ' + snapshot.ga4_sessions_prev + ' sessions)';
     metricsContext += '\n';
   }
   if (snapshot.gbp_calls !== null) {
