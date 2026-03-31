@@ -240,7 +240,7 @@ module.exports = async function handler(req, res) {
     ];
 
     // Run checks for the first 3 tracked queries across all engines
-    var queriesToCheck = trackedQueries.slice(0, 3);
+    var queriesToCheck = trackedQueries.slice(0, 5);
 
     for (var ei = 0; ei < engineChecks.length; ei++) {
       var engine = engineChecks[ei];
