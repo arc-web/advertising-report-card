@@ -880,11 +880,13 @@ a:hover { color: var(--color-primary-hover); }
   // ============================================================
   // SURGE DATA PROCESSING MODAL
   // ============================================================
+  var surgeProcessing = false;
+
   window.openSurgeModal = function(auditId, practiceName) {
     var overlay = document.createElement('div');
     overlay.className = 'surge-overlay';
     overlay.id = 'surgeOverlay';
-    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+    overlay.onclick = function(e) { if (e.target === overlay && !surgeProcessing) overlay.remove(); };
 
     overlay.innerHTML = '<div class="surge-modal">' +
       '<div class="surge-modal-header">' +
@@ -897,12 +899,19 @@ a:hover { color: var(--color-primary-hover); }
       '<div id="surgeResult"></div>' +
       '</div>' +
       '<div class="surge-modal-footer">' +
-      '<button class="surge-btn surge-btn-cancel" id="surgeCancel" onclick="document.getElementById(\'surgeOverlay\').remove()">Cancel</button>' +
-      '<button class="surge-btn surge-btn-primary" id="surgeSubmit" onclick="processSurgeData(\'' + auditId + '\')">Process with Claude</button>' +
+      '<button class="surge-btn surge-btn-cancel" id="surgeCancel">Cancel</button>' +
+      '<button class="surge-btn surge-btn-primary" id="surgeSubmit">Process with Claude</button>' +
       '<span class="surge-status" id="surgeStatus"></span>' +
       '</div></div>';
 
     document.body.appendChild(overlay);
+
+    document.getElementById('surgeCancel').onclick = function() {
+      if (!surgeProcessing) { overlay.remove(); }
+    };
+    document.getElementById('surgeSubmit').onclick = function() {
+      processSurgeData(auditId);
+    };
 
     // Character counter
     var textarea = document.getElementById('surgeInput');
@@ -922,9 +931,12 @@ a:hover { color: var(--color-primary-hover); }
     if (!surgeData) { statusEl.className = 'surge-status error'; statusEl.textContent = 'Please paste Surge data first.'; return; }
     if (surgeData.length < 500) { statusEl.className = 'surge-status error'; statusEl.textContent = 'Data seems too short. Paste the full Surge output.'; return; }
 
+    // Lock the modal - prevent close during processing
+    surgeProcessing = true;
     submitBtn.disabled = true;
     submitBtn.textContent = 'Processing...';
-    cancelBtn.style.display = 'none';
+    cancelBtn.style.opacity = '.3';
+    cancelBtn.style.cursor = 'not-allowed';
     statusEl.className = 'surge-status loading';
     statusEl.textContent = 'Sending to Claude for analysis (this may take 30-60 seconds)...';
     input.readOnly = true;
@@ -937,6 +949,11 @@ a:hover { color: var(--color-primary-hover); }
     })
     .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
     .then(function(resp) {
+      surgeProcessing = false;
+      // Check if modal still exists (user might have force-closed via devtools)
+      var overlay = document.getElementById('surgeOverlay');
+      if (!overlay) { eaLoaded = false; loadEntityAudits(); return; }
+
       if (resp.ok && resp.data.success) {
         var s = resp.data.scores || {};
         var tc = resp.data.task_counts || {};
@@ -959,9 +976,10 @@ a:hover { color: var(--color-primary-hover); }
           (resp.data.scorecard_url ? '<a href="' + resp.data.scorecard_url + '" target="_blank" class="ea-btn" style="border-color:var(--color-primary);color:var(--color-primary);">View Scorecard</a>' : '') +
           '</div></div>';
 
-        cancelBtn.style.display = 'inline-block';
+        cancelBtn.style.opacity = '1';
+        cancelBtn.style.cursor = 'pointer';
         cancelBtn.textContent = 'Close';
-        cancelBtn.onclick = function() { document.getElementById('surgeOverlay').remove(); eaLoaded = false; loadEntityAudits(); };
+        cancelBtn.onclick = function() { overlay.remove(); eaLoaded = false; loadEntityAudits(); };
       } else {
         statusEl.className = 'surge-status error';
         statusEl.textContent = 'Error: ' + (resp.data.error || 'Unknown error');
@@ -969,17 +987,22 @@ a:hover { color: var(--color-primary-hover); }
         console.error('Process error:', resp.data);
         submitBtn.disabled = false;
         submitBtn.textContent = 'Retry';
-        cancelBtn.style.display = 'inline-block';
+        cancelBtn.style.opacity = '1';
+        cancelBtn.style.cursor = 'pointer';
         input.readOnly = false;
         input.style.opacity = '1';
       }
     })
     .catch(function(err) {
+      surgeProcessing = false;
+      var overlay = document.getElementById('surgeOverlay');
+      if (!overlay) { eaLoaded = false; loadEntityAudits(); return; }
       statusEl.className = 'surge-status error';
       statusEl.textContent = 'Network error: ' + err.message;
       submitBtn.disabled = false;
       submitBtn.textContent = 'Retry';
-      cancelBtn.style.display = 'inline-block';
+      cancelBtn.style.opacity = '1';
+      cancelBtn.style.cursor = 'pointer';
       input.readOnly = false;
       input.style.opacity = '1';
     });
