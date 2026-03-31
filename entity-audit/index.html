@@ -116,7 +116,7 @@ section { padding: 5rem 0; }
 
 /* Sample Scorecard */
 .sample-wrap { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 16px; padding: 2.5rem; position: relative; overflow: hidden; }
-.sample-wrap::before { content: 'SAMPLE'; position: absolute; top: 1rem; right: 1.5rem; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: .6875rem; letter-spacing: .08em; color: var(--color-muted); opacity: .5; }
+.sample-wrap::before { content: 'REAL EXAMPLE'; position: absolute; top: 1rem; right: 1.5rem; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: .6875rem; letter-spacing: .08em; color: var(--color-muted); opacity: .5; }
 .sample-header { text-align: center; margin-bottom: 2rem; }
 .sample-header h3 { font-size: 1.35rem; margin-bottom: .25rem; }
 .sample-header p { color: var(--color-muted); font-size: .9375rem; margin: 0; }
@@ -164,7 +164,7 @@ section { padding: 5rem 0; }
 .pricing-card .cta-btn, .pricing-card .cta-btn-outline { width: 100%; text-align: center; display: block; }
 
 /* Free Intake Form */
-.form-section { background: var(--color-navy); padding: 5rem 0; position: relative; overflow: hidden; }
+.form-section { background: var(--color-navy); padding: 5rem 0; position: relative; overflow: hidden; min-height: 100vh; display: flex; align-items: center; }
 .form-section::before { content: ''; position: absolute; top: -30%; left: -5%; width: 400px; height: 400px; background: radial-gradient(circle, rgba(0,212,126,.08) 0%, transparent 70%); pointer-events: none; }
 .form-wrap { max-width: 520px; margin: 0 auto; }
 .form-wrap h2 { color: #E8F5EF; text-align: center; margin-bottom: .5rem; }
@@ -304,22 +304,22 @@ section { padding: 5rem 0; }
 <section class="reveal" id="sample">
   <div class="container">
     <div class="section-label">
-      <h2>Sample Findings</h2>
-      <p>Here is what a typical entity audit reveals for a therapy practice.</p>
+      <h2>What We Find</h2>
+      <p>Here is what a real entity audit uncovered for a therapy practice (anonymized).</p>
     </div>
     <div class="sample-wrap">
       <div class="sample-header">
-        <h3>Wellness Therapy Group</h3>
-        <p>Fictional practice for illustration purposes</p>
+        <h3>Real Audit Example</h3>
+        <p>Anonymized findings from an actual therapy practice entity audit</p>
       </div>
       <div class="scorecard-grid" id="sampleScores">
         <!-- rendered by JS -->
       </div>
       <div class="sample-findings">
-        <div class="sample-finding"><span class="icon">&#128308;</span><div><p><strong>Google does not recognize this practice as an entity.</strong> Knowledge Graph score is 0/100. No Google AI Overview is generated for the brand name, meaning AI search cannot recommend the practice.</p></div></div>
-        <div class="sample-finding"><span class="icon">&#9888;&#65039;</span><div><p><strong>Schema stack is present but incomplete.</strong> 5 schema types detected, but FAQPage, AggregateRating, and VideoObject are missing. These three additions alone typically produce visible search improvements.</p></div></div>
-        <div class="sample-finding"><span class="icon">&#9888;&#65039;</span><div><p><strong>Dual credential advantage is invisible to AI.</strong> Despite genuine clinical differentiators, no AI engine synthesizes the specialization. Engines describe the practice in generic terms.</p></div></div>
-        <div class="sample-finding"><span class="icon">&#9989;</span><div><p><strong>Content authenticity is a primary strength.</strong> Score: 5/5. Original clinician voice, proper bylines, and date metadata. This is exactly what AI systems value most.</p></div></div>
+        <div class="sample-finding"><span class="icon">&#128308;</span><div><p><strong>Google does not recognize this practice as an entity.</strong> Knowledge Graph score is 0/100. No Google AI Overview is generated for the brand name. This means AI search literally cannot recommend the practice, even though the content is excellent.</p></div></div>
+        <div class="sample-finding"><span class="icon">&#128308;</span><div><p><strong>Schema stack is strong but incomplete.</strong> 8 schema types detected (0.72/1.0), but FAQPage, VideoObject, and AggregateRating are missing. These three additions alone are the most impactful changes available.</p></div></div>
+        <div class="sample-finding"><span class="icon">&#9888;&#65039;</span><div><p><strong>Clinical differentiator is invisible to AI.</strong> Despite holding a genuinely rare dual credential, no AI engine is synthesizing this specialization. Engines describe the practice in generic terms instead of highlighting what makes it unique.</p></div></div>
+        <div class="sample-finding"><span class="icon">&#9989;</span><div><p><strong>Already dominant in conversational AI.</strong> Rank #1 in both Claude and Perplexity with a CRES score of 100/100. Content authenticity scores a perfect 5/5. The foundation is strong, the gaps are structural.</p></div></div>
       </div>
     </div>
   </div>
@@ -480,7 +480,7 @@ section { padding: 5rem 0; }
     renderSampleCard('Pillar 1', 'Credibility', 3) +
     renderSampleCard('Pillar 2', 'Optimization', 4) +
     renderSampleCard('Pillar 3', 'Reputation', 3) +
-    renderSampleCard('Pillar 4', 'Engagement', 7);
+    renderSampleCard('Pillar 4', 'Engagement', 6);
 
   // -- Animate sample rings on scroll --
   var sampleAnimated = false;
