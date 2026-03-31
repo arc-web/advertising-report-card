@@ -210,6 +210,8 @@ a:hover { color: var(--color-primary-hover); }
 .ea-actions { display: flex; gap: .35rem; }
 .ea-btn { font-size: .72rem; font-weight: 600; padding: .25rem .5rem; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-body); cursor: pointer; white-space: nowrap; transition: all .15s; }
 .ea-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.ea-status-select { font-size: .78rem; font-family: 'Inter', sans-serif; font-weight: 500; padding: .25rem .5rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); color: var(--color-body); cursor: pointer; transition: border-color .2s; }
+.ea-status-select:focus { outline: none; border-color: var(--color-primary); }
 
 </style>
 </head>
@@ -622,7 +624,7 @@ a:hover { color: var(--color-primary-hover); }
       var practice = c.practice_name || c.slug || '--';
       var scores = a.scores || {};
 
-      html += '<tr onclick="window.open(\'/' + esc(c.slug || '') + '/entity-audit\', \'_blank\')">';
+      html += '<tr onclick="window.location.href=\'/admin/clients?slug=' + esc(c.slug || '') + '\'">';
 
       // Contact
       html += '<td><div style="font-weight:500;color:var(--color-heading);">' + esc(name.trim() || '--') + '</div><div style="font-size:.75rem;color:var(--color-muted);">' + esc(c.email || '') + '</div></td>';
@@ -633,8 +635,12 @@ a:hover { color: var(--color-primary-hover); }
       // Tier badge
       html += '<td><span class="tag tag-' + a.audit_tier + '">' + a.audit_tier + '</span></td>';
 
-      // Status badge
-      html += '<td><span class="tag tag-' + a.status + '">' + a.status.replace('_', ' ') + '</span></td>';
+      // Status dropdown
+      html += '<td onclick="event.stopPropagation()"><select class="ea-status-select" data-audit-id="' + a.id + '" onchange="changeEaStatus(this)">';
+      ['pending','processing','complete','delivered'].forEach(function(s) {
+        html += '<option value="' + s + '"' + (a.status === s ? ' selected' : '') + '>' + s.replace('_',' ') + '</option>';
+      });
+      html += '</select></td>';
 
       // Date
       html += '<td style="font-size:.8rem;white-space:nowrap;">' + formatDate(a.audit_date) + '</td>';
@@ -668,7 +674,9 @@ a:hover { color: var(--color-primary-hover); }
 
       // Actions
       html += '<td><div class="ea-actions">';
-      html += '<button class="ea-btn" onclick="event.stopPropagation();updateEaStatus(\'' + a.id + '\')">Advance Status</button>';
+      if (a.status === 'delivered') {
+        html += '<a href="/' + esc(c.slug || '') + '/entity-audit" target="_blank" class="ea-btn" onclick="event.stopPropagation()" style="border-color:var(--color-primary);color:var(--color-primary);">View Scorecard</a>';
+      }
       html += '</div></td>';
 
       html += '</tr>';
@@ -696,20 +704,24 @@ a:hover { color: var(--color-primary-hover); }
     });
   };
 
-  window.updateEaStatus = function(auditId) {
-    var audit = eaState.audits.find(function(a) { return a.id === auditId; });
-    if (!audit) return;
-    var order = ['pending', 'processing', 'complete', 'delivered'];
-    var idx = order.indexOf(audit.status);
-    var next = order[Math.min(idx + 1, order.length - 1)];
-    if (next === audit.status) return;
+  window.changeEaStatus = function(select) {
+    var auditId = select.dataset.auditId;
+    var newStatus = select.value;
 
     fetch(SB + '/rest/v1/entity_audits?id=eq.' + auditId, {
       method: 'PATCH',
       headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ status: next })
+      body: JSON.stringify({ status: newStatus })
     }).then(function(r) {
-      if (r.ok) { eaLoaded = false; loadEntityAudits(); }
+      if (r.ok) {
+        // Update local state
+        var audit = eaState.audits.find(function(a) { return a.id === auditId; });
+        if (audit) audit.status = newStatus;
+        renderEntityStats();
+        // Flash the select green briefly
+        select.style.borderColor = 'var(--color-success)';
+        setTimeout(function() { select.style.borderColor = ''; }, 1000);
+      }
     });
   };
 
