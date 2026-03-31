@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'action and table required' });
     }
 
-    var allowed = ['contacts','practice_details','onboarding_steps','deliverables','checklist_items','audit_scores','report_snapshots','report_highlights','report_configs','bio_materials','social_profiles','signed_agreements','activity_log','settings'];
+    var allowed = ['contacts','practice_details','onboarding_steps','deliverables','checklist_items','audit_scores','report_snapshots','report_highlights','report_configs','bio_materials','social_profiles','signed_agreements','activity_log','settings','entity_audits'];
     if (allowed.indexOf(table) === -1) {
       return res.status(400).json({ error: 'Table not allowed: ' + table });
     }
@@ -64,7 +64,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (action === 'delete_record') {
-      if (!filters || !filters.id) return res.status(400).json({ error: 'id filter required for delete' });
+      if (!filters) return res.status(400).json({ error: 'filters required for delete' });
       var fp2 = buildFilter(filters);
       var r3 = await fetch(baseUrl + '?' + fp2, { method: 'DELETE', headers: headers });
       if (!r3.ok) return res.status(r3.status).json({ error: 'Supabase error' });
