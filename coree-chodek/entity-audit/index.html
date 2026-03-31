@@ -203,6 +203,18 @@ section { padding: 4.5rem 0; }
 
 /* CTA section */
 .cta-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 2.5rem 0; }
+
+/* Gated premium content */
+.gated-wrap { position: relative; overflow: hidden; }
+.gated-wrap .gated-blur { filter: blur(5px); -webkit-filter: blur(5px); pointer-events: none; user-select: none; }
+.gated-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2; background: linear-gradient(180deg, rgba(var(--gated-bg-rgb, 247,253,251), .3) 0%, rgba(var(--gated-bg-rgb, 247,253,251), .85) 50%, rgba(var(--gated-bg-rgb, 247,253,251), .95) 100%); border-radius: 10px; padding: 2rem; text-align: center; }
+[data-theme="dark"] .gated-overlay { background: linear-gradient(180deg, rgba(14,26,20,.3) 0%, rgba(14,26,20,.85) 50%, rgba(14,26,20,.95) 100%); }
+.gated-overlay .gated-icon { font-size: 2rem; margin-bottom: .75rem; }
+.gated-overlay h4 { font-size: 1rem; margin-bottom: .5rem; color: var(--color-heading); }
+.gated-overlay p { font-size: .875rem; color: var(--color-muted); max-width: 380px; margin-bottom: 1rem; line-height: 1.6; }
+.gated-overlay .gated-cta { display: inline-block; background: var(--color-primary); color: #fff; font-family: 'Outfit', sans-serif; font-weight: 600; font-size: .875rem; padding: .6rem 1.5rem; border-radius: 8px; text-decoration: none; transition: all .2s; }
+.gated-overlay .gated-cta:hover { background: var(--color-primary-hover); transform: translateY(-1px); }
+.gated-rtpba .gated-overlay { border-radius: 0 0 14px 14px; }
 @media (max-width: 640px) { .cta-cards { grid-template-columns: 1fr; } }
 .cta-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; padding: 2rem; text-align: center; transition: all .3s ease; display: flex; flex-direction: column; }
 .cta-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,.06); transform: translateY(-3px); }
@@ -449,12 +461,22 @@ section { padding: 4.5rem 0; }
     return '&#9989;';
   }
 
+  var IS_PREMIUM = false; // set in renderPage
+
   function renderFinding(f) {
     var html = '<div class="finding"><span class="finding-icon">' + findingIcon(f.severity) + '</span><div>';
     html += '<p><span class="highlight">' + escHtml(f.title) + '</span> ' + escHtml(f.detail) + '</p>';
     if (f.fix) {
       html += '<div class="fix-accordion"><button class="fix-toggle" onclick="this.parentElement.classList.toggle(\'open\')"><span class="fix-arrow">&#9654;</span> How to fix this</button>';
-      html += '<div class="fix-content"><div class="fix-content-inner">' + f.fix + '</div></div></div>';
+      if (IS_PREMIUM) {
+        html += '<div class="fix-content"><div class="fix-content-inner">' + f.fix + '</div></div>';
+      } else {
+        html += '<div class="fix-content"><div class="gated-wrap"><div class="gated-blur"><div class="fix-content-inner">' + f.fix + '</div></div>';
+        html += '<div class="gated-overlay"><div class="gated-icon">&#128274;</div><h4>Premium Audit Content</h4>';
+        html += '<p>Detailed fix instructions with ready-to-use schema code are included in the Premium Entity Audit.</p>';
+        html += '<a href="" class="gated-cta upgrade-link">Unlock Full Audit - $2,000</a></div></div></div>';
+      }
+      html += '</div>';
     }
     html += '</div></div>';
     return html;
@@ -536,6 +558,7 @@ section { padding: 4.5rem 0; }
 
     // Summary
     var scores = audit.scores || {};
+    IS_PREMIUM = audit.audit_tier === 'premium';
     if (scores.summary) {
       document.getElementById('summaryText').innerHTML = scores.summary;
     }
@@ -584,9 +607,16 @@ section { padding: 4.5rem 0; }
     });
     document.getElementById('findingsContainer').innerHTML = findingsHtml;
 
-    // RTPBA section - show only if data exists
+    // RTPBA section - show only if data exists, gate for free tier
     if (scores.rtpba) {
-      document.getElementById('rtpbaContent').innerHTML = scores.rtpba;
+      if (IS_PREMIUM) {
+        document.getElementById('rtpbaContent').innerHTML = scores.rtpba;
+      } else {
+        document.getElementById('rtpbaContent').innerHTML = '<div class="gated-wrap gated-rtpba" style="min-height:300px;"><div class="gated-blur">' + scores.rtpba + '</div>' +
+          '<div class="gated-overlay"><div class="gated-icon">&#128196;</div><h4>Ready-to-Publish Content</h4>' +
+          '<p>Your complete, AI-optimized homepage content is ready. Upgrade to the Premium Audit to access the full Ready-to-Publish Best Answer for your practice.</p>' +
+          '<a href="" class="gated-cta upgrade-link">Unlock Full Audit - $2,000</a></div></div>';
+      }
       document.getElementById('rtpbaSection').style.display = 'block';
       var navLink = document.getElementById('navRtpba');
       if (navLink) navLink.style.display = '';
@@ -602,6 +632,8 @@ section { padding: 4.5rem 0; }
       // Set upgrade link to entity-audit-checkout or landing page
       var checkoutUrl = '/' + CLIENT_SLUG + '/entity-audit-checkout';
       document.getElementById('upgradeBtn').href = checkoutUrl;
+      // Also set all gated content upgrade links
+      document.querySelectorAll('.upgrade-link').forEach(function(a) { a.href = checkoutUrl; });
     }
 
     // Confidential footer
