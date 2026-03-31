@@ -403,12 +403,12 @@ section { padding: 5rem 0; }
           <li><span class="check">&#10003;</span><strong>30-minute strategy call with our team</strong></li>
           <li><span class="check">&#10003;</span>Delivered within 48-72 hours</li>
         </ul>
-        <button class="cta-btn" onclick="document.getElementById('premiumMethod').scrollIntoView({behavior:'smooth'})">Get Premium Audit</button>
+        <button class="cta-btn" onclick="showPremiumPayment()">Get Premium Audit</button>
       </div>
     </div>
 
-    <!-- Premium Payment Selector (inline) -->
-    <div id="premiumMethod" style="max-width:480px;margin:3rem auto 0;scroll-margin-top:2rem;">
+    <!-- Premium Payment Selector (hidden until button click) -->
+    <div id="premiumMethod" style="max-width:480px;margin:3rem auto 0;scroll-margin-top:2rem;display:none;opacity:0;transform:translateY(10px);transition:opacity .4s ease,transform .4s ease;">
       <div style="text-align:center;margin-bottom:1.5rem;">
         <h3>Premium Audit Payment</h3>
         <p style="color:var(--color-muted);font-size:.9375rem;">Select your payment method to proceed.</p>
@@ -551,6 +551,16 @@ section { padding: 5rem 0; }
   }
 
   // -- Premium payment selector --
+  window.showPremiumPayment = function() {
+    var el = document.getElementById('premiumMethod');
+    el.style.display = 'block';
+    // Trigger reflow then animate in
+    void el.offsetHeight;
+    el.style.opacity = '1';
+    el.style.transform = 'translateY(0)';
+    setTimeout(function() { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 50);
+  };
+
   window.selectPremiumMethod = function(method) {
     premiumMethod = method;
     document.querySelectorAll('.pm-btn').forEach(function(b) {
