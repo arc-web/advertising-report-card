@@ -143,7 +143,10 @@ module.exports = async function handler(req, res) {
       return null;
     }
     var token = await getGoogleAccessToken(googleSA);
-    if (!token) { warnings.push('GSC: could not get access token'); return null; }
+    if (!token || token.error) {
+      warnings.push('GSC: token failed - ' + (token ? token.error : 'unknown'));
+      return null;
+    }
 
     var gscBase = 'https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(config.gsc_property) + '/searchAnalytics/query';
     var gscHeaders = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
@@ -176,36 +179,65 @@ module.exports = async function handler(req, res) {
       return null;
     }
 
+    var lbmHeaders = { 'Authorization': lbmKey, 'Content-Type': 'application/json' };
+
+    // Step 1: Get the location to find its gbp_id and check if enabled
+    var locResp = await fetchT('https://api.localbrandmanager.com/locations', { headers: lbmHeaders }, 10000);
+    var locations = await locResp.json();
+    var location = null;
+    if (Array.isArray(locations)) {
+      location = locations.find(function(l) { return l.id === config.lbm_location_id; });
+    }
+    if (!location) { warnings.push('LBM: location ' + config.lbm_location_id + ' not found'); return null; }
+    if (!location.enabled) { warnings.push('LBM: location "' + location.name + '" is disabled in LBM - enable it to generate reports'); return null; }
+
+    // Step 2: Find a report that contains this location
     var reportUrl = 'https://api.localbrandmanager.com/reports';
-    var listResp = await fetchT(reportUrl + '?location_id=' + config.lbm_location_id, {
-      headers: { 'Authorization': lbmKey, 'Content-Type': 'application/json' }
-    }, 15000);
+    var listResp = await fetchT(reportUrl, { headers: lbmHeaders }, 10000);
     var reports = await listResp.json();
 
     var report = null;
-    if (Array.isArray(reports)) { report = reports[0]; }
-    else if (reports && reports.data) { report = reports.data[0]; }
+    if (Array.isArray(reports)) {
+      report = reports.find(function(r) {
+        var locs = r.locations || [];
+        return locs.some(function(l) { return l.store_code === location.gbp_id || l.store_code === location.store_code || l.name === location.name; });
+      });
+    }
+    if (!report) { warnings.push('LBM: no report found for "' + location.name + '"'); return null; }
 
-    if (!report) { warnings.push('LBM: no report found'); return null; }
-
-    var reportId = report.id || report.report_id;
-    if (!reportId) { warnings.push('LBM: no report ID'); return null; }
-
-    var detailResp = await fetchT(reportUrl + '/' + reportId, {
-      headers: { 'Authorization': lbmKey, 'Content-Type': 'application/json' }
-    }, 15000);
+    // Step 3: Get report detail
+    var detailResp = await fetchT(reportUrl + '/' + report.id, { headers: lbmHeaders }, 10000);
     var detail = await detailResp.json();
 
-    var metrics = detail.metrics || detail.data || detail;
+    // Step 4: Extract metrics from charts.stats[] array
+    var stats = (detail.charts && detail.charts.stats) || [];
+    function statSum(id) {
+      var s = stats.find(function(st) { return st.id === id; });
+      return s ? (s.sum || 0) : 0;
+    }
+    function statPrev(id) {
+      var s = stats.find(function(st) { return st.id === id; });
+      return s ? (s.sum_compare || 0) : 0;
+    }
+
+    var reviewData = detail.reviews || {};
+    var aggReviews = (reviewData.aggregated && reviewData.aggregated.sum && reviewData.aggregated.sum.data) || {};
+
     return {
-      calls: metrics.phone_calls || metrics.calls || 0,
-      direction_requests: metrics.direction_requests || metrics.directions || 0,
-      website_clicks: metrics.website_clicks || metrics.website_visits || 0,
-      photo_views: metrics.photo_views || metrics.photos || 0,
+      calls: statSum('call_clicks'),
+      direction_requests: statSum('direction_requests'),
+      website_clicks: statSum('website_clicks'),
+      photo_views: statSum('images'),
+      impressions_total: statSum('business_impressions_desktop_maps') + statSum('business_impressions_desktop_search') + statSum('business_impressions_mobile_search'),
       reviews: {
-        total: metrics.total_reviews || 0,
-        average: metrics.average_rating || 0,
-        new_this_month: metrics.new_reviews || 0
+        total: aggReviews.total || statSum('reviews'),
+        average: 0,
+        new_this_month: statSum('reviews')
+      },
+      prev: {
+        calls: statPrev('call_clicks'),
+        website_clicks: statPrev('website_clicks'),
+        impressions_total: statPrev('business_impressions_desktop_maps') + statPrev('business_impressions_desktop_search') + statPrev('business_impressions_mobile_search')
       }
     };
   });
@@ -419,10 +451,14 @@ module.exports = async function handler(req, res) {
 
   // ─── STEP 11: Flip status to internal_review ──────────────────
   try {
-    await fetch(sbUrl + '/rest/v1/report_snapshots?id=eq.' + snapshotId, {
+    var statusResp = await fetch(sbUrl + '/rest/v1/report_snapshots?id=eq.' + snapshotId, {
       method: 'PATCH', headers: sbHeaders(),
       body: JSON.stringify({ report_status: 'internal_review', updated_at: new Date().toISOString() })
     });
+    if (!statusResp.ok) {
+      var statusErr = await statusResp.text();
+      warnings.push('Status flip failed: ' + statusResp.status + ' ' + statusErr);
+    }
   } catch (e) { warnings.push('Status flip: ' + e.message); }
 
   // ─── STEP 12: Update report_configs compile timestamp ─────────
@@ -477,6 +513,10 @@ module.exports = async function handler(req, res) {
         })
       });
       notificationSent = emailResp.ok;
+      if (!notificationSent) {
+        var resendErr = await emailResp.text();
+        warnings.push('Resend failed: ' + emailResp.status + ' ' + resendErr);
+      }
       if (notificationSent) {
         await fetch(sbUrl + '/rest/v1/report_configs?id=eq.' + config.id, {
           method: 'PATCH', headers: sbHeaders(),
@@ -515,6 +555,9 @@ module.exports = async function handler(req, res) {
 async function getGoogleAccessToken(saJson) {
   try {
     var sa = typeof saJson === 'string' ? JSON.parse(saJson) : saJson;
+    if (!sa.private_key || !sa.client_email) {
+      throw new Error('Service account JSON missing private_key or client_email');
+    }
     var crypto = require('crypto');
 
     var header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
@@ -540,9 +583,13 @@ async function getGoogleAccessToken(saJson) {
       body: 'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=' + jwt
     });
     var tokenData = await tokenResp.json();
-    return tokenData.access_token || null;
+    if (!tokenData.access_token) {
+      throw new Error('Google OAuth error: ' + (tokenData.error_description || tokenData.error || JSON.stringify(tokenData)));
+    }
+    return tokenData.access_token;
   } catch (e) {
-    return null;
+    // Return error message so caller can surface it
+    return { error: e.message || String(e) };
   }
 }
 
