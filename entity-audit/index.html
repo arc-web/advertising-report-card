@@ -321,6 +321,50 @@ section { padding: 5rem 0; }
         <div class="sample-finding"><span class="icon">&#9888;&#65039;</span><div><p><strong>Clinical differentiator is invisible to AI.</strong> Despite holding a genuinely rare dual credential, no AI engine is synthesizing this specialization. Engines describe the practice in generic terms instead of highlighting what makes it unique.</p></div></div>
         <div class="sample-finding"><span class="icon">&#9989;</span><div><p><strong>Already dominant in conversational AI.</strong> Rank #1 in both Claude and Perplexity with a CRES score of 100/100. Content authenticity scores a perfect 5/5. The foundation is strong, the gaps are structural.</p></div></div>
       </div>
+      <div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--color-border);">
+        <p style="font-size:.8125rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--color-primary);margin-bottom:.75rem;">&#128230; Premium Deliverable Example: brand.jsonld</p>
+        <p style="font-size:.9375rem;margin-bottom:.75rem;">Premium audits include ready-to-deploy schema files like the one below. This is the actual brand.jsonld entity identity file generated from the audit data, ready to upload to your site.</p>
+<pre style="background:var(--color-primary-subtle);padding:1.25rem 1.5rem;border-radius:10px;font-size:.8125rem;overflow-x:auto;line-height:1.55;white-space:pre-wrap;word-break:break-word;font-family:'SF Mono','Fira Code',Consolas,monospace;"><code>{
+  "@context": "https://schema.org",
+  "@type": "MedicalBusiness",
+  "@id": "https://yourpractice.com/#organization",
+  "name": "Your Practice Name",
+  "url": "https://yourpractice.com/",
+  "logo": "https://yourpractice.com/logo.png",
+  "description": "A trauma-informed, mind-body psychotherapy
+    practice serving adults and adolescents. Specializing
+    in trauma, PTSD, chronic pain, IBS, anxiety, and
+    medically unexplained symptoms.",
+  "telephone": "+1-555-000-0000",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "123 Main Street",
+    "addressLocality": "Toronto",
+    "addressRegion": "ON",
+    "postalCode": "M1A 1A1",
+    "addressCountry": "CA"
+  },
+  "founder": {
+    "@type": "Person",
+    "name": "Dr. Jane Smith",
+    "honorificSuffix": "MSW, RSW, RD",
+    "jobTitle": "Registered Social Worker"
+  },
+  "hasMap": "https://maps.app.goo.gl/...",
+  "sameAs": [
+    "https://www.psychologytoday.com/...",
+    "https://www.facebook.com/...",
+    "https://www.linkedin.com/company/..."
+  ],
+  "knowsAbout": [
+    "trauma therapy", "PTSD treatment",
+    "EMDR therapy", "chronic pain therapy",
+    "IBS therapy", "anxiety therapy",
+    "somatic therapy", "mind-body therapy"
+  ]
+}</code></pre>
+        <p style="font-size:.8125rem;color:var(--color-muted);margin-top:.75rem;">This file is customized with your practice data, verified URLs, and real credentials. Upload it to <code style="background:var(--color-surface);border:1px solid var(--color-border);padding:.1rem .35rem;border-radius:4px;font-size:.8rem;">/.well-known/brand.jsonld</code> and Google can start recognizing your practice as a verified entity.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -354,8 +398,7 @@ section { padding: 5rem 0; }
         <div class="pricing-desc">One-time payment, no subscription</div>
         <ul class="pricing-features">
           <li><span class="check">&#10003;</span>Everything in the free audit, plus:</li>
-          <li><span class="check">&#10003;</span><strong>Competitor analysis vs 3-5 local practices</strong></li>
-          <li><span class="check">&#10003;</span><strong>Ready-to-deploy schema files</strong></li>
+          <li><span class="check">&#10003;</span><strong>Ready-to-deploy schema files</strong> (brand.jsonld, FAQPage, and more)</li>
           <li><span class="check">&#10003;</span><strong>45-60 minute personalized Loom video</strong></li>
           <li><span class="check">&#10003;</span><strong>30-minute strategy call with our team</strong></li>
           <li><span class="check">&#10003;</span>Delivered within 48-72 hours</li>
@@ -399,10 +442,10 @@ section { padding: 5rem 0; }
       <div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How long does the audit take?</div><div class="faq-a">Both free and premium audits are delivered within 48-72 hours. Our Surge platform runs a deep analysis across 17+ metrics and 8 AI engines, and each scorecard is reviewed by our team before delivery.</div></div>
       <div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What is Surge?</div><div class="faq-a">Surge is our proprietary audit platform that analyzes your digital presence through the lens of AI search. It measures entity recognition, content authenticity, schema completeness, reputation signals, and more across Google, ChatGPT, Perplexity, Claude, Bing, and other AI platforms.</div></div>
       <div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Do I need technical skills to implement the recommendations?</div><div class="faq-a">The free audit includes step-by-step instructions with code snippets that you or your web developer can follow. The premium audit goes further by providing ready-to-deploy schema files you can upload directly to your site, plus a Loom walkthrough and strategy call to make sure you know exactly what to prioritize. If you want hands-on help, our full CORE Marketing System campaign handles everything for you.</div></div>
-      <div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What is the difference between the free and premium audit?</div><div class="faq-a">Both use the same Surge analysis and produce the same CORE scorecard. The premium audit adds four deliverables: a competitive analysis showing how you stack up against 3-5 nearby practices, ready-to-deploy schema files (brand.jsonld and others) you can upload directly to your site, a 45-60 minute personalized Loom walkthrough of your findings, and a 30-minute strategy call with our team to discuss priorities and next steps.</div></div>
+      <div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What is the difference between the free and premium audit?</div><div class="faq-a">Both use the same Surge analysis and produce the same CORE scorecard. The premium audit adds three deliverables: ready-to-deploy schema files (brand.jsonld, FAQPage, AggregateRating, and more) you can upload directly to your site, a 45-60 minute personalized Loom walkthrough of your findings, and a 30-minute strategy call with our team to discuss priorities and next steps.</div></div>
       <div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What if I want help implementing everything?</div><div class="faq-a">Our CORE Marketing System is a comprehensive campaign that addresses all findings from the audit, plus ongoing optimization. Many clients start with an audit to see where they stand, then move to a full campaign. Book a call with our team to learn more.</div></div>
       <div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Is this only for therapy practices?</div><div class="faq-a">Our audit platform and CORE framework are specifically calibrated for mental health and therapy practices. The entity signals, directory landscape, and AI citation patterns we analyze are unique to this industry.</div></div>
-      <div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Can I upgrade from free to premium later?</div><div class="faq-a">Yes. Your free scorecard includes an upgrade option. When you upgrade, you receive the competitor analysis, ready-to-deploy schema files, personalized Loom walkthrough, and a 30-minute strategy call, all within 48-72 hours. No need to redo the audit.</div></div>
+      <div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Can I upgrade from free to premium later?</div><div class="faq-a">Yes. Your free scorecard includes an upgrade option. When you upgrade, you receive ready-to-deploy schema files, a personalized Loom walkthrough, and a 30-minute strategy call, all within 48-72 hours. No need to redo the audit.</div></div>
     </div>
   </div>
 </section>
@@ -468,6 +511,20 @@ section { padding: 5rem 0; }
   };
 
   var premiumMethod = null;
+
+  // -- Referral tracking from URL params --
+  var urlParams = new URLSearchParams(window.location.search);
+  var refCode = urlParams.get('ref') || urlParams.get('utm_source') || '';
+  var refCampaign = urlParams.get('utm_campaign') || '';
+  if (refCode) {
+    // Auto-fill and lock the source field
+    var srcField = document.getElementById('auditSource');
+    if (srcField) {
+      srcField.value = refCode + (refCampaign ? ' - ' + refCampaign : '');
+      srcField.readOnly = true;
+      srcField.style.opacity = '.7';
+    }
+  }
 
   // -- Sample scorecard rendering --
   var CIRC = 2 * Math.PI * 40;
@@ -545,7 +602,9 @@ section { padding: 5rem 0; }
 
     // Determine source value
     var sourceVal = 'landing_page';
-    if (source) {
+    if (refCode) {
+      sourceVal = 'referral';
+    } else if (source) {
       var sl = source.toLowerCase();
       if (sl.indexOf('accelerator') !== -1 || sl.indexOf('group') !== -1) sourceVal = 'accelerator_group';
       else if (sl.indexOf('referral') !== -1 || sl.indexOf('refer') !== -1) sourceVal = 'referral';
@@ -562,7 +621,8 @@ section { padding: 5rem 0; }
       slug: slug,
       status: 'lead',
       source: sourceVal,
-      audit_tier: 'free'
+      audit_tier: 'free',
+      referral_code: refCode || null
     };
 
     fetch(SB_URL + '/rest/v1/contacts', {
