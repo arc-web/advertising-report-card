@@ -55,14 +55,14 @@ module.exports = async function handler(req, res) {
     // STEP 2: Seed 8 onboarding steps
     // ============================================================
     var steps = [
-      { contact_id: contactId, step_key: 'confirm_info', status: 'pending', sort_order: 1 },
-      { contact_id: contactId, step_key: 'sign_agreement', status: 'pending', sort_order: 2 },
-      { contact_id: contactId, step_key: 'book_intro_call', status: 'pending', sort_order: 3 },
-      { contact_id: contactId, step_key: 'connect_accounts', status: 'pending', sort_order: 4 },
-      { contact_id: contactId, step_key: 'practice_details', status: 'pending', sort_order: 5 },
-      { contact_id: contactId, step_key: 'bio_materials', status: 'pending', sort_order: 6 },
-      { contact_id: contactId, step_key: 'social_profiles', status: 'pending', sort_order: 7 },
-      { contact_id: contactId, step_key: 'checkins_and_drive', status: 'pending', sort_order: 8 }
+      { contact_id: contactId, step_key: 'confirm_info', label: 'Confirm Info', status: 'pending', sort_order: 1 },
+      { contact_id: contactId, step_key: 'sign_agreement', label: 'Sign Agreement', status: 'pending', sort_order: 2 },
+      { contact_id: contactId, step_key: 'book_intro_call', label: 'Book Intro Call', status: 'pending', sort_order: 3 },
+      { contact_id: contactId, step_key: 'connect_accounts', label: 'Connect Accounts', status: 'pending', sort_order: 4 },
+      { contact_id: contactId, step_key: 'practice_details', label: 'Practice Details', status: 'pending', sort_order: 5 },
+      { contact_id: contactId, step_key: 'bio_materials', label: 'Bio Materials', status: 'pending', sort_order: 6 },
+      { contact_id: contactId, step_key: 'social_profiles', label: 'Social Profiles', status: 'pending', sort_order: 7 },
+      { contact_id: contactId, step_key: 'checkins_and_drive', label: 'Google Drive', status: 'pending', sort_order: 8 }
     ];
 
     // Delete any existing steps for this contact first (idempotent)
