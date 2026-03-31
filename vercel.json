@@ -19,6 +19,9 @@
     },
     "api/action.js": {
       "maxDuration": 30
+    },
+    "api/convert-to-prospect.js": {
+      "maxDuration": 60
     }
   }
 }
