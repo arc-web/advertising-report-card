@@ -135,6 +135,26 @@ strong { font-weight: 600; color: var(--color-heading); }
 .tag-lead { background: rgba(107,117,153,.08); color: var(--color-muted); }
 .tag-free { background: rgba(107,117,153,.08); color: var(--color-muted); }
 .tag-premium { background: rgba(139,92,246,.1); color: #8B5CF6; }
+.convert-btn { font-size: .72rem; font-weight: 600; font-family: 'Outfit', sans-serif; padding: .3rem .75rem; border-radius: 6px; border: 1px solid var(--color-primary); background: var(--color-primary-subtle); color: var(--color-primary); cursor: pointer; transition: all .2s; white-space: nowrap; }
+.convert-btn:hover { background: var(--color-primary); color: #fff; }
+.convert-btn:disabled { opacity: .5; cursor: not-allowed; }
+.convert-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.5); z-index: 500; display: flex; align-items: center; justify-content: center; }
+.convert-modal-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 16px; padding: 2rem; max-width: 520px; width: 90%; box-shadow: 0 12px 40px rgba(0,0,0,.15); }
+.convert-modal-card h3 { font-size: 1.15rem; margin-bottom: .75rem; }
+.convert-modal-card p { font-size: .9rem; color: var(--color-muted); margin-bottom: 1rem; line-height: 1.6; }
+.convert-modal-card .modal-actions { display: flex; gap: .75rem; justify-content: flex-end; }
+.convert-modal-card .modal-btn { font-family: 'Outfit', sans-serif; font-weight: 600; font-size: .875rem; padding: .5rem 1.25rem; border-radius: 8px; cursor: pointer; border: none; transition: all .2s; }
+.convert-modal-card .modal-btn-primary { background: var(--color-primary); color: #fff; }
+.convert-modal-card .modal-btn-primary:hover { background: var(--color-primary-hover); }
+.convert-modal-card .modal-btn-cancel { background: var(--color-surface); color: var(--color-muted); border: 1px solid var(--color-border); }
+.convert-modal-card .modal-btn-cancel:hover { color: var(--color-heading); border-color: var(--color-heading); }
+.convert-status { font-size: .85rem; margin-top: 1rem; padding: .75rem; border-radius: 8px; }
+.convert-status.loading { background: rgba(59,130,246,.08); color: var(--color-info); }
+.convert-status.success { background: rgba(0,212,126,.08); color: var(--color-success); }
+.convert-status.error { background: rgba(239,68,68,.08); color: var(--color-danger); }
+.convert-links { margin-top: .75rem; display: flex; flex-wrap: wrap; gap: .5rem; }
+.convert-links a { font-size: .8rem; font-weight: 500; padding: .25rem .65rem; border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-body); transition: all .15s; }
+.convert-links a:hover { border-color: var(--color-primary); color: var(--color-primary); }
 .tag-moonraker { background: rgba(0,212,126,.12); color: #00b86c; }
 .tag-client { background: rgba(59,130,246,.1); color: #3B82F6; }
 .tag-collab, .tag-collaboration { background: rgba(245,158,11,.1); color: #D97706; }
@@ -953,7 +973,9 @@ strong { font-weight: 600; color: var(--color-heading); }
       html += '<td class="hide-mobile">' + tHtml + '</td>';
       }
       var fuHtml = '';
-      if (c.follow_up_date && !c.lost) {
+      if (c.status === 'lead') {
+        fuHtml = '<button class="convert-btn" onclick="event.stopPropagation();convertToProspect(\'' + c.slug + '\',\'' + c.id + '\',\'' + esc(c.practice_name || c.slug) + '\')">Convert to Prospect</button>';
+      } else if (c.follow_up_date && !c.lost) {
         var fuDate = new Date(c.follow_up_date);
         var today = new Date(); today.setHours(0,0,0,0);
         var diff = Math.round((fuDate - today) / 86400000);
@@ -2184,6 +2206,78 @@ strong { font-weight: 600; color: var(--color-heading); }
       }
     });
   }
+  // ============================================================
+  // CONVERT TO PROSPECT
+  // ============================================================
+  window.convertToProspect = function(slug, contactId, name) {
+    // Show confirmation modal
+    var overlay = document.createElement('div');
+    overlay.className = 'convert-modal';
+    overlay.innerHTML = '<div class="convert-modal-card">' +
+      '<h3>Convert "' + name + '" to Prospect?</h3>' +
+      '<p>This will generate their proposal, checkout, and onboarding pages and move them to the Pipeline. Entity audit data (if any) will carry forward.</p>' +
+      '<div id="convertStatus"></div>' +
+      '<div class="modal-actions">' +
+      '<button class="modal-btn modal-btn-cancel" id="convertCancel">Cancel</button>' +
+      '<button class="modal-btn modal-btn-primary" id="convertConfirm">Convert to Prospect</button>' +
+      '</div></div>';
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#convertCancel').addEventListener('click', function() { document.body.removeChild(overlay); });
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) document.body.removeChild(overlay); });
+
+    overlay.querySelector('#convertConfirm').addEventListener('click', function() {
+      var statusEl = document.getElementById('convertStatus');
+      var confirmBtn = overlay.querySelector('#convertConfirm');
+      var cancelBtn = overlay.querySelector('#convertCancel');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Converting...';
+      cancelBtn.style.display = 'none';
+      statusEl.className = 'convert-status loading';
+      statusEl.textContent = 'Flipping status and deploying pages...';
+
+      fetch('/api/convert-to-prospect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: slug, contact_id: contactId })
+      })
+      .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+      .then(function(resp) {
+        if (resp.ok && resp.data.success) {
+          var urls = resp.data.results.urls;
+          var ghResults = resp.data.results.github || [];
+          var allOk = ghResults.every(function(g) { return g.ok; });
+          statusEl.className = 'convert-status success';
+          statusEl.innerHTML = '<strong>Conversion complete!</strong> ' +
+            ghResults.length + ' pages deployed' + (allOk ? '' : ' (some with errors)') + '.' +
+            '<div class="convert-links">' +
+            '<a href="' + urls.proposal + '" target="_blank">Proposal</a>' +
+            '<a href="' + urls.checkout + '" target="_blank">Checkout</a>' +
+            '<a href="' + urls.onboarding + '" target="_blank">Onboarding</a>' +
+            '<a href="/admin/clients?slug=' + slug + '">View Profile</a>' +
+            '</div>';
+          confirmBtn.style.display = 'none';
+          cancelBtn.style.display = 'inline-block';
+          cancelBtn.textContent = 'Close';
+          cancelBtn.onclick = function() { document.body.removeChild(overlay); loadDirectoryData(); };
+        } else {
+          statusEl.className = 'convert-status error';
+          statusEl.textContent = 'Error: ' + (resp.data.error || 'Unknown error. Check console.');
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Retry';
+          cancelBtn.style.display = 'inline-block';
+        }
+      })
+      .catch(function(err) {
+        statusEl.className = 'convert-status error';
+        statusEl.textContent = 'Network error: ' + err.message;
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Retry';
+        cancelBtn.style.display = 'inline-block';
+      });
+    });
+  };
+
   loadData();
 })();
 </script>
