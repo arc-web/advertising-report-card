@@ -213,6 +213,35 @@ a:hover { color: var(--color-primary-hover); }
 .ea-status-select { font-size: .78rem; font-family: 'Inter', sans-serif; font-weight: 500; padding: .25rem .5rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); color: var(--color-body); cursor: pointer; transition: border-color .2s; }
 .ea-status-select:focus { outline: none; border-color: var(--color-primary); }
 
+/* Surge data modal */
+.surge-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.55); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+.surge-modal { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 16px; width: 100%; max-width: 800px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 16px 48px rgba(0,0,0,.2); }
+.surge-modal-header { padding: 1.5rem 1.75rem 1rem; border-bottom: 1px solid var(--color-border); }
+.surge-modal-header h3 { font-size: 1.15rem; margin-bottom: .25rem; }
+.surge-modal-header p { font-size: .85rem; color: var(--color-muted); margin: 0; }
+.surge-modal-body { padding: 1.25rem 1.75rem; flex: 1; overflow-y: auto; }
+.surge-textarea { width: 100%; min-height: 300px; max-height: 50vh; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 10px; padding: 1rem; font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: .8rem; line-height: 1.5; color: var(--color-body); resize: vertical; }
+.surge-textarea:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(0,212,126,.1); }
+.surge-textarea::placeholder { color: var(--color-muted); opacity: .5; }
+.surge-modal-footer { padding: 1rem 1.75rem 1.25rem; border-top: 1px solid var(--color-border); display: flex; gap: .75rem; align-items: center; }
+.surge-btn { font-family: 'Outfit', sans-serif; font-weight: 600; font-size: .875rem; padding: .5rem 1.25rem; border-radius: 8px; border: none; cursor: pointer; transition: all .2s; }
+.surge-btn-primary { background: var(--color-primary); color: #fff; }
+.surge-btn-primary:hover { background: var(--color-primary-hover); }
+.surge-btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.surge-btn-cancel { background: var(--color-surface); color: var(--color-muted); border: 1px solid var(--color-border); }
+.surge-btn-cancel:hover { color: var(--color-heading); }
+.surge-status { font-size: .85rem; margin-left: auto; }
+.surge-status.loading { color: var(--color-info); }
+.surge-status.success { color: var(--color-success); }
+.surge-status.error { color: var(--color-danger); }
+.surge-result { margin-top: 1rem; background: var(--color-primary-subtle); border-radius: 10px; padding: 1.25rem; }
+.surge-result h4 { font-size: .95rem; margin-bottom: .75rem; }
+.surge-result-scores { display: flex; gap: 1rem; margin-bottom: .75rem; flex-wrap: wrap; }
+.surge-result-score { text-align: center; }
+.surge-result-score .val { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1.35rem; }
+.surge-result-score .lbl { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--color-muted); }
+.surge-char-count { font-size: .75rem; color: var(--color-muted); margin-top: .35rem; }
+
 </style>
 </head>
 <body>
@@ -676,6 +705,8 @@ a:hover { color: var(--color-primary-hover); }
       html += '<td><div class="ea-actions">';
       if (a.status === 'delivered') {
         html += '<a href="/' + esc(c.slug || '') + '/entity-audit" target="_blank" class="ea-btn" onclick="event.stopPropagation()" style="border-color:var(--color-primary);color:var(--color-primary);">View Scorecard</a>';
+      } else {
+        html += '<button class="ea-btn" onclick="event.stopPropagation();openSurgeModal(\'' + a.id + '\',\'' + esc(practice) + '\')" style="border-color:var(--color-info);color:var(--color-info);">Process Surge Data</button>';
       }
       html += '</div></td>';
 
@@ -778,6 +809,114 @@ a:hover { color: var(--color-primary-hover); }
       statusEl.textContent = err.message.indexOf('duplicate') !== -1 ? 'A contact with this info already exists.' : err.message;
       statusEl.style.color = 'var(--color-danger)';
       btn.disabled = false;
+    });
+  };
+
+  // ============================================================
+  // SURGE DATA PROCESSING MODAL
+  // ============================================================
+  window.openSurgeModal = function(auditId, practiceName) {
+    var overlay = document.createElement('div');
+    overlay.className = 'surge-overlay';
+    overlay.id = 'surgeOverlay';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    overlay.innerHTML = '<div class="surge-modal">' +
+      '<div class="surge-modal-header">' +
+      '<h3>Process Surge Data - ' + practiceName + '</h3>' +
+      '<p>Paste the complete Surge audit output below. All sections (scoring, observations, RTPBA, insights table, implementation blueprint) can be included. Claude will extract CORE scores, findings, and DIY action items, then deploy the scorecard page.</p>' +
+      '</div>' +
+      '<div class="surge-modal-body">' +
+      '<textarea class="surge-textarea" id="surgeInput" placeholder="Paste Surge audit data here...\n\nInclude as much as you have: Dataset-Type Scoring, Observations, Opportunity Zones, Claims Analysis, INSIGHTS_TABLE, Implementation Blueprint, Ready-to-Publish content, etc."></textarea>' +
+      '<div class="surge-char-count" id="surgeCharCount">0 characters</div>' +
+      '<div id="surgeResult"></div>' +
+      '</div>' +
+      '<div class="surge-modal-footer">' +
+      '<button class="surge-btn surge-btn-cancel" id="surgeCancel" onclick="document.getElementById(\'surgeOverlay\').remove()">Cancel</button>' +
+      '<button class="surge-btn surge-btn-primary" id="surgeSubmit" onclick="processSurgeData(\'' + auditId + '\')">Process with Claude</button>' +
+      '<span class="surge-status" id="surgeStatus"></span>' +
+      '</div></div>';
+
+    document.body.appendChild(overlay);
+
+    // Character counter
+    var textarea = document.getElementById('surgeInput');
+    textarea.addEventListener('input', function() {
+      document.getElementById('surgeCharCount').textContent = textarea.value.length.toLocaleString() + ' characters';
+    });
+    textarea.focus();
+  };
+
+  window.processSurgeData = function(auditId) {
+    var input = document.getElementById('surgeInput');
+    var surgeData = input.value.trim();
+    var statusEl = document.getElementById('surgeStatus');
+    var submitBtn = document.getElementById('surgeSubmit');
+    var cancelBtn = document.getElementById('surgeCancel');
+
+    if (!surgeData) { statusEl.className = 'surge-status error'; statusEl.textContent = 'Please paste Surge data first.'; return; }
+    if (surgeData.length < 500) { statusEl.className = 'surge-status error'; statusEl.textContent = 'Data seems too short. Paste the full Surge output.'; return; }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Processing...';
+    cancelBtn.style.display = 'none';
+    statusEl.className = 'surge-status loading';
+    statusEl.textContent = 'Sending to Claude for analysis (this may take 30-60 seconds)...';
+    input.readOnly = true;
+    input.style.opacity = '.5';
+
+    fetch('/api/process-entity-audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audit_id: auditId, surge_data: surgeData })
+    })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(resp) {
+      if (resp.ok && resp.data.success) {
+        var s = resp.data.scores || {};
+        var tc = resp.data.task_counts || {};
+        var totalTasks = (tc.credibility || 0) + (tc.optimization || 0) + (tc.reputation || 0) + (tc.engagement || 0);
+        statusEl.className = 'surge-status success';
+        statusEl.textContent = 'Scorecard deployed!';
+        submitBtn.style.display = 'none';
+
+        var scoreColor = function(v) { return v <= 3 ? 'var(--color-danger)' : v <= 6 ? 'var(--color-warning)' : 'var(--color-success)'; };
+        document.getElementById('surgeResult').innerHTML = '<div class="surge-result">' +
+          '<h4>Audit Complete - ' + totalTasks + ' findings extracted</h4>' +
+          '<div class="surge-result-scores">' +
+          '<div class="surge-result-score"><div class="val" style="color:' + scoreColor(s.credibility) + '">' + (s.credibility || '--') + '</div><div class="lbl">Credibility</div></div>' +
+          '<div class="surge-result-score"><div class="val" style="color:' + scoreColor(s.optimization) + '">' + (s.optimization || '--') + '</div><div class="lbl">Optimization</div></div>' +
+          '<div class="surge-result-score"><div class="val" style="color:' + scoreColor(s.reputation) + '">' + (s.reputation || '--') + '</div><div class="lbl">Reputation</div></div>' +
+          '<div class="surge-result-score"><div class="val" style="color:' + scoreColor(s.engagement) + '">' + (s.engagement || '--') + '</div><div class="lbl">Engagement</div></div>' +
+          '<div class="surge-result-score"><div class="val" style="color:var(--color-warning)">' + (s.variance || '--') + '</div><div class="lbl">Variance</div></div>' +
+          '</div>' +
+          '<div style="display:flex;gap:.5rem;flex-wrap:wrap;">' +
+          (resp.data.scorecard_url ? '<a href="' + resp.data.scorecard_url + '" target="_blank" class="ea-btn" style="border-color:var(--color-primary);color:var(--color-primary);">View Scorecard</a>' : '') +
+          '</div></div>';
+
+        cancelBtn.style.display = 'inline-block';
+        cancelBtn.textContent = 'Close';
+        cancelBtn.onclick = function() { document.getElementById('surgeOverlay').remove(); eaLoaded = false; loadEntityAudits(); };
+      } else {
+        statusEl.className = 'surge-status error';
+        statusEl.textContent = 'Error: ' + (resp.data.error || 'Unknown error');
+        if (resp.data.raw) statusEl.textContent += ' (see console)';
+        console.error('Process error:', resp.data);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Retry';
+        cancelBtn.style.display = 'inline-block';
+        input.readOnly = false;
+        input.style.opacity = '1';
+      }
+    })
+    .catch(function(err) {
+      statusEl.className = 'surge-status error';
+      statusEl.textContent = 'Network error: ' + err.message;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Retry';
+      cancelBtn.style.display = 'inline-block';
+      input.readOnly = false;
+      input.style.opacity = '1';
     });
   };
 
