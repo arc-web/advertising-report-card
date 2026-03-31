@@ -706,7 +706,7 @@ a:hover { color: var(--color-primary-hover); }
       if (a.status === 'delivered') {
         html += '<a href="/' + esc(c.slug || '') + '/entity-audit" target="_blank" class="ea-btn" onclick="event.stopPropagation()" style="border-color:var(--color-primary);color:var(--color-primary);">View Scorecard</a>';
       } else {
-        html += '<button class="ea-btn" onclick="event.stopPropagation();openSurgeModal(\'' + a.id + '\',\'' + esc(practice) + '\')" style="border-color:var(--color-info);color:var(--color-info);">Process Surge Data</button>';
+        html += '<button class="ea-btn surge-trigger" data-audit-id="' + a.id + '" data-practice="' + esc(practice) + '" style="border-color:var(--color-info);color:var(--color-info);">Process Surge Data</button>';
       }
       html += '</div></td>';
 
@@ -714,6 +714,14 @@ a:hover { color: var(--color-primary-hover); }
     });
 
     document.getElementById('eaBody').innerHTML = html;
+
+    // Wire up surge trigger buttons via delegation (avoids inline onclick string issues)
+    document.querySelectorAll('.surge-trigger').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        openSurgeModal(this.dataset.auditId, this.dataset.practice);
+      });
+    });
   }
 
   window.saveLoom = function(btn) {
