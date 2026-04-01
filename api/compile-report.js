@@ -365,70 +365,131 @@ module.exports = async function handler(req, res) {
       warnings.push('Geogrids: skipped (no LBM key or location)');
       return null;
     }
+    if (geogridKeywords.length === 0) {
+      warnings.push('Geogrids: no tracked keywords with track_geogrid enabled');
+      return null;
+    }
 
     var lbmHeaders = { 'Authorization': lbmKey, 'Content-Type': 'application/json' };
 
-    // Fetch all geogrids (API doesn't filter by location_id server-side)
-    var resp = await fetchT('https://api.localbrandmanager.com/geogrids', { headers: lbmHeaders }, 15000);
-    var allGrids = await resp.json();
-
-    if (!Array.isArray(allGrids) || allGrids.length === 0) {
-      warnings.push('Geogrids: no data returned');
-      return null;
-    }
-
-    // Also get the location to find its geogrid_config_id
+    // Step 1: Get location details for grid creation
     var locResp = await fetchT('https://api.localbrandmanager.com/locations/' + config.lbm_location_id, { headers: lbmHeaders }, 10000);
     var location = await locResp.json();
-    var locGbpId = location ? location.gbp_id : null;
-
-    // Filter grids for this client's location by matching location_id OR gbp_id
-    var clientGrids = allGrids.filter(function(g) {
-      return g.location_id === config.lbm_location_id || g.gbp_id === locGbpId;
-    });
-
-    if (clientGrids.length === 0) {
-      warnings.push('Geogrids: no grids found for location ' + config.lbm_location_id);
+    if (!location || !location.lat || !location.lng || !location.place_id) {
+      warnings.push('Geogrids: location missing lat/lng/place_id');
       return null;
     }
 
-    // Get the most recent finished grid for each search term
-    var byTerm = {};
-    clientGrids.forEach(function(g) {
-      if (g.state !== 'finished') return;
-      var term = g.search_term;
-      if (!byTerm[term] || new Date(g.created_at) > new Date(byTerm[term].created_at)) {
-        byTerm[term] = g;
+    // Step 2: Create a 7x7 geogrid for each tracked keyword
+    var gridIds = [];
+    for (var ki = 0; ki < geogridKeywords.length; ki++) {
+      var kw = geogridKeywords[ki];
+      try {
+        var createResp = await fetchT('https://api.localbrandmanager.com/geogrids', {
+          method: 'POST', headers: lbmHeaders,
+          body: JSON.stringify({
+            search_term: kw.keyword,
+            grid_center_lat: location.lat,
+            grid_center_lng: location.lng,
+            grid_size: kw.geogrid_grid_size || 7,
+            grid_point_distance: kw.geogrid_point_distance || 1.0,
+            grid_distance_measure: 'miles',
+            business_place_id: location.place_id,
+            business_name: location.name,
+            business_store_code: location.store_code || '',
+            location_id: config.lbm_location_id
+          })
+        }, 10000);
+        var created = await createResp.json();
+        if (created && created.id) {
+          gridIds.push({ id: created.id, keyword: kw.keyword, label: kw.label || kw.keyword });
+        } else {
+          warnings.push('Geogrid create failed for "' + kw.keyword + '": ' + JSON.stringify(created).substring(0, 200));
+        }
+      } catch (e) {
+        warnings.push('Geogrid create error for "' + kw.keyword + '": ' + e.message);
       }
-    });
+    }
 
-    var grids = Object.values(byTerm).map(function(g) {
-      return {
+    if (gridIds.length === 0) {
+      warnings.push('Geogrids: no grids were created');
+      return null;
+    }
+
+    // Step 3: Poll until all grids finish (max 150s, check every 10s)
+    var maxWait = 150000;
+    var pollInterval = 10000;
+    var waited = 0;
+    var finishedGrids = {};
+
+    while (waited < maxWait && Object.keys(finishedGrids).length < gridIds.length) {
+      await new Promise(function(resolve) { setTimeout(resolve, pollInterval); });
+      waited += pollInterval;
+
+      try {
+        var pollResp = await fetchT('https://api.localbrandmanager.com/geogrids', { headers: lbmHeaders }, 15000);
+        var allGrids = await pollResp.json();
+        if (!Array.isArray(allGrids)) continue;
+
+        for (var gi = 0; gi < gridIds.length; gi++) {
+          var gid = gridIds[gi].id;
+          if (finishedGrids[gid]) continue;
+          var match = allGrids.find(function(g) { return g.id === gid; });
+          if (match && match.state === 'finished') {
+            finishedGrids[gid] = match;
+          } else if (match && match.state === 'failed') {
+            warnings.push('Geogrid failed for "' + gridIds[gi].keyword + '"');
+            finishedGrids[gid] = null; // mark as done but failed
+          }
+        }
+      } catch (e) {
+        warnings.push('Geogrid poll error: ' + e.message);
+      }
+    }
+
+    // Step 4: Build results from finished grids
+    var grids = [];
+    for (var fi = 0; fi < gridIds.length; fi++) {
+      var g = finishedGrids[gridIds[fi].id];
+      if (!g) {
+        if (!finishedGrids.hasOwnProperty(gridIds[fi].id)) {
+          warnings.push('Geogrid timeout for "' + gridIds[fi].keyword + '" (still processing after ' + Math.round(maxWait / 1000) + 's)');
+        }
+        continue;
+      }
+      grids.push({
         search_term: g.search_term,
+        label: gridIds[fi].label,
         agr: g.agr,
         atgr: g.atgr,
         solv: g.solv,
         grid_size: g.grid_size,
         ranks: g.ranks,
+        grid_ranks_str: g.grid_ranks_str || null,
         image_url: g.image_url || null,
         headless_image_url: g.headless_image_url || null,
         public_url: g.public_url || null,
+        grid_center_lat: g.grid_center_lat,
+        grid_center_lng: g.grid_center_lng,
         created_at: g.created_at,
         finished_at: g.finished_at
-      };
-    });
+      });
+    }
 
     // Sort by SOLV descending (best performing terms first)
     grids.sort(function(a, b) { return (b.solv || 0) - (a.solv || 0); });
 
-    // Compute averages across all tracked terms
+    // Compute averages
     var avgAgr = grids.length > 0 ? grids.reduce(function(s, g) { return s + (g.agr || 0); }, 0) / grids.length : 0;
+    var avgAtgr = grids.length > 0 ? grids.reduce(function(s, g) { return s + (g.atgr || 0); }, 0) / grids.length : 0;
     var avgSolv = grids.length > 0 ? grids.reduce(function(s, g) { return s + (g.solv || 0); }, 0) / grids.length : 0;
 
     return {
       grids: grids,
       grid_count: grids.length,
+      grids_requested: gridIds.length,
       avg_agr: Math.round(avgAgr * 100) / 100,
+      avg_atgr: Math.round(avgAtgr * 100) / 100,
       avg_solv: Math.round(avgSolv * 1000) / 1000
     };
   });
@@ -851,12 +912,34 @@ async function checkEngineVisibility(method, query, clientDomain, authHeader) {
     if (task && task.result && task.result[0]) {
       var items = task.result[0].items || [];
       for (var i = 0; i < items.length; i++) {
-        var text = items[i].text || items[i].markdown || '';
-        if (text.toLowerCase().indexOf(clientDomain) !== -1) {
-          cited = true;
-          context = 'Mentioned in Claude response for "' + query + '"';
-          break;
+        // Claude returns sections[].text + sections[].annotations (not top-level text)
+        var sections = items[i].sections || [];
+        for (var s = 0; s < sections.length; s++) {
+          var sText = sections[s].text || '';
+          if (sText.toLowerCase().indexOf(clientDomain) !== -1) {
+            cited = true;
+            context = 'Mentioned in Claude response for "' + query + '"';
+            break;
+          }
+          var annots = sections[s].annotations || [];
+          for (var a = 0; a < annots.length; a++) {
+            if (annots[a].url && annots[a].url.indexOf(clientDomain) !== -1) {
+              cited = true;
+              context = 'Cited by Claude with link to ' + annots[a].url.substring(0, 80);
+              break;
+            }
+          }
+          if (cited) break;
         }
+        // Fallback: also check top-level text/markdown for backward compat
+        if (!cited) {
+          var text = items[i].text || items[i].markdown || '';
+          if (text.toLowerCase().indexOf(clientDomain) !== -1) {
+            cited = true;
+            context = 'Mentioned in Claude response for "' + query + '"';
+          }
+        }
+        if (cited) break;
       }
     }
   }
