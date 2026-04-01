@@ -684,7 +684,7 @@ strong { font-weight: 600; color: var(--color-heading); }
         <div class="stat-row" id="icStats"></div>
         <div id="icSeedBtn" style="margin-bottom:1rem;display:none;"><button class="btn-sm" onclick="seedIntroCallSteps()" style="padding:.4rem 1rem;font-size:.78rem;font-weight:600;border:1px solid var(--color-primary);background:var(--color-primary-subtle);color:var(--color-primary);border-radius:6px;cursor:pointer;">Initialize Intro Call Checklist</button></div>
         <div id="icCategories"></div>
-        <div class="empty-state" id="icEmpty" style="display:none;"><p>No intro call data. Click "Initialize" above to create the checklist for this client.</p></div>
+        <div class="empty-state" id="icEmpty" style="display:none;"><p>Intro call checklist not found. Steps are auto-created when a client enters onboarding.</p><p style="margin-top:.5rem;font-size:.82rem;">If this client was added before the trigger existed, click Initialize above.</p></div>
       </div>
 
       <!-- TAB: Deliverables -->
@@ -1219,22 +1219,22 @@ strong { font-weight: 600; color: var(--color-heading); }
 
   // ---- INTRO CALL TAB ----
   var IC_STEPS = [
-    { key: 'verify_website_access', label: 'Verify Website Access', hint: 'Confirm we can log in and edit the site', cat: 'platform_access', sort: 1 },
-    { key: 'gsc_configured', label: 'GSC Configured + Access Granted', hint: 'Add support@, chris@, kalyn@, reporting service account', cat: 'platform_access', sort: 2 },
-    { key: 'ga4_configured', label: 'GA4 Configured + Access Granted', hint: 'Add support@, chris@, kalyn@', cat: 'platform_access', sort: 3 },
-    { key: 'gtm_configured', label: 'GTM Configured + Access Granted', hint: 'Add support@, chris@, kalyn@', cat: 'platform_access', sort: 4 },
-    { key: 'gbp_access', label: 'GBP Access Confirmed', hint: 'Verify GBP listing ownership and admin access', cat: 'platform_access', sort: 5 },
-    { key: 'lbm_location_enabled', label: 'LBM Location Added + Enabled', hint: 'Add location via API or UI, enable for reporting', cat: 'platform_access', sort: 6 },
-    { key: 'lbm_report_config', label: 'LBM Report Configuration Created', hint: 'Create report config in LBM UI so GBP metrics flow', cat: 'platform_access', sort: 7 },
-    { key: 'pick_target_keywords', label: 'Pick Target Keywords (up to 5)', hint: 'Select primary keywords and map to target pages', cat: 'campaign_setup', sort: 10 },
-    { key: 'review_socials', label: 'Review Social Profiles + Marketing Account', hint: 'Audit existing socials, review Rising Tide strategy', cat: 'campaign_setup', sort: 11 },
+    { key: 'verify_website_access', label: 'Verify Website Access', hint: 'Confirm we can log in and edit the site (CMS admin credentials)', cat: 'platform_access', sort: 1 },
+    { key: 'gsc_configured', label: 'GSC Configured + Access Granted', hint: 'Add: support@, chris@, kalyn@ + reporting@moonraker-client-hq.iam.gserviceaccount.com (Restricted)', cat: 'platform_access', sort: 2 },
+    { key: 'ga4_configured', label: 'GA4 Configured + Access Granted', hint: 'Add: support@, chris@, kalyn@ as Editors', cat: 'platform_access', sort: 3 },
+    { key: 'gtm_configured', label: 'GTM Configured + Access Granted', hint: 'Add: support@, chris@, kalyn@ - create container if needed', cat: 'platform_access', sort: 4 },
+    { key: 'gbp_access', label: 'GBP Access Confirmed', hint: 'Verify listing ownership and admin access for chris@moonraker.ai', cat: 'platform_access', sort: 5 },
+    { key: 'lbm_location_enabled', label: 'LBM Location Added + Enabled', hint: 'POST /locations with place_id, then POST /locations/{id}/enable', cat: 'platform_access', sort: 6 },
+    { key: 'lbm_report_config', label: 'LBM Report Configuration Created', hint: 'Manual step in LBM UI - create report config for GBP metrics', cat: 'platform_access', sort: 7 },
+    { key: 'pick_target_keywords', label: 'Pick Target Keywords (up to 5)', hint: 'Select primary keywords, map to target pages, save to tracked_keywords', cat: 'campaign_setup', sort: 10 },
+    { key: 'review_socials', label: 'Review Social Profiles + Marketing Account', hint: 'Audit existing socials, confirm Rising Tide access (LinkedIn, FB, Quora admin)', cat: 'campaign_setup', sort: 11 },
     { key: 'check_booking_calendar', label: 'Check Booking Calendar', hint: 'Confirm booking exists and is configured on site', cat: 'campaign_setup', sort: 12 },
-    { key: 'lead_attribution', label: 'Lead Attribution Setup', hint: '"How did you hear about us?" + AI Search option on forms', cat: 'campaign_setup', sort: 13 },
-    { key: 'google_marketing_account', label: 'Google Marketing Account', hint: 'Workspace or Gmail dedicated to marketing', cat: 'campaign_setup', sort: 14 },
+    { key: 'lead_attribution', label: 'Lead Attribution Setup', hint: '"How did you hear about us?" + AI Search option on forms/booking', cat: 'campaign_setup', sort: 13 },
+    { key: 'google_marketing_account', label: 'Google Marketing Account', hint: 'Workspace (marketing@) or Gmail for socials - get email + password', cat: 'campaign_setup', sort: 14 },
     { key: 'content_turnaround', label: 'Set Content Feedback Expectations', hint: '~1 week turnaround, 48hr response, 4-6 week buildout', cat: 'expectations', sort: 20 },
-    { key: 'scope_boundaries', label: 'Review Scope Boundaries', hint: 'NAP changes $300, extra pages $300, no WP plugins/email', cat: 'expectations', sort: 21 },
+    { key: 'scope_boundaries', label: 'Review Scope Boundaries', hint: 'NAP changes $300, extra pages $300, no WP plugins/email/EHR', cat: 'expectations', sort: 21 },
     { key: 'schedule_checkins', label: 'Schedule Check-in Cadence', hint: 'Book recurring check-in calls', cat: 'expectations', sort: 22 },
-    { key: 'client_tracking_sheet', label: 'Share Client Tracking Sheet', hint: 'Lead attribution spreadsheet for new inquiries', cat: 'expectations', sort: 23 }
+    { key: 'client_tracking_sheet', label: 'Share Client Tracking Sheet', hint: 'Lead attribution spreadsheet for new client inquiries', cat: 'expectations', sort: 23 }
   ];
 
   var IC_CATEGORIES = {
