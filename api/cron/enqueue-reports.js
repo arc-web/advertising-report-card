@@ -30,11 +30,15 @@ module.exports = async function handler(req, res) {
   };
 
   try {
-    // Determine report month (default: current month's 1st)
+    // Determine report month (default: PREVIOUS month since cron runs on the 1st)
     var now = new Date();
-    var reportMonth = req.query && req.query.month
-      ? req.query.month
-      : now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
+    var reportMonth;
+    if (req.query && req.query.month) {
+      reportMonth = req.query.month;
+    } else {
+      var prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+      reportMonth = prev.getUTCFullYear() + '-' + String(prev.getUTCMonth() + 1).padStart(2, '0') + '-01';
+    }
 
     var dryRun = req.query && req.query.dry_run === 'true';
 
@@ -124,3 +128,4 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: err.message || 'Internal error' });
   }
 };
+
