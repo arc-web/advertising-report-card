@@ -787,7 +787,8 @@ strong { font-weight: 600; color: var(--color-heading); }
     allTasks: {},
     filter: 'all',
     taskFilter: 'all',
-    taskOwnerFilter: 'all'
+    taskOwnerFilter: 'all',
+    introCall: []
   };
 
   // ============================================================
@@ -796,6 +797,14 @@ strong { font-weight: 600; color: var(--color-heading); }
   function sb(path) {
     return fetch(SB + '/rest/v1/' + path, {
       headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK }
+    }).then(function(r) { return r.json(); });
+  }
+
+  function apiAction(action, table, filters, data) {
+    return fetch('/api/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: action, table: table, filters: filters || undefined, data: data })
     }).then(function(r) { return r.json(); });
   }
 
@@ -1252,6 +1261,8 @@ strong { font-weight: 600; color: var(--color-heading); }
       desc: '<div class="ic-detail-label">How to Set Up</div><ul><li>Use the LBM API: <code>POST /locations</code> with the client\'s GBP <code>place_id</code></li><li>Then enable: <code>POST /locations/{id}/enable</code></li><li>Or add manually in the LBM dashboard at <a href="https://local.moonraker.ai" target="_blank">local.moonraker.ai</a></li></ul><div class="ic-detail-label">Why This Matters</div><p>LBM tracks GBP performance metrics (calls, direction requests, website clicks, impressions) that feed into monthly reports.</p>' },
     { key: 'lbm_report_config', label: 'LBM Report Configuration Created', cat: 'platform_access', sort: 7,
       desc: '<div class="ic-detail-label">How to Set Up</div><ul><li>Go to <a href="https://local.moonraker.ai" target="_blank">local.moonraker.ai</a> &rarr; Reports &rarr; Create New Report</li><li>Select the client\'s location</li><li>Choose reporting period (monthly)</li><li>This is a manual step - the API does not support creating report configs</li></ul><div class="ic-detail-label">Why This Matters</div><p>Without a report configuration, the compile-report pipeline cannot pull GBP metrics for this client.</p>' },
+    { key: 'referral_source', label: 'Confirm Referral Source / Partner Commission', cat: 'campaign_setup', sort: 9,
+      desc: '<div class="ic-detail-label">Talking Points</div><ul><li>Ask the client how they heard about Moonraker</li><li>If they came through a partner referral, note the partner name so we can track commission</li><li>Check if they were part of an accelerator group, webinar, or other lead source</li><li>Record the referral source on their contact record for attribution</li></ul><div class="ic-detail-label">Why This Matters</div><p>Partner commissions depend on accurate attribution. If we don\'t capture where the client came from during the intro call, it becomes much harder to reconcile later. This also helps us understand which channels are driving the best clients.</p>' },
     { key: 'pick_target_keywords', label: 'Pick Target Keywords (up to 5)', cat: 'campaign_setup', sort: 10,
       desc: '<div class="ic-detail-label">Talking Points</div><ul><li>Review the client\'s specialties and modalities - which services drive the most revenue?</li><li>Select up to 5 primary keywords that map to target pages</li><li>Consider geographic modifiers (city, state/province)</li><li>For each keyword, decide if it maps to an existing page (update) or needs a new page</li></ul><div class="ic-detail-label">Naming Convention for Updated Pages</div><p>When updating an existing page, clone it to <code>domain.com/page-url-new</code> (append <code>-new</code>). This lets us track updates separately before merging upon client approval.</p><div class="ic-detail-label">Add Keywords Below</div><div id="icKeywordForm"></div>' },
     { key: 'review_socials', label: 'Review Social Profiles + Marketing Account', cat: 'campaign_setup', sort: 11,
@@ -1342,27 +1353,32 @@ strong { font-weight: 600; color: var(--color-heading); }
     var slug = state.contact.slug; var cid = state.contact.id;
     sb('tracked_keywords?client_slug=eq.' + slug + '&active=eq.true&order=priority.asc,keyword.asc').then(function(kws) {
       var html = '<div class="ic-kw-form">';
-      html += '<div class="ic-kw-row" style="border-bottom:1px solid var(--color-border);padding-bottom:.5rem;margin-bottom:.35rem;">';
-      html += '<div class="ic-kw-header">Keyword</div><div class="ic-kw-header">Target Page URL</div><div class="ic-kw-header">Priority</div><div class="ic-kw-header">Page</div></div>';
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr auto auto auto;gap:.5rem;padding:.4rem 0 .5rem;border-bottom:1px solid var(--color-border);margin-bottom:.35rem;">';
+      html += '<div class="ic-kw-header">Keyword</div><div class="ic-kw-header">Target Page URL</div><div class="ic-kw-header">Priority</div><div class="ic-kw-header">Page Status</div><div class="ic-kw-header"></div></div>';
       if (kws && kws.length > 0) {
         kws.forEach(function(kw) {
-          html += '<div class="ic-kw-row">';
-          html += '<input type="text" value="' + esc(kw.keyword) + '" readonly style="background:transparent;border-color:transparent;">';
-          html += '<input type="text" value="' + esc(kw.target_page || '') + '" readonly style="background:transparent;border-color:transparent;">';
-          html += '<span style="font-size:.75rem;color:var(--color-muted);">P' + (kw.priority || 2) + '</span>';
-          html += '<span style="font-size:.72rem;color:var(--color-muted);">' + esc(kw.notes || kw.keyword_type || '') + '</span>';
+          var isNew = (kw.notes || '').toLowerCase().indexOf('new page') >= 0;
+          var pageLabel = isNew ? 'New' : 'Update';
+          var pageColor = isNew ? 'var(--color-primary)' : 'var(--color-info)';
+          html += '<div style="display:grid;grid-template-columns:1fr 1fr auto auto auto;gap:.5rem;align-items:center;padding:.4rem 0;border-bottom:1px solid var(--color-border);font-size:.82rem;">';
+          html += '<div style="color:var(--color-heading);font-weight:500;">' + esc(kw.keyword) + '</div>';
+          html += '<div style="color:var(--color-muted);font-size:.78rem;">' + esc(kw.target_page || '-') + '</div>';
+          html += '<span style="font-size:.72rem;font-weight:600;padding:.15rem .45rem;border-radius:4px;background:' + (kw.priority === 1 ? 'rgba(0,212,126,.1);color:#00b86c' : 'rgba(59,130,246,.1);color:#3B82F6') + ';">P' + (kw.priority || 2) + '</span>';
+          html += '<span style="font-size:.72rem;font-weight:500;color:' + pageColor + ';">' + pageLabel + '</span>';
+          html += '<button onclick="deleteICKeyword(\'' + kw.id + '\')" style="width:22px;height:22px;border:none;background:transparent;color:var(--color-muted);cursor:pointer;font-size:.75rem;border-radius:4px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'rgba(239,68,68,.1)\';this.style.color=\'var(--color-danger)\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'var(--color-muted)\'" title="Delete">&#10005;</button>';
           html += '</div>';
         });
       }
-      html += '<div class="ic-kw-row" style="margin-top:.5rem;">';
-      html += '<input type="text" id="icNewKw" placeholder="e.g. EMDR therapy Tucson">';
-      html += '<input type="text" id="icNewPage" placeholder="/emdr-therapy/">';
-      html += '<select id="icNewPriority"><option value="1">P1</option><option value="2" selected>P2</option><option value="3">P3</option></select>';
-      html += '<select id="icNewPageType"><option value="new">New Page</option><option value="existing">Update Existing</option></select>';
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr auto auto auto;gap:.5rem;align-items:center;margin-top:.5rem;">';
+      html += '<input type="text" id="icNewKw" placeholder="e.g. EMDR therapy Tucson" class="ic-kw-input" style="font-family:inherit;font-size:.82rem;padding:.35rem .5rem;border:1px solid var(--color-border);border-radius:6px;background:var(--color-bg);color:var(--color-heading);">';
+      html += '<input type="text" id="icNewPage" placeholder="/emdr-therapy/" class="ic-kw-input" style="font-family:inherit;font-size:.82rem;padding:.35rem .5rem;border:1px solid var(--color-border);border-radius:6px;background:var(--color-bg);color:var(--color-heading);">';
+      html += '<select id="icNewPriority" style="font-family:inherit;font-size:.78rem;padding:.3rem .4rem;border:1px solid var(--color-border);border-radius:6px;background:var(--color-bg);color:var(--color-heading);"><option value="1">P1</option><option value="2">P2</option></select>';
+      html += '<select id="icNewPageType" style="font-family:inherit;font-size:.78rem;padding:.3rem .4rem;border:1px solid var(--color-border);border-radius:6px;background:var(--color-bg);color:var(--color-heading);"><option value="new">New Page</option><option value="existing">Update</option></select>';
+      html += '<div></div>';
       html += '</div>';
-      html += '<div style="margin-top:.5rem;display:flex;gap:.5rem;align-items:center;">';
+      html += '<div style="margin-top:.6rem;display:flex;gap:.75rem;align-items:center;">';
       html += '<button onclick="addICKeyword()" style="padding:.35rem .85rem;font-size:.78rem;font-weight:600;border:1px solid var(--color-primary);background:var(--color-primary-subtle);color:var(--color-primary);border-radius:6px;cursor:pointer;">Add Keyword</button>';
-      html += '<span style="font-size:.72rem;color:var(--color-muted);">For updated pages, use <code>domain.com/page-url-new</code> naming</span>';
+      html += '<span style="font-size:.72rem;color:var(--color-muted);"><strong>P1</strong> = target page for reporting &amp; tracking &nbsp;|&nbsp; <strong>P2</strong> = secondary reference for Surge audit</span>';
       html += '</div></div>';
       el.innerHTML = html;
     }).catch(function() { el.innerHTML = '<p style="color:var(--color-muted);font-size:.82rem;">Could not load keywords.</p>'; });
@@ -1379,6 +1395,14 @@ strong { font-weight: 600; color: var(--color-heading); }
       if (res.success) { document.getElementById('icNewKw').value = ''; document.getElementById('icNewPage').value = ''; renderKeywordForm(); }
       else { alert('Failed to add keyword'); }
     }).catch(function() { alert('Error adding keyword'); });
+  };
+
+  window.deleteICKeyword = function(kwId) {
+    if (!confirm('Delete this keyword?')) return;
+    apiAction('update_record', 'tracked_keywords', { id: kwId }, { active: false }).then(function(res) {
+      if (res.success) renderKeywordForm();
+      else alert('Failed to delete keyword');
+    }).catch(function() { alert('Error deleting keyword'); });
   };
 
   window.seedIntroCallSteps = function() {
@@ -2236,7 +2260,6 @@ strong { font-weight: 600; color: var(--color-heading); }
     var overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.id = 'newClientModal';
-    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
 
     overlay.innerHTML = '<div class="modal-box">' +
       '<h2>New Client</h2>' +
@@ -2251,7 +2274,7 @@ strong { font-weight: 600; color: var(--color-heading); }
         '<div class="modal-form-group"><label>Phone</label><input type="tel" id="nc_phone" placeholder="(310) 926-1437"></div>' +
       '</div>' +
       '<div class="modal-form-row">' +
-        '<div class="modal-form-group"><label>Status</label><select id="nc_status"><option value="lead">Lead</option><option value="prospect" selected>Prospect</option><option value="onboarding">Onboarding</option><option value="active">Active</option></select></div>' +
+        '<div class="modal-form-group"><label>Status</label><select id="nc_status"><option value="lead">Lead</option><option value="prospect" selected>Prospect</option><option value="onboarding">Onboarding</option></select></div>' +
         '<div class="modal-form-group"><label>Credentials</label><input type="text" id="nc_creds" placeholder="PsyD, LCSW, LMFT..."></div>' +
       '</div>' +
       '<div class="modal-form-row">' +
