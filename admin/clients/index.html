@@ -735,12 +735,17 @@ strong { font-weight: 600; color: var(--color-heading); }
       <!-- TAB: Reports -->
       <div class="tab-panel" id="tab-reports">
         <div class="card" style="margin-bottom:1rem;" id="reportConfigCard">
-          <div class="card-header"><h3>Report Configuration</h3></div>
+          <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <h3>Report Configuration</h3>
+            <div style="display:flex;gap:.5rem;">
+              <button class="btn-sm" id="compileNowBtn" onclick="compileReportNow()" style="padding:.35rem .85rem;font-size:.75rem;font-weight:600;border:1px solid var(--color-primary);background:var(--color-primary-subtle);color:var(--color-primary);border-radius:6px;cursor:pointer;font-family:inherit;">&#9654; Compile Now</button>
+            </div>
+          </div>
           <div class="field-group" id="reportConfigFields"></div>
         </div>
         <div class="section-header"><h3 style="font-size:.95rem;">Report History</h3></div>
         <div id="rptList"></div>
-        <div class="empty-state" id="rptEmpty" style="display:none;"><p>No reports generated yet.</p></div>
+        <div class="empty-state" id="rptEmpty" style="display:none;"><p>No reports generated yet. Complete the GSC and LBM steps in the Intro Call tab to auto-configure reporting.</p></div>
       </div>
 
       <!-- TAB: Billing -->
@@ -1380,9 +1385,35 @@ strong { font-weight: 600; color: var(--color-heading); }
     var body = { status: newStatus, updated_at: new Date().toISOString() };
     if (newStatus === 'complete') { body.completed_at = new Date().toISOString(); body.completed_by = 'admin'; }
     apiAction('update_record', 'intro_call_steps', { id: stepId }, body).then(function(r) {
-      if (!r.success) { step.status = oldStatus; renderIntroCall(); }
+      if (!r.success) { step.status = oldStatus; renderIntroCall(); return; }
+      // Auto-configure report_configs when platform steps are completed
+      if (newStatus === 'complete' && (step.step_key === 'gsc_configured' || step.step_key === 'lbm_report_config')) {
+        autoConfigReports();
+      }
     }).catch(function() { step.status = oldStatus; renderIntroCall(); });
   };
+
+  function autoConfigReports() {
+    var c = state.contact;
+    if (!c) return;
+    var slug = c.slug;
+    var configData = { client_slug: slug, active: true };
+    if (c.gsc_property) configData.gsc_property = c.gsc_property;
+    // Check if config exists
+    sb('report_configs?client_slug=eq.' + slug + '&limit=1').then(function(existing) {
+      if (existing && existing.length > 0) {
+        // Update existing
+        apiAction('update_record', 'report_configs', { client_slug: slug }, configData).then(function(res) {
+          if (res.success) { state.reportConfig = (res.data && res.data[0]) || state.reportConfig; toast('Report config updated', 'success'); renderReports(); }
+        });
+      } else {
+        // Create new
+        apiAction('create_record', 'report_configs', null, configData).then(function(res) {
+          if (res.success) { state.reportConfig = (res.data && res.data[0]) || configData; toast('Report config auto-created', 'success'); renderReports(); }
+        });
+      }
+    });
+  }
 
   // ---- KEYWORD FORM (inside Intro Call) ----
   function renderKeywordForm() {
@@ -1933,17 +1964,26 @@ strong { font-weight: 600; color: var(--color-heading); }
   function renderReports() {
     var cfg = state.reportConfig;
     var snaps = state.snapshots;
+    var c = state.contact;
 
     if (cfg) {
+      var gscOk = !!(cfg.gsc_property || (c && c.gsc_property));
+      var gscVal = cfg.gsc_property || (c && c.gsc_property) || 'Not configured';
+      var lbmOk = !!cfg.lbm_location_id || !!cfg.gbp_id;
+
       document.getElementById('reportConfigFields').innerHTML =
-        fieldRow('Active', cfg.active ? 'Yes' : 'No')
-        + fieldRow('GSC Property', cfg.gsc_property)
-        + fieldRow('GA4 Property', cfg.ga4_property)
-        + fieldRow('Report Day', cfg.report_day)
-        + fieldRow('Last Compiled', cfg.last_compiled_at ? formatDateTime(cfg.last_compiled_at) : null)
-        + fieldRow('Compile Status', cfg.last_compiled_status);
+        '<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem;">' +
+          '<span style="font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:5px;' + (gscOk ? 'background:rgba(0,212,126,.1);color:#00b86c' : 'background:rgba(239,68,68,.1);color:#EF4444') + ';">GSC ' + (gscOk ? '&#10003;' : '&#10007;') + '</span>' +
+          '<span style="font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:5px;' + (lbmOk ? 'background:rgba(0,212,126,.1);color:#00b86c' : 'background:rgba(239,68,68,.1);color:#EF4444') + ';">GBP/LBM ' + (lbmOk ? '&#10003;' : '&#10007;') + '</span>' +
+          '<span style="font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:5px;background:rgba(0,212,126,.1);color:#00b86c;">AI Visibility &#10003;</span>' +
+          '<span style="font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:5px;background:rgba(0,212,126,.1);color:#00b86c;">Tasks &#10003;</span>' +
+        '</div>' +
+        fieldRow('GSC Property', gscVal)
+        + fieldRow('Active', cfg.active ? 'Yes' : 'No')
+        + fieldRow('Last Compiled', cfg.last_compiled_at ? formatDateTime(cfg.last_compiled_at) : null);
     } else {
-      document.getElementById('reportConfigCard').style.display = 'none';
+      document.getElementById('reportConfigFields').innerHTML =
+        '<div style="padding:.75rem;font-size:.82rem;color:var(--color-muted);"><p style="margin:0;">No report config yet. Complete the <strong>GSC</strong> and <strong>LBM Report Config</strong> steps in the Intro Call tab to auto-create.</p></div>';
     }
 
     if (snaps.length === 0) {
@@ -2083,6 +2123,37 @@ strong { font-weight: 600; color: var(--color-heading); }
     }).catch(function(err) {
       alert('Error: ' + err.message);
       if (btn) { btn.textContent = '✉ Send to Client'; btn.disabled = false; }
+    });
+  };
+
+  window.compileReportNow = function() {
+    var c = state.contact;
+    if (!c) return;
+    var btn = document.getElementById('compileNowBtn');
+    if (btn) { btn.textContent = 'Compiling...'; btn.disabled = true; btn.style.opacity = '.6'; }
+
+    var now = new Date();
+    var reportMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
+
+    fetch('/api/compile-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_slug: c.slug, report_month: reportMonth })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        toast('Report compiled for ' + (res.practice_name || c.slug), 'success');
+        // Reload snapshots
+        sb('report_snapshots?select=*&client_slug=eq.' + c.slug + '&order=report_month.desc&limit=20').then(function(snaps) {
+          state.snapshots = snaps || [];
+          renderReports();
+        });
+      } else {
+        toast('Compile failed: ' + (res.error || res.errors?.join(', ') || 'unknown'), 'error');
+      }
+      if (btn) { btn.textContent = '▶ Compile Now'; btn.disabled = false; btn.style.opacity = ''; }
+    }).catch(function(err) {
+      toast('Error: ' + err.message, 'error');
+      if (btn) { btn.textContent = '▶ Compile Now'; btn.disabled = false; btn.style.opacity = ''; }
     });
   };
 
