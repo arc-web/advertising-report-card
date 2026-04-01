@@ -1975,6 +1975,9 @@ strong { font-weight: 600; color: var(--color-heading); }
       if (s.report_status === 'internal_review') {
         html += '<button class="btn btn-ghost btn-sm" style="margin-left:.5rem;color:var(--color-success);font-weight:600;" onclick="event.stopPropagation(); approveReport(\'' + s.id + '\')" title="Approve and publish">&#10003; Approve</button>';
       }
+      if (s.report_status === 'published') {
+        html += '<button class="btn btn-ghost btn-sm" style="margin-left:.5rem;color:var(--color-info);" onclick="event.stopPropagation(); previewReportEmail(\'' + s.id + '\')" title="Preview client email">&#9993; Preview Email</button>';
+      }
       html += '<a href="/' + esc(slug) + '/reports?preview=admin#' + esc(s.report_month) + '" target="_blank" class="btn btn-ghost btn-sm" title="View report" style="margin-left:.5rem;">&#128279; View</a>';
       html += '</div>';
     });
@@ -2005,6 +2008,78 @@ strong { font-weight: 600; color: var(--color-heading); }
       snap.report_status = oldStatus;
       renderReports();
       toast('Error approving report', 'error');
+    });
+  };
+
+  window.previewReportEmail = function(snapId) {
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'emailPreviewModal';
+    overlay.innerHTML = '<div class="modal-box" style="width:700px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">' +
+        '<h2 style="margin:0;">Client Report Email Preview</h2>' +
+        '<button onclick="document.getElementById(\'emailPreviewModal\').remove()" style="border:none;background:none;font-size:1.25rem;cursor:pointer;color:var(--color-muted);">&#10005;</button>' +
+      '</div>' +
+      '<div id="emailMeta" style="font-size:.78rem;color:var(--color-muted);margin-bottom:.75rem;padding:.5rem .75rem;background:var(--color-bg);border-radius:8px;"></div>' +
+      '<div id="emailPreviewFrame" style="flex:1;overflow-y:auto;border:1px solid var(--color-border);border-radius:8px;min-height:400px;background:#fff;"></div>' +
+      '<div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1rem;" id="emailActions">' +
+        '<button class="btn-cancel" onclick="document.getElementById(\'emailPreviewModal\').remove()">Close</button>' +
+        '<button class="btn-create" id="sendEmailBtn" onclick="sendReportEmail(\'' + snapId + '\')" style="background:var(--color-primary);color:#fff;">&#9993; Send to Client</button>' +
+      '</div>' +
+    '</div>';
+    document.body.appendChild(overlay);
+
+    document.getElementById('emailMeta').textContent = 'Loading preview...';
+
+    fetch('/api/send-report-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot_id: snapId, preview: true })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success && res.html) {
+        document.getElementById('emailMeta').innerHTML =
+          '<strong>To:</strong> ' + esc(res.to) + ' &nbsp;&middot;&nbsp; <strong>CC:</strong> ' + esc(res.cc) + ' &nbsp;&middot;&nbsp; <strong>Reply-To:</strong> ' + esc(res.reply_to) + '<br>' +
+          '<strong>Subject:</strong> ' + esc(res.subject) + '<br>' +
+          '<strong>From:</strong> Moonraker Reports &lt;reports@clients.moonraker.ai&gt;';
+        var iframe = document.createElement('iframe');
+        iframe.style.cssText = 'width:100%;height:100%;border:none;min-height:500px;';
+        document.getElementById('emailPreviewFrame').innerHTML = '';
+        document.getElementById('emailPreviewFrame').appendChild(iframe);
+        iframe.contentDocument.open();
+        iframe.contentDocument.write(res.html);
+        iframe.contentDocument.close();
+      } else {
+        document.getElementById('emailMeta').textContent = 'Error: ' + (res.error || 'Unknown error');
+        document.getElementById('emailPreviewFrame').innerHTML = '<div style="padding:2rem;text-align:center;color:#EF4444;">' + esc(res.error || JSON.stringify(res)) + '</div>';
+      }
+    }).catch(function(err) {
+      document.getElementById('emailMeta').textContent = 'Error loading preview';
+      document.getElementById('emailPreviewFrame').innerHTML = '<div style="padding:2rem;text-align:center;color:#EF4444;">' + esc(err.message || 'Network error') + '</div>';
+    });
+  };
+
+  window.sendReportEmail = function(snapId) {
+    if (!confirm('Send this report email to the client? It will also CC scott@moonraker.ai.')) return;
+    var btn = document.getElementById('sendEmailBtn');
+    if (btn) { btn.textContent = 'Sending...'; btn.disabled = true; }
+
+    fetch('/api/send-report-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot_id: snapId })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        document.getElementById('emailActions').innerHTML =
+          '<div style="color:var(--color-success);font-weight:600;font-size:.88rem;">&#10003; Email sent to ' + esc(res.sent_to) + '</div>' +
+          '<button class="btn-cancel" onclick="document.getElementById(\'emailPreviewModal\').remove()">Close</button>';
+        toast('Report email sent to ' + res.sent_to, 'success');
+      } else {
+        alert('Failed to send: ' + (res.error || JSON.stringify(res)));
+        if (btn) { btn.textContent = '✉ Send to Client'; btn.disabled = false; }
+      }
+    }).catch(function(err) {
+      alert('Error: ' + err.message);
+      if (btn) { btn.textContent = '✉ Send to Client'; btn.disabled = false; }
     });
   };
 
