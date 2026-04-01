@@ -133,6 +133,14 @@ strong { font-weight: 600; color: var(--color-heading); }
 .btn-restore { padding: .35rem .75rem; border-radius: 6px; font-size: .75rem; font-weight: 500; border: 1px solid var(--color-border); background: transparent; color: var(--color-muted); cursor: pointer; font-family: inherit; transition: all .15s; }
 .btn-restore:hover { background: var(--color-bg); color: var(--color-heading); }
 .tag-lead { background: rgba(107,117,153,.08); color: var(--color-muted); }
+.status-meta-select { font-family: inherit; font-size: .72rem; font-weight: 600; padding: .2rem .35rem; border-radius: 5px; border: 1px solid transparent; cursor: pointer; transition: border-color .15s; text-transform: capitalize; }
+.status-meta-select:hover { border-color: var(--color-border); }
+.status-meta-select option { background: var(--color-surface); color: var(--color-body); text-transform: capitalize; }
+.status-meta-select option:disabled { color: var(--color-muted); font-style: italic; }
+.status-meta-select.st-active { background: rgba(0,212,126,.1); color: var(--color-success); }
+.status-meta-select.st-onboarding { background: rgba(59,130,246,.08); color: var(--color-info); }
+.status-meta-select.st-prospect { background: rgba(245,158,11,.08); color: var(--color-warning); }
+.status-meta-select.st-lead { background: rgba(107,117,153,.08); color: var(--color-muted); }
 .tag-free { background: rgba(107,117,153,.08); color: var(--color-muted); }
 .tag-premium { background: rgba(139,92,246,.1); color: #8B5CF6; }
 .convert-btn { font-size: .72rem; font-weight: 600; font-family: 'Outfit', sans-serif; padding: .3rem .75rem; border-radius: 6px; border: 1px solid var(--color-primary); background: var(--color-primary-subtle); color: var(--color-primary); cursor: pointer; transition: all .2s; white-space: nowrap; }
@@ -1059,7 +1067,13 @@ strong { font-weight: 600; color: var(--color-heading); }
     document.getElementById('detailAvatar').textContent = initials.toUpperCase();
     document.getElementById('detailName').textContent = c.practice_name || c.slug;
 
-    var metaHtml = '<span class="tag tag-' + c.status + '">' + c.status + '</span>';
+    var metaHtml = '<select class="status-meta-select st-' + c.status + '" onchange="setContactStatus(this.value)"' + (c.status === 'active' ? ' title="Active status is earned when all onboarding steps are complete"' : '') + '>';
+    ['lead','prospect','onboarding','active'].forEach(function(s) {
+      var disabled = (s === 'active' && c.status !== 'active') ? ' disabled' : '';
+      var label = s === 'active' ? 'Active (auto)' : s.charAt(0).toUpperCase() + s.slice(1);
+      metaHtml += '<option value="' + s + '"' + (c.status === s ? ' selected' : '') + disabled + '>' + label + '</option>';
+    });
+    metaHtml += '</select>';
     if (c.city || c.state_province) metaHtml += '<span class="sep">&middot;</span><span>' + esc([c.city, c.state_province].filter(Boolean).join(', ')) + '</span>';
     if (c.email) metaHtml += '<span class="sep">&middot;</span><span>' + esc(c.email) + '</span>';
     document.getElementById('detailMeta').innerHTML = metaHtml;
@@ -1083,11 +1097,11 @@ strong { font-weight: 600; color: var(--color-heading); }
     }).join('');
     document.getElementById('quickLinks').innerHTML = qlHtml;
 
-    // Tab counts
-    var obCount = state.onboarding.length;
+    // Tab counts — show outstanding (incomplete) items
+    var obCount = state.onboarding.filter(function(s) { return s.status !== 'complete'; }).length;
     var icCount = state.introCall.filter(function(s) { return s.status !== 'complete' && s.status !== 'not_applicable'; }).length;
-    var taskCount = state.tasks.length;
-    var delCount = state.deliverables.length;
+    var taskCount = state.tasks.filter(function(t) { return t.status !== 'complete'; }).length;
+    var delCount = state.deliverables.filter(function(d) { return d.status !== 'delivered'; }).length;
     var rptCount = state.snapshots.length;
     setTabCount('onboarding', obCount);
     setTabCount('intro-call', icCount);
@@ -1194,6 +1208,29 @@ strong { font-weight: 600; color: var(--color-heading); }
     if (!c.notes) notes.style.color = 'var(--color-muted)';
     else notes.style.color = '';
   }
+
+  window.setContactStatus = function(newStatus) {
+    var c = state.contact;
+    if (!c) return;
+    if (newStatus === 'active' && c.status !== 'active') {
+      alert('Active status is earned automatically when all onboarding steps are complete.');
+      // Reset the dropdown
+      var sel = document.querySelector('.status-meta-select');
+      if (sel) sel.value = c.status;
+      return;
+    }
+    var oldStatus = c.status;
+    c.status = newStatus;
+    // Update the dropdown class
+    var sel = document.querySelector('.status-meta-select');
+    if (sel) { sel.className = 'status-meta-select st-' + newStatus; }
+    fetch('/api/action', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_record', table: 'contacts', filters: { id: c.id }, data: { status: newStatus, updated_at: new Date().toISOString() } })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (!res.success) { c.status = oldStatus; if (sel) { sel.value = oldStatus; sel.className = 'status-meta-select st-' + oldStatus; } }
+    }).catch(function() { c.status = oldStatus; if (sel) { sel.value = oldStatus; sel.className = 'status-meta-select st-' + oldStatus; } });
+  };
 
   // ---- ONBOARDING TAB ----
   function renderOnboarding() {
@@ -1498,7 +1535,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       if (res.success) {
         state.tasks = state.tasks.filter(function(t) { return t.id !== taskId; });
         renderAudit();
-        setTabCount('audit', state.tasks.length);
+        setTabCount('audit', state.tasks.filter(function(t) { return t.status !== 'complete'; }).length);
         toast('Task deleted', 'success');
       } else {
         toast('Failed to delete', 'error');
@@ -1541,14 +1578,15 @@ strong { font-weight: 600; color: var(--color-heading); }
     if (oldStatus === 'complete' && newStatus !== 'complete') data.completed_at = null;
     task.status = newStatus;
     renderAudit();
+    setTabCount('audit', state.tasks.filter(function(t) { return t.status !== 'complete'; }).length);
     logActivity('checklist_items', taskId, 'status', oldStatus, newStatus, task.title);
     fetch('/api/action', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'update_record', table: 'checklist_items', filters: { id: taskId }, data: data })
     }).then(function(r) { return r.json(); }).then(function(res) {
-      if (!res.success) { task.status = oldStatus; renderAudit(); }
-    }).catch(function() { task.status = oldStatus; renderAudit(); });
+      if (!res.success) { task.status = oldStatus; renderAudit(); setTabCount('audit', state.tasks.filter(function(t) { return t.status !== 'complete'; }).length); }
+    }).catch(function() { task.status = oldStatus; renderAudit(); setTabCount('audit', state.tasks.filter(function(t) { return t.status !== 'complete'; }).length); });
   }
 
   window.setTaskOwner = function setTaskOwner(taskId, newOwner, evt) {
@@ -1717,6 +1755,7 @@ strong { font-weight: 600; color: var(--color-heading); }
     del.status = newStatus;
     if (data.delivered_at !== undefined) del.delivered_at = data.delivered_at;
     renderDeliverables();
+    setTabCount('deliverables', state.deliverables.filter(function(d) { return d.status !== 'delivered'; }).length);
     logActivity('deliverables', delId, 'status', oldStatus, newStatus, del.title);
 
     fetch('/api/action', {
@@ -1728,10 +1767,12 @@ strong { font-weight: 600; color: var(--color-heading); }
         // Revert on failure
         del.status = oldStatus;
         renderDeliverables();
+        setTabCount('deliverables', state.deliverables.filter(function(d) { return d.status !== 'delivered'; }).length);
       }
     }).catch(function() {
       del.status = oldStatus;
       renderDeliverables();
+      setTabCount('deliverables', state.deliverables.filter(function(d) { return d.status !== 'delivered'; }).length);
     });
   }
 
@@ -1745,7 +1786,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       if (res.success) {
         state.deliverables = state.deliverables.filter(function(d) { return d.id !== delId; });
         renderDeliverables();
-        setTabCount('deliverables', state.deliverables.length);
+        setTabCount('deliverables', state.deliverables.filter(function(d) { return d.status !== 'delivered'; }).length);
         toast('Deliverable deleted', 'success');
       } else {
         toast('Failed to delete', 'error');
@@ -1779,7 +1820,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       if (res.success && res.data && res.data[0]) {
         state.deliverables.unshift(res.data[0]);
         renderDeliverables();
-        setTabCount('deliverables', state.deliverables.length);
+        setTabCount('deliverables', state.deliverables.filter(function(d) { return d.status !== 'delivered'; }).length);
         typeEl.value = '';
         titleEl.value = '';
       }
