@@ -890,7 +890,7 @@ strong { font-weight: 600; color: var(--color-heading); }
         sb('audit_scores?select=*&client_slug=eq.' + slug + '&order=audit_date.desc&limit=1'),
         sb('deliverables?select=*&order=created_at.desc&contact_id=eq.' + cid).catch(function() { return []; }),
         sb('report_configs?select=*&client_slug=eq.' + slug + '&limit=1').catch(function() { return []; }),
-        sb('report_snapshots?select=*&client_slug=eq.' + slug + '&order=created_at.desc&limit=20').catch(function() { return []; }),
+        sb('report_snapshots?select=*&client_slug=eq.' + slug + '&order=report_month.desc&limit=20').catch(function() { return []; }),
         sb('signed_agreements?select=*&contact_id=eq.' + cid + '&limit=1').catch(function() { return []; }),
         sb('intro_call_steps?select=*&order=sort_order&contact_id=eq.' + cid).catch(function() { return []; })
       ]);
@@ -1951,20 +1951,62 @@ strong { font-weight: 600; color: var(--color-heading); }
       return;
     }
 
+    var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    function fmtMonth(d) {
+      if (!d) return '--';
+      var parts = d.split('-');
+      return months[parseInt(parts[1]) - 1] + ' ' + parts[0];
+    }
+
     var html = '';
     snaps.forEach(function(s) {
       var statusTag = s.report_status === 'published' ? '<span class="tag tag-active">published</span>'
+        : s.report_status === 'internal_review' ? '<span class="tag tag-prospect">internal review</span>'
         : s.report_status === 'compiled' ? '<span class="tag tag-onboarding">compiled</span>'
+        : s.report_status === 'draft' ? '<span class="tag tag-lead">draft</span>'
         : '<span class="tag tag-lead">' + esc(s.report_status) + '</span>';
+
       html += '<div class="rpt-row">';
-      html += '<div class="rpt-month">' + esc(s.report_month || '--') + '</div>';
-      html += '<div style="flex:1;font-size:.78rem;color:var(--color-muted);">' + formatDateTime(s.created_at) + '</div>';
+      html += '<div class="rpt-month">' + fmtMonth(s.report_month) + '</div>';
+      html += '<div style="flex:1;font-size:.78rem;color:var(--color-muted);">Month ' + (s.campaign_month || '-') + ' &middot; compiled ' + formatDateTime(s.created_at) + '</div>';
       html += statusTag;
+
+      // Action buttons
+      if (s.report_status === 'internal_review') {
+        html += '<button class="btn btn-ghost btn-sm" style="margin-left:.5rem;color:var(--color-success);font-weight:600;" onclick="event.stopPropagation(); approveReport(\'' + s.id + '\')" title="Approve and publish">&#10003; Approve</button>';
+      }
       html += '<a href="/' + esc(slug) + '/reports#' + esc(s.report_month) + '" target="_blank" class="btn btn-ghost btn-sm" title="View report" style="margin-left:.5rem;">&#128279; View</a>';
       html += '</div>';
     });
     document.getElementById('rptList').innerHTML = html;
   }
+
+  window.approveReport = function(snapId) {
+    if (!confirm('Approve this report and mark it as published? This will make it visible to the client on their reports page.')) return;
+    var snap = state.snapshots.find(function(s) { return s.id === snapId; });
+    if (!snap) return;
+    var oldStatus = snap.report_status;
+    snap.report_status = 'published';
+    renderReports();
+
+    fetch('/api/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_record', table: 'report_snapshots', filters: { id: snapId }, data: { report_status: 'published', updated_at: new Date().toISOString() } })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        toast('Report approved and published', 'success');
+      } else {
+        snap.report_status = oldStatus;
+        renderReports();
+        toast('Failed to approve', 'error');
+      }
+    }).catch(function() {
+      snap.report_status = oldStatus;
+      renderReports();
+      toast('Error approving report', 'error');
+    });
+  };
 
   // ---- BILLING TAB ----
   function renderBilling(c) {
