@@ -368,6 +368,11 @@ strong { font-weight: 600; color: var(--color-heading); }
 .del-status-select:hover { border-color: var(--color-border); }
 .del-delete { width: 24px; height: 24px; border-radius: 6px; border: none; background: transparent; color: var(--color-muted); cursor: pointer; font-size: .75rem; display: flex; align-items: center; justify-content: center; opacity: 0; transition: all .15s; flex-shrink: 0; }
 .del-row:hover .del-delete { opacity: .6; }
+.del-bootstrap { display: inline-flex; align-items: center; gap: .3rem; padding: .2rem .55rem; font-size: .7rem; font-weight: 600; border-radius: 6px; border: 1px solid var(--color-primary); color: var(--color-primary); background: transparent; cursor: pointer; white-space: nowrap; transition: all .15s; text-transform: uppercase; letter-spacing: .03em; }
+.del-bootstrap:hover { background: var(--color-primary); color: #fff; }
+.del-bootstrap.running { opacity: .5; pointer-events: none; }
+.del-bootstrap.done { border-color: var(--color-success); color: var(--color-success); }
+.del-bootstrap.fail { border-color: var(--color-danger); color: var(--color-danger); }
 .del-delete:hover { opacity: 1 !important; background: rgba(239,68,68,.1); color: var(--color-danger); }
 .del-status-select option { background: var(--color-surface); color: var(--color-body); }
 .del-status-select.st-not_started { background: rgba(107,117,153,.1); color: var(--color-muted); }
@@ -1910,6 +1915,75 @@ strong { font-weight: 600; color: var(--color-heading); }
   var delPhaseFilter = 'all';
   var expandedDelId = null;
   window.toggleDelExpand = function(id) { expandedDelId = expandedDelId === id ? null : id; renderDeliverables(); };
+
+  window.bootstrapService = async function bootstrapService(service, delId) {
+    var btn = document.getElementById('bs-' + delId);
+    if (!btn || btn.classList.contains('running')) return;
+
+    var serviceLabels = { gbp: 'GBP', ga4: 'GA4', gtm: 'GTM', localfalcon: 'LocalFalcon' };
+    var label = serviceLabels[service] || service;
+
+    btn.classList.add('running');
+    btn.innerHTML = '&#9889; Running...';
+    toast('Bootstrapping ' + label + ' access...', 'info');
+
+    try {
+      var resp = await fetch('/api/bootstrap-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_slug: state.contact.slug, services: [service] })
+      });
+      var data = await resp.json();
+      var svcResult = data.results && data.results[service];
+
+      if (svcResult && svcResult.success) {
+        btn.classList.remove('running');
+        btn.classList.add('done');
+        btn.innerHTML = '&#10003; Done';
+
+        // Build detail message
+        var detail = label + ' configured!';
+        if (svcResult.users_added) {
+          var added = svcResult.users_added.filter(function(u) { return u.result && u.result.added; });
+          detail += ' ' + added.length + ' users added.';
+          if (svcResult.verified) detail += ' Verified.';
+        }
+        if (svcResult.place_id) detail += ' Place ID: ' + svcResult.place_id;
+        if (svcResult.gbp_location_id) detail += ' Location ID: ' + svcResult.gbp_location_id;
+        toast(detail, 'success');
+
+        // Update local deliverable status
+        var del = state.deliverables.find(function(d) { return d.id === delId; });
+        if (del) {
+          del.status = 'delivered';
+          del.delivered_at = new Date().toISOString();
+          del.notes = 'Auto-configured: ' + JSON.stringify(svcResult).substring(0, 200);
+        }
+
+        // Refresh report config state if we got new values
+        if (data.config_updates && Object.keys(data.config_updates).length > 0) {
+          if (state.reportConfig) {
+            Object.assign(state.reportConfig, data.config_updates);
+          }
+        }
+
+        setTimeout(function() { renderDeliverables(); }, 1500);
+      } else {
+        btn.classList.remove('running');
+        btn.classList.add('fail');
+        btn.innerHTML = '&#10007; Failed';
+        var errMsg = (svcResult && svcResult.error) || (data.errors && data.errors.join('; ')) || 'Unknown error';
+        toast(label + ' bootstrap failed: ' + errMsg, 'error');
+        setTimeout(function() { btn.classList.remove('fail'); btn.innerHTML = '&#9889; Retry'; }, 4000);
+      }
+    } catch (e) {
+      btn.classList.remove('running');
+      btn.classList.add('fail');
+      btn.innerHTML = '&#10007; Error';
+      toast(label + ' bootstrap error: ' + e.message, 'error');
+      setTimeout(function() { btn.classList.remove('fail'); btn.innerHTML = '&#9889; Retry'; }, 4000);
+    }
+  };
   window.setDelPhase = function setDelPhase(phase) {
     delPhaseFilter = phase;
     renderDeliverables();
@@ -1961,7 +2035,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 
     // Phase category filter bar
     var phaseMap = {
-      setup: ['gsc_setup','ga4_setup','gtm_setup','gbp_setup','localfalcon_setup','report_config','instant_page','onboarding'],
+      setup: ['gsc_setup','ga4_setup','gtm_setup','gbp_setup','gbp_service_account','localfalcon_setup','report_config','instant_page','onboarding'],
       content: ['surge_entity','surge_page','surge_sitewide','target_page','bio_page','faq_page','location_page','schema','audit_diagnosis','audit_action_plan','audit_progress'],
       offpage: ['press_release','citations','gbp_optimization','social_profiles','entity_veracity_hub'],
       ongoing: ['social_posts','neo_images','neo_distribution','livedrive','youtube_video','endorsement','report']
@@ -2004,6 +2078,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       social_profiles: '&#128100;',
       gbp_optimization: '&#128205;',
       localfalcon_setup: '&#128205;',
+      gbp_service_account: '&#128272;',
       report_config: '&#128200;',
       video: '&#127909;'
     };
@@ -2012,7 +2087,7 @@ strong { font-weight: 600; color: var(--color-heading); }
     var typeSortOrder = {
       // Setup (dependency order)
       gsc_setup: 1, ga4_setup: 2, gtm_setup: 3, gbp_setup: 4,
-      localfalcon_setup: 5, report_config: 6, instant_page: 7, onboarding: 8,
+      localfalcon_setup: 5, gbp_service_account: 5.5, report_config: 6, instant_page: 7, onboarding: 8,
       // Content & Audits
       surge_entity: 10, surge_page: 11, surge_sitewide: 12,
       target_page: 13, bio_page: 14, faq_page: 15, location_page: 16,
@@ -2057,6 +2132,14 @@ strong { font-weight: 600; color: var(--color-heading); }
       html += '<option value="delivered"' + (d.status === 'delivered' ? ' selected' : '') + '>Delivered</option>';
       html += '</select>';
       if (urg.level !== 'none') html += '<div class="urgency-dot ' + urg.level + '" title="Urgency: ' + urg.score + '"></div>';
+
+      // Bootstrap button for automatable service deliverables
+      var bootstrapMap = { localfalcon_setup: 'localfalcon', gbp_service_account: 'gbp', ga4_setup: 'ga4', gtm_setup: 'gtm' };
+      if (bootstrapMap[d.deliverable_type] && d.status !== 'delivered') {
+        var bSvc = bootstrapMap[d.deliverable_type];
+        html += '<button class="del-bootstrap" id="bs-' + d.id + '" onclick="event.stopPropagation(); bootstrapService(\'' + bSvc + '\', \'' + d.id + '\')" title="Auto-configure via bootstrap-access API">&#9889; Setup</button>';
+      }
+
       html += '<div class="del-actions">';
       if (d.page_url) html += '<a href="' + esc(d.page_url) + '" target="_blank" class="btn btn-ghost btn-sm" title="View" onclick="event.stopPropagation()">&#128279;</a>';
       if (d.drive_url) html += '<a href="' + esc(d.drive_url) + '" target="_blank" class="btn btn-ghost btn-sm" title="Drive" onclick="event.stopPropagation()">&#128193;</a>';
