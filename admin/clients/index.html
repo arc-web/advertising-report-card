@@ -247,18 +247,35 @@ strong { font-weight: 600; color: var(--color-heading); }
 /* ---- INTRO CALL CHECKLIST ---- */
 .ic-category { margin-bottom: 1.5rem; }
 .ic-category-header { font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--color-muted); margin-bottom: .5rem; padding-bottom: .35rem; border-bottom: 1px solid var(--color-border); }
-.ic-item { display: flex; align-items: center; gap: .75rem; padding: .55rem .75rem; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-surface); margin-bottom: .35rem; transition: border-color .15s; }
-.ic-item.complete { border-color: rgba(0,212,126,.2); }
-.ic-item.not_applicable { opacity: .5; }
-.ic-check { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .65rem; flex-shrink: 0; cursor: pointer; transition: all .15s; }
-.ic-item.complete .ic-check { background: rgba(0,212,126,.12); color: var(--color-success); }
-.ic-item.in_progress .ic-check { background: rgba(59,130,246,.1); color: var(--color-info); }
-.ic-item.pending .ic-check { background: var(--color-bg); color: var(--color-muted); border: 1px solid var(--color-border); }
-.ic-item.not_applicable .ic-check { background: var(--color-bg); color: var(--color-muted); }
-.ic-check:hover { transform: scale(1.15); }
-.ic-label { font-size: .82rem; font-weight: 500; color: var(--color-heading); flex: 1; }
-.ic-label small { display: block; font-size: .72rem; font-weight: 400; color: var(--color-muted); margin-top: .1rem; }
-.ic-notes { font-size: .72rem; color: var(--color-muted); max-width: 200px; text-align: right; }
+.ic-row { display: flex; align-items: center; gap: .75rem; padding: .65rem .75rem; border-bottom: 1px solid var(--color-border); font-size: .84rem; transition: background .1s; cursor: pointer; }
+.ic-row:hover { background: var(--sidebar-hover); }
+.ic-row.expanded { background: var(--color-bg); }
+.ic-expand-icon { font-size: .65rem; color: var(--color-muted); transition: transform .2s; flex-shrink: 0; }
+.ic-row.expanded .ic-expand-icon { transform: rotate(90deg); }
+.ic-label { flex: 1; min-width: 0; }
+.ic-label .ic-title { font-weight: 500; color: var(--color-heading); font-size: .84rem; }
+.ic-label .ic-hint { font-size: .72rem; color: var(--color-muted); margin-top: .1rem; }
+.ic-status-select { font-family: inherit; font-size: .7rem; font-weight: 600; padding: .2rem .5rem; border-radius: 6px; border: 1px solid transparent; cursor: pointer; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 4 4-4' stroke='%236B7599' stroke-width='1.2' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .4rem center; padding-right: 1.4rem; }
+.ic-status-select:hover { border-color: var(--color-border); }
+.ic-status-select option { background: var(--color-surface); color: var(--color-body); }
+.ic-status-select.st-pending { background: rgba(107,117,153,.1); color: var(--color-muted); }
+.ic-status-select.st-in_progress { background: rgba(59,130,246,.1); color: #3B82F6; }
+.ic-status-select.st-complete { background: rgba(0,212,126,.1); color: #00b86c; }
+.ic-status-select.st-not_applicable { background: rgba(107,117,153,.05); color: var(--color-muted); }
+.ic-expand-desc { padding: .75rem 1rem .75rem 2.5rem; font-size: .82rem; color: var(--color-body); line-height: 1.7; border-bottom: 1px solid var(--color-border); background: var(--color-bg); display: none; }
+.ic-expand-desc.show { display: block; }
+.ic-expand-desc ul { margin: .5rem 0 .5rem 1.25rem; }
+.ic-expand-desc li { margin-bottom: .3rem; }
+.ic-expand-desc .ic-detail-label { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); margin-top: .75rem; margin-bottom: .25rem; }
+.ic-expand-desc .ic-detail-label:first-child { margin-top: 0; }
+.ic-expand-desc code { background: var(--color-surface); padding: .1rem .35rem; border-radius: 4px; font-size: .78rem; border: 1px solid var(--color-border); }
+.ic-kw-form { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 10px; padding: 1rem; margin-top: .75rem; }
+.ic-kw-row { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: .5rem; align-items: center; padding: .4rem 0; border-bottom: 1px solid var(--color-border); font-size: .82rem; }
+.ic-kw-row:last-child { border-bottom: none; }
+.ic-kw-row input { font-family: inherit; font-size: .82rem; padding: .35rem .5rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-bg); color: var(--color-heading); }
+.ic-kw-row input:focus { outline: none; border-color: var(--color-primary); }
+.ic-kw-row select { font-family: inherit; font-size: .78rem; padding: .3rem .4rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-bg); color: var(--color-heading); }
+.ic-kw-header { font-size: .7rem; font-weight: 600; text-transform: uppercase; color: var(--color-muted); letter-spacing: .04em; }
 
 /* ---- TASK LIST ---- */
 .task-filters { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
@@ -1219,29 +1236,43 @@ strong { font-weight: 600; color: var(--color-heading); }
 
   // ---- INTRO CALL TAB ----
   var IC_STEPS = [
-    { key: 'verify_website_access', label: 'Verify Website Access', hint: 'Confirm we can log in and edit the site (CMS admin credentials)', cat: 'platform_access', sort: 1 },
-    { key: 'gsc_configured', label: 'GSC Configured + Access Granted', hint: 'Add: support@, chris@, kalyn@ + reporting@moonraker-client-hq.iam.gserviceaccount.com (Restricted)', cat: 'platform_access', sort: 2 },
-    { key: 'ga4_configured', label: 'GA4 Configured + Access Granted', hint: 'Add: support@, chris@, kalyn@ as Editors', cat: 'platform_access', sort: 3 },
-    { key: 'gtm_configured', label: 'GTM Configured + Access Granted', hint: 'Add: support@, chris@, kalyn@ - create container if needed', cat: 'platform_access', sort: 4 },
-    { key: 'gbp_access', label: 'GBP Access Confirmed', hint: 'Verify listing ownership and admin access for chris@moonraker.ai', cat: 'platform_access', sort: 5 },
-    { key: 'lbm_location_enabled', label: 'LBM Location Added + Enabled', hint: 'POST /locations with place_id, then POST /locations/{id}/enable', cat: 'platform_access', sort: 6 },
-    { key: 'lbm_report_config', label: 'LBM Report Configuration Created', hint: 'Manual step in LBM UI - create report config for GBP metrics', cat: 'platform_access', sort: 7 },
-    { key: 'pick_target_keywords', label: 'Pick Target Keywords (up to 5)', hint: 'Select primary keywords, map to target pages, save to tracked_keywords', cat: 'campaign_setup', sort: 10 },
-    { key: 'review_socials', label: 'Review Social Profiles + Marketing Account', hint: 'Audit existing socials, confirm Rising Tide access (LinkedIn, FB, Quora admin)', cat: 'campaign_setup', sort: 11 },
-    { key: 'check_booking_calendar', label: 'Check Booking Calendar', hint: 'Confirm booking exists and is configured on site', cat: 'campaign_setup', sort: 12 },
-    { key: 'lead_attribution', label: 'Lead Attribution Setup', hint: '"How did you hear about us?" + AI Search option on forms/booking', cat: 'campaign_setup', sort: 13 },
-    { key: 'google_marketing_account', label: 'Google Marketing Account', hint: 'Workspace (marketing@) or Gmail for socials - get email + password', cat: 'campaign_setup', sort: 14 },
-    { key: 'content_turnaround', label: 'Set Content Feedback Expectations', hint: '~1 week turnaround, 48hr response, 4-6 week buildout', cat: 'expectations', sort: 20 },
-    { key: 'scope_boundaries', label: 'Review Scope Boundaries', hint: 'NAP changes $300, extra pages $300, no WP plugins/email/EHR', cat: 'expectations', sort: 21 },
-    { key: 'schedule_checkins', label: 'Schedule Check-in Cadence', hint: 'Book recurring check-in calls', cat: 'expectations', sort: 22 },
-    { key: 'client_tracking_sheet', label: 'Share Client Tracking Sheet', hint: 'Lead attribution spreadsheet for new client inquiries', cat: 'expectations', sort: 23 }
+    { key: 'verify_website_access', label: 'Verify Website Access', cat: 'platform_access', sort: 1,
+      desc: '<div class="ic-detail-label">Talking Points</div><ul><li>Confirm we can log into the CMS (WordPress, Squarespace, Wix, etc.) with admin-level credentials</li><li>Check which website platform they are on and note it on the contact record</li><li>If WordPress: note any page builders (Elementor, Bricks, Divi) and caching plugins</li><li>If they don\'t have credentials handy, ask them to share via the Connect Accounts step in onboarding</li></ul><div class="ic-detail-label">Why This Matters</div><p>We need direct CMS access to implement schema, restructure headings, edit Hero sections, and build target pages with custom HTML blocks.</p>' },
+    { key: 'gsc_configured', label: 'GSC Configured + Access Granted', cat: 'platform_access', sort: 2,
+      desc: '<div class="ic-detail-label">Access to Grant</div><ul><li><code>support@moonraker.ai</code> - <strong>Owner</strong></li><li><code>chris@moonraker.ai</code> - <strong>Owner</strong></li><li><code>kalyn@moonraker.ai</code> - <strong>Owner</strong></li><li><code>reporting@moonraker-client-hq.iam.gserviceaccount.com</code> - <strong>Restricted</strong> (automated reporting)</li></ul><div class="ic-detail-label">Setup Notes</div><ul><li>Prefer <code>sc-domain:</code> property (covers all URL variants)</li><li>If no GSC property exists, create one and verify via DNS TXT record</li><li>Submit sitemap after verification</li><li>Note the GSC property on the contact record (<code>gsc_property</code> field)</li></ul>' },
+    { key: 'ga4_configured', label: 'GA4 Configured + Access Granted', cat: 'platform_access', sort: 3,
+      desc: '<div class="ic-detail-label">Access to Grant</div><ul><li><code>support@moonraker.ai</code> - <strong>Admin</strong></li><li><code>chris@moonraker.ai</code> - <strong>Admin</strong></li><li><code>kalyn@moonraker.ai</code> - <strong>Admin</strong></li></ul><div class="ic-detail-label">Setup Notes</div><ul><li>If no GA4 property exists, create one and install the tag via GTM</li><li>Note the GA4 property ID on the contact record (format: <code>properties/123456789</code>)</li><li>Verify the measurement ID is correctly installed on the site</li></ul>' },
+    { key: 'gtm_configured', label: 'GTM Configured + Access Granted', cat: 'platform_access', sort: 4,
+      desc: '<div class="ic-detail-label">Access to Grant</div><ul><li><code>support@moonraker.ai</code> - <strong>Admin</strong></li><li><code>chris@moonraker.ai</code> - <strong>Admin</strong></li><li><code>kalyn@moonraker.ai</code> - <strong>Admin</strong></li></ul><div class="ic-detail-label">Setup Notes</div><ul><li>If no GTM container exists, create one and install on the site</li><li>Use GTM for GA4 tag, any conversion tracking, and future tag management</li><li>Note the container ID on the contact record</li></ul>' },
+    { key: 'gbp_access', label: 'GBP Access Confirmed', cat: 'platform_access', sort: 5,
+      desc: '<div class="ic-detail-label">Access to Grant</div><ul><li><code>support@moonraker.ai</code> - <strong>Owner</strong></li><li><code>chris@moonraker.ai</code> - <strong>Owner</strong></li><li><code>kalyn@moonraker.ai</code> - <strong>Owner</strong></li></ul><div class="ic-detail-label">Talking Points</div><ul><li>Verify the client has claimed and verified their GBP listing</li><li>If multiple locations, confirm which is the primary</li><li>Note the GBP URL and Place ID on the contact record</li><li>Check that business hours, categories, and description are current</li></ul>' },
+    { key: 'lbm_location_enabled', label: 'LBM Location Added + Enabled', cat: 'platform_access', sort: 6,
+      desc: '<div class="ic-detail-label">How to Set Up</div><ul><li>Use the LBM API: <code>POST /locations</code> with the client\'s GBP <code>place_id</code></li><li>Then enable: <code>POST /locations/{id}/enable</code></li><li>Or add manually in the LBM dashboard at <a href="https://local.moonraker.ai" target="_blank">local.moonraker.ai</a></li></ul><div class="ic-detail-label">Why This Matters</div><p>LBM tracks GBP performance metrics (calls, direction requests, website clicks, impressions) that feed into monthly reports.</p>' },
+    { key: 'lbm_report_config', label: 'LBM Report Configuration Created', cat: 'platform_access', sort: 7,
+      desc: '<div class="ic-detail-label">How to Set Up</div><ul><li>Go to <a href="https://local.moonraker.ai" target="_blank">local.moonraker.ai</a> &rarr; Reports &rarr; Create New Report</li><li>Select the client\'s location</li><li>Choose reporting period (monthly)</li><li>This is a manual step - the API does not support creating report configs</li></ul><div class="ic-detail-label">Why This Matters</div><p>Without a report configuration, the compile-report pipeline cannot pull GBP metrics for this client.</p>' },
+    { key: 'pick_target_keywords', label: 'Pick Target Keywords (up to 5)', cat: 'campaign_setup', sort: 10,
+      desc: '<div class="ic-detail-label">Talking Points</div><ul><li>Review the client\'s specialties and modalities - which services drive the most revenue?</li><li>Select up to 5 primary keywords that map to target pages</li><li>Consider geographic modifiers (city, state/province)</li><li>For each keyword, decide if it maps to an existing page (update) or needs a new page</li></ul><div class="ic-detail-label">Naming Convention for Updated Pages</div><p>When updating an existing page, clone it to <code>domain.com/page-url-new</code> (append <code>-new</code>). This lets us track updates separately before merging upon client approval.</p><div class="ic-detail-label">Add Keywords Below</div><div id="icKeywordForm"></div>' },
+    { key: 'review_socials', label: 'Review Social Profiles + Marketing Account', cat: 'campaign_setup', sort: 11,
+      desc: '<div class="ic-detail-label">Talking Points</div><ul><li>Audit which social profiles already exist (YouTube, LinkedIn, Facebook, Instagram, Quora, Pinterest, TikTok, X)</li><li>Check if they have a dedicated Google marketing account (Workspace or Gmail)</li><li>Discuss Rising Tide strategy - we build and interlink 9 social profiles</li><li>Ask about platforms to skip (some clients prefer to omit TikTok or X)</li></ul><div class="ic-detail-label">Access Needed for Rising Tide</div><ul><li><strong>LinkedIn Business Page</strong> - client grants admin access via their personal LinkedIn</li><li><strong>Facebook Business Page</strong> - client grants admin access via their personal Facebook</li><li><strong>Quora Space</strong> - client creates from their device, invites us as admin</li><li><strong>YouTube Channel</strong> - client invites us as Manager via their Google marketing account</li></ul>' },
+    { key: 'check_booking_calendar', label: 'Check Booking Calendar', cat: 'campaign_setup', sort: 12,
+      desc: '<div class="ic-detail-label">Talking Points</div><ul><li>Confirm a booking calendar exists and is properly embedded on the website</li><li>Check the CTA copy - should be specific (e.g. "Book a Free 20-Min Consultation" not "Get Started")</li><li>Note the booking platform (SimplePractice, Calendly, Jane App, etc.)</li><li>We help install booking calendars but do NOT configure them (requires client calendar access)</li></ul>' },
+    { key: 'lead_attribution', label: 'Lead Attribution Setup', cat: 'campaign_setup', sort: 13,
+      desc: '<div class="ic-detail-label">Talking Points</div><p>Add a "How did you hear about us?" field to their contact/booking forms with these options:</p><ul><li><strong>Google Search</strong> - organic search results</li><li><strong>Google Maps</strong> - GBP listing / Maps results</li><li><strong>AI Search (Gemini, ChatGPT, etc.)</strong> - AI-generated answers</li><li><strong>Psychology Today</strong> - PT directory listing</li><li><strong>Referral</strong> - word of mouth / professional referral</li><li><strong>Other</strong> - catch-all for everything else</li></ul><div class="ic-detail-label">Why This Matters</div><p>This is how we track whether the campaign is driving new consultations. Without attribution, the client has no way to connect new leads back to our work. Also mention the Client Tracking Sheet as a companion tool.</p>' },
+    { key: 'google_marketing_account', label: 'Google Marketing Account', cat: 'campaign_setup', sort: 14,
+      desc: '<div class="ic-detail-label">Talking Points</div><ul><li>Ideally a paid Google Workspace account (e.g. <code>marketing@practicename.com</code>) - proves real human activity to Google</li><li>If Workspace isn\'t feasible, a free Gmail works (e.g. <code>practicemarketing@gmail.com</code>)</li><li>This account will own the YouTube channel, be used for DKIM/DMARC, and manage the campaign</li><li>If already on Workspace, we just create a new user for marketing</li></ul><div class="ic-detail-label">What We Need</div><p>The email address and password for the marketing account. Store securely - never share in plain text over email.</p>' },
+    { key: 'content_turnaround', label: 'Set Content Feedback Expectations', cat: 'expectations', sort: 20,
+      desc: '<div class="ic-detail-label">Key Points to Communicate</div><ul><li><strong>Content feedback turnaround:</strong> approximately 1 week from when we send drafts</li><li><strong>Our response time:</strong> within 48 hours for all client communications</li><li><strong>Initial buildout target:</strong> 4-6 weeks to complete core deliverables</li><li><strong>Content approval:</strong> if no response within 7 days, we may publish and changes can be made after</li><li><strong>We handle all site content updates</strong> within our scope of work - client does not need to touch the site</li></ul>' },
+    { key: 'scope_boundaries', label: 'Review Scope Boundaries', cat: 'expectations', sort: 21,
+      desc: '<div class="ic-detail-label">Key Boundaries to Set</div><ul><li><strong>NAP changes after buildout:</strong> $300 one-time (name, address, or phone update requires citation rebuild)</li><li><strong>Additional target pages beyond 5:</strong> $300 per page</li><li><strong>Additional press releases:</strong> $300 each</li><li><strong>WordPress plugins:</strong> we do not manage plugins long-term (outside scope)</li><li><strong>Email campaigns / EHR integrations:</strong> outside scope</li><li><strong>Website platform migration:</strong> we do not offer this</li></ul><div class="ic-detail-label">How to Frame It</div><p>We focus on what we do best: getting found and getting booked. Design, branding, messaging strategy, and platform management are separate disciplines.</p>' },
+    { key: 'schedule_checkins', label: 'Schedule Check-in Cadence', cat: 'expectations', sort: 22,
+      desc: '<div class="ic-detail-label">Talking Points</div><ul><li>Book the next check-in call before ending this one</li><li>Typical cadence: monthly for the first 3 months, then quarterly</li><li>Use Scott\'s calendar: <a href="https://msg.moonraker.ai/widget/bookings/scott-pope-calendar" target="_blank">Book a call</a></li><li>Between calls, Loom is preferred for async updates (always encourage Loom over calls)</li></ul>' },
+    { key: 'client_tracking_sheet', label: 'Share Client Tracking Sheet', cat: 'expectations', sort: 23,
+      desc: '<div class="ic-detail-label">What to Share</div><p>The <a href="https://docs.google.com/spreadsheets/d/1N6gkmiJPAJsEMxmZG-4dfabiii7CoNCfrUDi6l1-txc/edit?gid=1346489400#gid=1346489400" target="_blank">Client Tracking Sheet</a> - a simple spreadsheet template for logging new client inquiries and attributing them to specific marketing channels.</p><div class="ic-detail-label">How to Frame It</div><p>This complements the "How did you hear about us?" form field. Even if attribution is on the forms, having a central tracking sheet helps the client see the pattern over time and gives us data to reference in monthly reports.</p>' }
   ];
 
-  var IC_CATEGORIES = {
-    platform_access: 'Platform Access & Configuration',
-    campaign_setup: 'Campaign Setup',
-    expectations: 'Expectations & Scheduling'
-  };
+  var IC_CATEGORIES = { platform_access: 'Platform Access & Configuration', campaign_setup: 'Campaign Setup', expectations: 'Expectations & Scheduling' };
+  var IC_STATUSES = [{v:'pending',l:'Pending'},{v:'in_progress',l:'In Progress'},{v:'complete',l:'Complete'},{v:'not_applicable',l:'N/A'}];
+  var expandedICId = null;
 
   function renderIntroCall() {
     var steps = state.introCall;
@@ -1251,96 +1282,111 @@ strong { font-weight: 600; color: var(--color-heading); }
       document.getElementById('icStats').style.display = 'none';
       return;
     }
-
     document.getElementById('icEmpty').style.display = 'none';
     document.getElementById('icSeedBtn').style.display = 'none';
-
     var complete = steps.filter(function(s) { return s.status === 'complete'; }).length;
     var na = steps.filter(function(s) { return s.status === 'not_applicable'; }).length;
     var actionable = steps.length - na;
     var pct = actionable > 0 ? Math.round(complete / actionable * 100) : 0;
-
     document.getElementById('icStats').innerHTML =
       '<div class="stat-mini"><div class="stat-label">Progress</div><div class="stat-value">' + pct + '%</div><div class="stat-sub">' + complete + ' of ' + actionable + ' complete</div></div>' +
       '<div class="stat-mini"><div class="stat-label">Complete</div><div class="stat-value" style="color:var(--color-success);">' + complete + '</div></div>' +
       '<div class="stat-mini"><div class="stat-label">In Progress</div><div class="stat-value" style="color:var(--color-info);">' + steps.filter(function(s) { return s.status === 'in_progress'; }).length + '</div></div>' +
       '<div class="stat-mini"><div class="stat-label">Pending</div><div class="stat-value">' + steps.filter(function(s) { return s.status === 'pending'; }).length + '</div></div>';
-
-    var statusIcons = { complete: '&#10003;', in_progress: '&#9654;', pending: '', not_applicable: '&#8212;' };
-    var nextStatuses = { pending: 'in_progress', in_progress: 'complete', complete: 'pending', not_applicable: 'not_applicable' };
-
-    // Group by category
     var byCat = {};
-    steps.forEach(function(s) {
-      var cat = s.category || 'other';
-      if (!byCat[cat]) byCat[cat] = [];
-      byCat[cat].push(s);
-    });
-
+    steps.forEach(function(s) { var cat = s.category || 'other'; if (!byCat[cat]) byCat[cat] = []; byCat[cat].push(s); });
     var html = '';
-    var catOrder = ['platform_access', 'campaign_setup', 'expectations'];
-    catOrder.forEach(function(cat) {
-      var items = byCat[cat];
-      if (!items || items.length === 0) return;
-      html += '<div class="ic-category">';
-      html += '<div class="ic-category-header">' + esc(IC_CATEGORIES[cat] || cat) + '</div>';
+    ['platform_access','campaign_setup','expectations'].forEach(function(cat) {
+      var items = byCat[cat]; if (!items || items.length === 0) return;
+      html += '<div class="ic-category"><div class="ic-category-header">' + esc(IC_CATEGORIES[cat] || cat) + '</div>';
       items.forEach(function(s) {
-        html += '<div class="ic-item ' + s.status + '" data-ic-id="' + s.id + '">';
-        html += '<div class="ic-check" onclick="cycleICStatus(\'' + s.id + '\')" title="Click to change status">' + (statusIcons[s.status] || '') + '</div>';
-        html += '<div class="ic-label">' + esc(s.label);
         var def = IC_STEPS.find(function(d) { return d.key === s.step_key; });
-        if (def && def.hint) html += '<small>' + esc(def.hint) + '</small>';
-        html += '</div>';
-        if (s.notes) html += '<div class="ic-notes">' + esc(s.notes) + '</div>';
+        var isExp = expandedICId === s.id; var st = s.status || 'pending';
+        html += '<div class="ic-row' + (isExp ? ' expanded' : '') + '" onclick="toggleICExpand(\'' + s.id + '\')">';
+        html += '<div class="ic-expand-icon">&#9654;</div>';
+        html += '<div class="ic-label"><div class="ic-title">' + esc(s.label) + '</div></div>';
+        html += '<select class="ic-status-select st-' + st + '" onchange="setICStatus(\'' + s.id + '\', this.value, event)" onclick="event.stopPropagation()">';
+        IC_STATUSES.forEach(function(opt) { html += '<option value="' + opt.v + '"' + (st === opt.v ? ' selected' : '') + '>' + opt.l + '</option>'; });
+        html += '</select></div>';
+        html += '<div class="ic-expand-desc' + (isExp ? ' show' : '') + '" id="ic-desc-' + s.id + '">';
+        if (def && def.desc) html += def.desc;
+        if (s.notes) html += '<div class="ic-detail-label" style="margin-top:.75rem;">Notes</div><p>' + esc(s.notes) + '</p>';
         html += '</div>';
       });
       html += '</div>';
     });
-
     document.getElementById('icCategories').innerHTML = html;
+    var kwStep = steps.find(function(s) { return s.step_key === 'pick_target_keywords' && expandedICId === s.id; });
+    if (kwStep) renderKeywordForm();
   }
 
-  window.cycleICStatus = function(stepId) {
-    var step = state.introCall.find(function(s) { return s.id === stepId; });
-    if (!step) return;
-    var cycle = { pending: 'in_progress', in_progress: 'complete', complete: 'pending', not_applicable: 'pending' };
-    var oldStatus = step.status;
-    var newStatus = cycle[oldStatus] || 'pending';
-    step.status = newStatus;
-    renderIntroCall();
+  window.toggleICExpand = function(id) { expandedICId = expandedICId === id ? null : id; renderIntroCall(); };
 
-    var body = { status: newStatus };
-    if (newStatus === 'complete') {
-      body.completed_at = new Date().toISOString();
-      body.completed_by = 'admin';
-    }
+  window.setICStatus = function(stepId, newStatus, event) {
+    if (event) event.stopPropagation();
+    var step = state.introCall.find(function(s) { return s.id === stepId; }); if (!step) return;
+    var oldStatus = step.status; step.status = newStatus; renderIntroCall();
+    var body = { status: newStatus, updated_at: new Date().toISOString() };
+    if (newStatus === 'complete') { body.completed_at = new Date().toISOString(); body.completed_by = 'admin'; }
     apiAction('update_record', 'intro_call_steps', { id: stepId }, body).then(function(r) {
       if (!r.success) { step.status = oldStatus; renderIntroCall(); }
     }).catch(function() { step.status = oldStatus; renderIntroCall(); });
   };
 
-  window.seedIntroCallSteps = function() {
-    var cid = state.contact.id;
-    var rows = IC_STEPS.map(function(s) {
-      return { contact_id: cid, step_key: s.key, label: s.label, category: s.cat, sort_order: s.sort, status: 'pending' };
-    });
-    apiAction('create_record', 'intro_call_steps', null, rows).then(function(res) {
-      if (res.success && res.data) {
-        state.introCall = res.data;
-      } else {
-        // Reload from Supabase
-        sb('intro_call_steps?select=*&order=sort_order&contact_id=eq.' + cid).then(function(data) {
-          state.introCall = data || [];
-          renderIntroCall();
+  // ---- KEYWORD FORM (inside Intro Call) ----
+  function renderKeywordForm() {
+    var el = document.getElementById('icKeywordForm'); if (!el) return;
+    var slug = state.contact.slug; var cid = state.contact.id;
+    sb('tracked_keywords?client_slug=eq.' + slug + '&active=eq.true&order=priority.asc,keyword.asc').then(function(kws) {
+      var html = '<div class="ic-kw-form">';
+      html += '<div class="ic-kw-row" style="border-bottom:1px solid var(--color-border);padding-bottom:.5rem;margin-bottom:.35rem;">';
+      html += '<div class="ic-kw-header">Keyword</div><div class="ic-kw-header">Target Page URL</div><div class="ic-kw-header">Priority</div><div class="ic-kw-header">Page</div></div>';
+      if (kws && kws.length > 0) {
+        kws.forEach(function(kw) {
+          html += '<div class="ic-kw-row">';
+          html += '<input type="text" value="' + esc(kw.keyword) + '" readonly style="background:transparent;border-color:transparent;">';
+          html += '<input type="text" value="' + esc(kw.target_page || '') + '" readonly style="background:transparent;border-color:transparent;">';
+          html += '<span style="font-size:.75rem;color:var(--color-muted);">P' + (kw.priority || 2) + '</span>';
+          html += '<span style="font-size:.72rem;color:var(--color-muted);">' + esc(kw.notes || kw.keyword_type || '') + '</span>';
+          html += '</div>';
         });
       }
-      renderIntroCall();
-    }).catch(function(err) {
-      console.error('Failed to seed intro call steps:', err);
-      alert('Failed to create checklist. Check console for details.');
-    });
+      html += '<div class="ic-kw-row" style="margin-top:.5rem;">';
+      html += '<input type="text" id="icNewKw" placeholder="e.g. EMDR therapy Tucson">';
+      html += '<input type="text" id="icNewPage" placeholder="/emdr-therapy/">';
+      html += '<select id="icNewPriority"><option value="1">P1</option><option value="2" selected>P2</option><option value="3">P3</option></select>';
+      html += '<select id="icNewPageType"><option value="new">New Page</option><option value="existing">Update Existing</option></select>';
+      html += '</div>';
+      html += '<div style="margin-top:.5rem;display:flex;gap:.5rem;align-items:center;">';
+      html += '<button onclick="addICKeyword()" style="padding:.35rem .85rem;font-size:.78rem;font-weight:600;border:1px solid var(--color-primary);background:var(--color-primary-subtle);color:var(--color-primary);border-radius:6px;cursor:pointer;">Add Keyword</button>';
+      html += '<span style="font-size:.72rem;color:var(--color-muted);">For updated pages, use <code>domain.com/page-url-new</code> naming</span>';
+      html += '</div></div>';
+      el.innerHTML = html;
+    }).catch(function() { el.innerHTML = '<p style="color:var(--color-muted);font-size:.82rem;">Could not load keywords.</p>'; });
+  }
+
+  window.addICKeyword = function() {
+    var kw = document.getElementById('icNewKw').value.trim();
+    var page = document.getElementById('icNewPage').value.trim();
+    var priority = parseInt(document.getElementById('icNewPriority').value);
+    var pageType = document.getElementById('icNewPageType').value;
+    if (!kw) { alert('Enter a keyword'); return; }
+    var data = { contact_id: state.contact.id, client_slug: state.contact.slug, keyword: kw, label: kw, keyword_type: 'service', priority: priority, target_page: page || null, source: 'intro_call', notes: pageType === 'new' ? 'New page to create' : 'Update existing page (use -new suffix)' };
+    apiAction('create_record', 'tracked_keywords', null, data).then(function(res) {
+      if (res.success) { document.getElementById('icNewKw').value = ''; document.getElementById('icNewPage').value = ''; renderKeywordForm(); }
+      else { alert('Failed to add keyword'); }
+    }).catch(function() { alert('Error adding keyword'); });
   };
 
+  window.seedIntroCallSteps = function() {
+    var cid = state.contact.id;
+    var rows = IC_STEPS.map(function(s) { return { contact_id: cid, step_key: s.key, label: s.label, category: s.cat, sort_order: s.sort, status: 'pending' }; });
+    apiAction('create_record', 'intro_call_steps', null, rows).then(function(res) {
+      if (res.success && res.data) { state.introCall = res.data; }
+      else { sb('intro_call_steps?select=*&order=sort_order&contact_id=eq.' + cid).then(function(d) { state.introCall = d || []; renderIntroCall(); }); }
+      renderIntroCall();
+    }).catch(function(err) { console.error('Seed failed:', err); alert('Failed to create checklist.'); });
+  };
   // ---- AUDIT TAB ----
   function renderAudit() {
     var tasks = state.tasks;
