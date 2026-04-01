@@ -351,8 +351,14 @@ strong { font-weight: 600; color: var(--color-heading); }
 .score-name { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); }
 
 /* ---- DELIVERABLE ROW ---- */
-.del-row { display: flex; align-items: center; gap: .75rem; padding: .65rem .75rem; border-bottom: 1px solid var(--color-border); font-size: .84rem; }
+.del-row { display: flex; align-items: center; gap: .75rem; padding: .65rem .75rem; border-bottom: 1px solid var(--color-border); font-size: .84rem; cursor: pointer; transition: background .1s; }
 .del-row:hover { background: var(--sidebar-hover); }
+.del-row.expanded { background: var(--color-bg); }
+.del-expand-icon { font-size: .65rem; color: var(--color-muted); transition: transform .2s; flex-shrink: 0; }
+.del-row.expanded .del-expand-icon { transform: rotate(90deg); }
+.del-expand-desc { max-height: 0; overflow: hidden; transition: max-height .3s ease; border-bottom: 1px solid transparent; }
+.del-expand-desc.show { max-height: 600px; border-bottom-color: var(--color-border); }
+.del-expand-desc-inner { padding: .65rem .75rem .65rem 3.25rem; font-size: .78rem; color: var(--color-body); line-height: 1.6; }
 .del-status-select {
   padding: .25rem .4rem; border-radius: 6px; font-size: .72rem; font-weight: 500;
   font-family: inherit; cursor: pointer; border: 1px solid transparent;
@@ -744,6 +750,12 @@ strong { font-weight: 600; color: var(--color-heading); }
             <button class="btn-sm" id="rptSaveBtn" onclick="saveReportConfig()" style="padding:.35rem .85rem;font-size:.75rem;font-weight:600;border:none;background:var(--color-primary);color:#fff;border-radius:6px;cursor:pointer;font-family:inherit;">Save Configuration</button>
           </div>
           <div id="rptConfigForm"></div>
+        </div>
+
+        <!-- Tracked Queries -->
+        <div class="card" style="margin-bottom:1rem;">
+          <div class="card-header"><h3>Tracked Queries</h3></div>
+          <div id="rptTrackedQueries" style="padding:.25rem 0;"></div>
         </div>
 
         <!-- Report History -->
@@ -1884,6 +1896,8 @@ strong { font-weight: 600; color: var(--color-heading); }
   }
 
   var delPhaseFilter = 'all';
+  var expandedDelId = null;
+  window.toggleDelExpand = function(id) { expandedDelId = expandedDelId === id ? null : id; renderDeliverables(); };
   window.setDelPhase = function setDelPhase(phase) {
     delPhaseFilter = phase;
     renderDeliverables();
@@ -1995,22 +2009,17 @@ strong { font-weight: 600; color: var(--color-heading); }
     }
     sorted.forEach(function(d) {
       var icon = typeIcons[d.deliverable_type] || '&#128196;';
-      // Status dropdown instead of tag
-
       var urg = getUrgency(d);
-      var isSetup = ['gsc_setup','ga4_setup','gtm_setup','gbp_setup','lbm_setup','lbm_report_setup'].indexOf(d.deliverable_type) !== -1;
-      var hasLongNotes = d.notes && d.notes.length > 60;
-      html += '<div class="del-row">';
+      var isExp = expandedDelId === d.id;
+      var hasNotes = d.notes && d.notes.length > 0;
+
+      html += '<div class="del-row' + (isExp ? ' expanded' : '') + '" onclick="toggleDelExpand(\'' + d.id + '\')">';
+      html += '<div class="del-expand-icon">&#9654;</div>';
       html += '<div class="del-icon">' + icon + '</div>';
       html += '<div class="del-info"><div class="del-title">' + esc(d.title) + '</div>';
-      if (d.notes && hasLongNotes) {
-        html += '<div class="del-date">' + (d.delivered_at ? formatDate(d.delivered_at) : 'Pending') + ' - <span style="cursor:pointer;color:var(--color-primary);font-size:.72rem;" onclick="event.stopPropagation(); var el=document.getElementById(\'delnote-' + d.id + '\'); el.style.display=el.style.display===\'none\'?\'block\':\'none\';">View details &#9660;</span></div>';
-        html += '<div id="delnote-' + d.id + '" style="display:none;padding:.5rem 0;font-size:.78rem;color:var(--color-body);line-height:1.5;max-width:500px;">' + esc(d.notes) + '</div>';
-      } else {
-        html += '<div class="del-date">' + (d.delivered_at ? formatDate(d.delivered_at) : 'Pending') + (d.notes ? ' - ' + esc(d.notes.substring(0, 60)) : '') + '</div>';
-      }
+      html += '<div class="del-date">' + (d.delivered_at ? formatDate(d.delivered_at) : 'Pending') + '</div>';
       html += '</div>';
-      html += '<select class="del-status-select st-' + (d.status || 'not_started') + '" onchange="setDelStatus(\'' + d.id + '\', this.value)">';
+      html += '<select class="del-status-select st-' + (d.status || 'not_started') + '" onchange="setDelStatus(\'' + d.id + '\', this.value)" onclick="event.stopPropagation()">';
       html += '<option value="not_started"' + (d.status === 'not_started' ? ' selected' : '') + '>Not Started</option>';
       html += '<option value="in_progress"' + (d.status === 'in_progress' ? ' selected' : '') + '>In Progress</option>';
       html += '<option value="internal_review"' + (d.status === 'internal_review' ? ' selected' : '') + '>Internal Review</option>';
@@ -2019,10 +2028,19 @@ strong { font-weight: 600; color: var(--color-heading); }
       html += '</select>';
       if (urg.level !== 'none') html += '<div class="urgency-dot ' + urg.level + '" title="Urgency: ' + urg.score + '"></div>';
       html += '<div class="del-actions">';
-      if (d.page_url) html += '<a href="' + esc(d.page_url) + '" target="_blank" class="btn btn-ghost btn-sm" title="View">&#128279;</a>';
-      if (d.drive_url) html += '<a href="' + esc(d.drive_url) + '" target="_blank" class="btn btn-ghost btn-sm" title="Drive">&#128193;</a>';
+      if (d.page_url) html += '<a href="' + esc(d.page_url) + '" target="_blank" class="btn btn-ghost btn-sm" title="View" onclick="event.stopPropagation()">&#128279;</a>';
+      if (d.drive_url) html += '<a href="' + esc(d.drive_url) + '" target="_blank" class="btn btn-ghost btn-sm" title="Drive" onclick="event.stopPropagation()">&#128193;</a>';
       html += '</div>';
       html += '<button class="del-delete" onclick="event.stopPropagation(); deleteDel(\'' + d.id + '\', \'' + esc(d.title).replace(/'/g, '') + '\')" title="Delete">&#10005;</button>';
+      html += '</div>';
+
+      // Expandable description panel
+      html += '<div class="del-expand-desc' + (isExp ? ' show' : '') + '">';
+      if (hasNotes) {
+        html += '<div class="del-expand-desc-inner">' + esc(d.notes) + '</div>';
+      } else {
+        html += '<div class="del-expand-desc-inner" style="color:var(--color-muted);font-style:italic;">No notes for this deliverable.</div>';
+      }
       html += '</div>';
     });
     document.getElementById('delList').innerHTML = html;
@@ -2083,6 +2101,34 @@ strong { font-weight: 600; color: var(--color-heading); }
     }
     fHtml += '</div>';
     document.getElementById('rptConfigForm').innerHTML = fHtml;
+
+    // ── TRACKED QUERIES ──
+    var tqEl = document.getElementById('rptTrackedQueries');
+    var queries = (cfg && cfg.tracked_queries) || [];
+    var tqHtml = '<p style="font-size:.82rem;color:var(--color-muted);margin:0 0 .75rem;">These queries are checked against Google AI Mode, Gemini, ChatGPT, Perplexity, and Bing each month to track whether the practice is being cited.</p>';
+    if (queries.length > 0) {
+      tqHtml += '<div style="display:grid;grid-template-columns:1fr 130px 160px 28px;gap:.5rem;padding:0 0 .4rem;border-bottom:1px solid var(--color-border);margin-bottom:.35rem;">';
+      tqHtml += '<span style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);">Search Query</span>';
+      tqHtml += '<span style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);">Engine</span>';
+      tqHtml += '<span style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);">Label</span>';
+      tqHtml += '<span></span></div>';
+      queries.forEach(function(q, i) {
+        tqHtml += '<div style="display:grid;grid-template-columns:1fr 130px 160px 28px;gap:.5rem;align-items:center;padding:.35rem 0;border-bottom:1px solid var(--color-border);font-size:.82rem;">';
+        tqHtml += '<input type="text" value="' + esc(q.query || '') + '" data-idx="' + i + '" data-field="query" class="rpt-tq-input" style="font-family:inherit;font-size:.82rem;padding:.3rem .5rem;border:1px solid var(--color-border);border-radius:6px;background:var(--color-surface);color:var(--color-heading);">';
+        tqHtml += '<select data-idx="' + i + '" data-field="engine" class="rpt-tq-input" style="font-family:inherit;font-size:.78rem;padding:.3rem .4rem;border:1px solid var(--color-border);border-radius:6px;background:var(--color-surface);color:var(--color-heading);">';
+        tqHtml += '<option value="google_ai_mode"' + (q.engine === 'google_ai_mode' ? ' selected' : '') + '>AI Mode</option>';
+        tqHtml += '<option value="google"' + (q.engine === 'google' ? ' selected' : '') + '>AI Overview</option>';
+        tqHtml += '</select>';
+        tqHtml += '<input type="text" value="' + esc(q.label || '') + '" data-idx="' + i + '" data-field="label" class="rpt-tq-input" style="font-family:inherit;font-size:.82rem;padding:.3rem .5rem;border:1px solid var(--color-border);border-radius:6px;background:var(--color-surface);color:var(--color-heading);" placeholder="Label">';
+        tqHtml += '<button onclick="removeTrackedQuery(' + i + ')" style="width:22px;height:22px;border:none;background:transparent;color:var(--color-muted);cursor:pointer;font-size:.75rem;border-radius:4px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background=\'rgba(239,68,68,.1)\';this.style.color=\'var(--color-danger)\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'var(--color-muted)\'" title="Remove">&#10005;</button>';
+        tqHtml += '</div>';
+      });
+    }
+    tqHtml += '<div style="margin-top:.6rem;display:flex;gap:.75rem;">';
+    tqHtml += '<button onclick="addTrackedQuery()" style="padding:.35rem .85rem;font-size:.78rem;font-weight:600;border:1px solid var(--color-border);background:transparent;color:var(--color-heading);border-radius:6px;cursor:pointer;font-family:inherit;">+ Add Query</button>';
+    tqHtml += '<button onclick="saveTrackedQueries()" style="padding:.35rem .85rem;font-size:.78rem;font-weight:600;border:none;background:var(--color-primary);color:#fff;border-radius:6px;cursor:pointer;font-family:inherit;">Save Queries</button>';
+    tqHtml += '</div>';
+    tqEl.innerHTML = tqHtml;
 
     // ── REPORT HISTORY ──
     if (snaps.length === 0) {
@@ -2169,6 +2215,47 @@ strong { font-weight: 600; color: var(--color-heading); }
     }).catch(function() {
       toast('Error saving config', 'error');
       if (btn) { btn.textContent = 'Save Configuration'; btn.disabled = false; }
+    });
+  };
+
+  window.addTrackedQuery = function() {
+    var cfg = state.reportConfig;
+    if (!cfg) { cfg = { tracked_queries: [] }; state.reportConfig = cfg; }
+    if (!cfg.tracked_queries) cfg.tracked_queries = [];
+    cfg.tracked_queries.push({ query: '', engine: 'google_ai_mode', label: '' });
+    renderReports();
+  };
+
+  window.removeTrackedQuery = function(idx) {
+    var cfg = state.reportConfig;
+    if (!cfg || !cfg.tracked_queries) return;
+    cfg.tracked_queries.splice(idx, 1);
+    renderReports();
+  };
+
+  window.saveTrackedQueries = function() {
+    var cfg = state.reportConfig;
+    var c = state.contact;
+    if (!cfg || !c) return;
+    // Read current values from DOM
+    var inputs = document.querySelectorAll('.rpt-tq-input');
+    var queries = cfg.tracked_queries || [];
+    inputs.forEach(function(el) {
+      var idx = parseInt(el.getAttribute('data-idx'));
+      var field = el.getAttribute('data-field');
+      if (queries[idx]) queries[idx][field] = el.value;
+    });
+    // Remove empty queries
+    queries = queries.filter(function(q) { return q.query && q.query.trim(); });
+    cfg.tracked_queries = queries;
+
+    apiAction('update_record', 'report_configs', { client_slug: c.slug }, { tracked_queries: queries }).then(function(res) {
+      if (res.success) {
+        toast('Tracked queries saved (' + queries.length + ')', 'success');
+        renderReports();
+      } else {
+        toast('Failed to save queries', 'error');
+      }
     });
   };
 
