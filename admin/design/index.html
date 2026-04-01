@@ -475,11 +475,12 @@ h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; font-weight: 700; color: var
     <p style="font-size:.78rem;font-weight:600;color:var(--color-heading);margin-bottom:.5rem;">Variant: Intro Call</p>
     <div class="row-demo" onclick="this.querySelector('.expand-icon').style.transform=this.classList.toggle('expanded')?'rotate(90deg)':''; var d=this.nextElementSibling; d.style.display=d.style.display==='block'?'none':'block';">
       <div class="expand-icon" style="transition:transform .2s;">&#9654;</div>
+      <div style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#128200;</div>
       <div style="flex:1;"><div class="row-label">GSC Configured + Access Granted</div></div>
       <select style="font-family:inherit;font-size:.72rem;font-weight:500;padding:.25rem .4rem;border-radius:6px;border:1px solid transparent;min-width:110px;background:rgba(107,117,153,.1);color:#6B7599;" onclick="event.stopPropagation()">
         <option>Pending</option><option>In Progress</option><option>Complete</option><option>N/A</option></select>
     </div>
-    <div style="display:none;padding:.65rem .75rem .65rem 2.25rem;font-size:.78rem;color:var(--color-body);line-height:1.6;border-bottom:1px solid var(--color-border);background:var(--color-surface);">
+    <div style="display:none;padding:.65rem .75rem .65rem 3.5rem;font-size:.78rem;color:var(--color-body);line-height:1.6;border-bottom:1px solid var(--color-border);background:var(--color-surface);">
       <div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);margin-bottom:.35rem;">Confirm During Intro Call</div>
       <p style="margin:0;">Has the team completed the GSC deliverable? Has the service account been added?</p>
     </div>
@@ -522,9 +523,34 @@ h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; font-weight: 700; color: var
         <li>Status dropdowns use <code>onclick="event.stopPropagation()"</code> to prevent expand toggle</li>
         <li>Link buttons, delete buttons also stop propagation</li>
         <li>Changing status triggers optimistic update (local state change + re-render, revert on API failure)</li>
-        <li>Expand panel left padding (<code>3.25rem</code>) aligns content with the row title, past the arrow and icon</li>
-        <li>IC rows use <code>padding-right: 3.5rem</code> to align dropdown position with other tabs that have extra right-side elements</li>
+        <li>Expand panel left padding (<code>3.25-3.5rem</code>) aligns content with the row title, past the arrow and icon</li>
+        <li>All three tabs use the unified left-side pattern: expand arrow + type icon + label</li>
       </ul>
+    </div>
+
+    <div style="margin-top:1rem;">
+      <p style="font-size:.78rem;font-weight:600;color:var(--color-heading);margin-bottom:.5rem;">Row Icon Reference</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem;font-size:.78rem;">
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#127760;</span><span>Website Access</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#128200;</span><span>GSC / GA4 / LBM Report</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#127991;</span><span>GTM</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#128205;</span><span>GBP / LBM Location</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#129309;</span><span>Referral Source</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#127919;</span><span>Target Keywords</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#128101;</span><span>Social Profiles</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#128197;</span><span>Calendar / Check-ins</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#128203;</span><span>Lead Attribution</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#9993;</span><span>Marketing Account</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#9200;</span><span>Content Turnaround</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#128208;</span><span>Scope Boundaries</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#128295;</span><span>Schema (Deliverable)</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#128196;</span><span>Target / Location Page</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#128240;</span><span>Press Release</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#129489;</span><span>Bio Page</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#10068;</span><span>FAQ Page</span></div>
+        <div style="display:flex;gap:.5rem;align-items:center;padding:.25rem 0;"><span style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#127909;</span><span>Video</span></div>
+      </div>
+      <p style="font-size:.72rem;color:var(--color-muted);margin-top:.5rem;">Icons render at <code>font-size: 1rem</code>, <code>opacity: .5</code>, <code>width: 24px</code>, <code>text-align: center</code>. Uses the <code>.del-icon</code> class.</p>
     </div>
   </div>
 
