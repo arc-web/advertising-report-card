@@ -198,6 +198,90 @@ module.exports = async function handler(req, res) {
     };
   });
 
+  // --- 3b. GBP Performance API (calls, clicks, directions, impressions) ---
+  var gbpPerfFn = safe('gbp_performance', async function() {
+    if (!googleSA || !config.gbp_location_id) {
+      warnings.push('GBP Performance: skipped (no service account or gbp_location_id configured)');
+      return null;
+    }
+    var gbpToken = await getGoogleAccessToken(googleSA, 'https://www.googleapis.com/auth/business.manage');
+    if (!gbpToken || gbpToken.error) {
+      warnings.push('GBP Performance: token failed - ' + (gbpToken ? gbpToken.error : 'unknown'));
+      return null;
+    }
+
+    // Parse date range into year/month/day components
+    var startDate = new Date(range.start + 'T00:00:00Z');
+    var endDate = new Date(range.end + 'T00:00:00Z');
+
+    var gbpUrl = 'https://businessprofileperformance.googleapis.com/v1/locations/' + config.gbp_location_id
+      + ':fetchMultiDailyMetricsTimeSeries'
+      + '?dailyMetrics=CALL_CLICKS'
+      + '&dailyMetrics=WEBSITE_CLICKS'
+      + '&dailyMetrics=BUSINESS_DIRECTION_REQUESTS'
+      + '&dailyMetrics=BUSINESS_IMPRESSIONS_DESKTOP_MAPS'
+      + '&dailyMetrics=BUSINESS_IMPRESSIONS_DESKTOP_SEARCH'
+      + '&dailyMetrics=BUSINESS_IMPRESSIONS_MOBILE_MAPS'
+      + '&dailyMetrics=BUSINESS_IMPRESSIONS_MOBILE_SEARCH'
+      + '&dailyRange.startDate.year=' + startDate.getUTCFullYear()
+      + '&dailyRange.startDate.month=' + (startDate.getUTCMonth() + 1)
+      + '&dailyRange.startDate.day=' + startDate.getUTCDate()
+      + '&dailyRange.endDate.year=' + endDate.getUTCFullYear()
+      + '&dailyRange.endDate.month=' + (endDate.getUTCMonth() + 1)
+      + '&dailyRange.endDate.day=' + endDate.getUTCDate();
+
+    var gbpResp = await fetchT(gbpUrl, {
+      headers: { 'Authorization': 'Bearer ' + gbpToken }
+    }, 15000);
+
+    if (!gbpResp.ok) {
+      var errText = await gbpResp.text();
+      throw new Error('GBP API ' + gbpResp.status + ': ' + errText.substring(0, 300));
+    }
+
+    var gbpResult = await gbpResp.json();
+    var timeSeries = gbpResult.multiDailyMetricTimeSeries || [];
+
+    // Sum up daily values for each metric across the month
+    function sumMetric(metricName) {
+      for (var i = 0; i < timeSeries.length; i++) {
+        var ts = timeSeries[i];
+        var dmt = ts.dailyMetricTimeSeries || {};
+        if (dmt.dailyMetric === metricName) {
+          var points = (dmt.timeSeries && dmt.timeSeries.datedValues) || [];
+          var total = 0;
+          for (var j = 0; j < points.length; j++) {
+            total += parseInt(points[j].value || 0);
+          }
+          return total;
+        }
+      }
+      return 0;
+    }
+
+    var calls = sumMetric('CALL_CLICKS');
+    var websiteClicks = sumMetric('WEBSITE_CLICKS');
+    var directionRequests = sumMetric('BUSINESS_DIRECTION_REQUESTS');
+    var impressionsDesktopMaps = sumMetric('BUSINESS_IMPRESSIONS_DESKTOP_MAPS');
+    var impressionsDesktopSearch = sumMetric('BUSINESS_IMPRESSIONS_DESKTOP_SEARCH');
+    var impressionsMobileMaps = sumMetric('BUSINESS_IMPRESSIONS_MOBILE_MAPS');
+    var impressionsMobileSearch = sumMetric('BUSINESS_IMPRESSIONS_MOBILE_SEARCH');
+    var impressionsTotal = impressionsDesktopMaps + impressionsDesktopSearch + impressionsMobileMaps + impressionsMobileSearch;
+
+    return {
+      calls: calls,
+      website_clicks: websiteClicks,
+      direction_requests: directionRequests,
+      impressions_total: impressionsTotal,
+      impressions_breakdown: {
+        desktop_maps: impressionsDesktopMaps,
+        desktop_search: impressionsDesktopSearch,
+        mobile_maps: impressionsMobileMaps,
+        mobile_search: impressionsMobileSearch
+      }
+    };
+  });
+
   // --- 4. LocalFalcon: Maps + AI visibility (replaces LBM + DataForSEO) ---
   var localFalconFn = safe('localfalcon', async function() {
     if (!lfKey) {
@@ -415,13 +499,14 @@ module.exports = async function handler(req, res) {
   });
 
   // Fire all data sources concurrently
-  var parallel = await Promise.all([gscFn, localFalconFn, taskFn]);
+  var parallel = await Promise.all([gscFn, gbpPerfFn, localFalconFn, taskFn]);
   var gscData = parallel[0];
-  var lfData = parallel[1];
-  var taskData = parallel[2];
+  var gbpPerfData = parallel[1];
+  var lfData = parallel[2];
+  var taskData = parallel[3];
 
   // Extract sub-sections from LocalFalcon data
-  var gbpData = lfData ? lfData.location : null;
+  var lfLocation = lfData ? lfData.location : null;
   var geogridData = lfData ? lfData.maps : null;
   var aiData = lfData ? lfData.ai : null;
 
@@ -458,13 +543,11 @@ module.exports = async function handler(req, res) {
     gsc_ctr_prev: prevSnap ? prevSnap.gsc_ctr : null,
     gsc_avg_position_prev: prevSnap ? prevSnap.gsc_avg_position : null,
 
-    // GBP - performance metrics (calls, directions, clicks) not available from LocalFalcon.
-    // Basic location data (rating, reviews) stored in gbp_detail JSON.
-    // To restore call/direction data, add direct GBP API integration.
-    gbp_calls: null,
-    gbp_direction_requests: null,
-    gbp_website_clicks: null,
-    gbp_photo_views: null,
+    // GBP - performance metrics from Business Profile Performance API
+    gbp_calls: gbpPerfData ? gbpPerfData.calls : null,
+    gbp_direction_requests: gbpPerfData ? gbpPerfData.direction_requests : null,
+    gbp_website_clicks: gbpPerfData ? gbpPerfData.website_clicks : null,
+    gbp_photo_views: null, // not available from Performance API
     gbp_calls_prev: prevSnap ? prevSnap.gbp_calls : null,
     gbp_direction_requests_prev: prevSnap ? prevSnap.gbp_direction_requests : null,
     gbp_website_clicks_prev: prevSnap ? prevSnap.gbp_website_clicks : null,
@@ -484,7 +567,10 @@ module.exports = async function handler(req, res) {
 
     // Detail JSON blobs
     gsc_detail: gscData ? { date_range: range, pages: gscData.pages, queries: gscData.queries } : {},
-    gbp_detail: gbpData ? { rating: gbpData.rating, reviews: gbpData.reviews, name: gbpData.name, address: gbpData.address, phone: gbpData.phone } : {},
+    gbp_detail: Object.assign({},
+      lfLocation ? { rating: lfLocation.rating, reviews: lfLocation.reviews, name: lfLocation.name, address: lfLocation.address, phone: lfLocation.phone } : {},
+      gbpPerfData ? { impressions_total: gbpPerfData.impressions_total, impressions_breakdown: gbpPerfData.impressions_breakdown } : {}
+    ),
 
     // AI visibility (backward-compatible structure + new LocalFalcon data)
     ai_visibility: aiData ? {
@@ -623,7 +709,8 @@ module.exports = async function handler(req, res) {
         + '<p style="color:#6B7599;margin:0 0 16px">Month ' + campaignMonth + ' report for <strong style="color:#1E2A5E">' + practiceName + '</strong> has been compiled.</p>'
         + '<table style="width:100%;border-collapse:collapse;margin:16px 0">'
         + (gscData ? '<tr><td style="padding:8px 0;color:#6B7599;border-bottom:1px solid #E2E8F0">GSC Clicks</td><td style="padding:8px 0;text-align:right;font-weight:600;color:#1E2A5E;border-bottom:1px solid #E2E8F0">' + gscData.clicks.toLocaleString() + '</td></tr>' : '')
-        + (gbpData ? '<tr><td style="padding:8px 0;color:#6B7599;border-bottom:1px solid #E2E8F0">GBP Rating</td><td style="padding:8px 0;text-align:right;font-weight:600;color:#1E2A5E;border-bottom:1px solid #E2E8F0">' + gbpData.rating + ' stars (' + gbpData.reviews + ' reviews)</td></tr>' : '')
+        + (gbpPerfData ? '<tr><td style="padding:8px 0;color:#6B7599;border-bottom:1px solid #E2E8F0">GBP Engagement</td><td style="padding:8px 0;text-align:right;font-weight:600;color:#1E2A5E;border-bottom:1px solid #E2E8F0">' + gbpPerfData.calls + ' calls, ' + gbpPerfData.website_clicks + ' web clicks, ' + gbpPerfData.direction_requests + ' directions</td></tr>' : '')
+        + (lfLocation ? '<tr><td style="padding:8px 0;color:#6B7599;border-bottom:1px solid #E2E8F0">GBP Rating</td><td style="padding:8px 0;text-align:right;font-weight:600;color:#1E2A5E;border-bottom:1px solid #E2E8F0">' + lfLocation.rating + ' stars (' + lfLocation.reviews + ' reviews)</td></tr>' : '')
         + (aiSummary ? '<tr><td style="padding:8px 0;color:#6B7599;border-bottom:1px solid #E2E8F0">AI Visibility</td><td style="padding:8px 0;text-align:right;font-weight:600;color:#1E2A5E;border-bottom:1px solid #E2E8F0">' + aiSummary + '</td></tr>' : '')
         + (mapsSummary ? '<tr><td style="padding:8px 0;color:#6B7599;border-bottom:1px solid #E2E8F0">Maps (LocalFalcon)</td><td style="padding:8px 0;text-align:right;font-weight:600;color:#1E2A5E;border-bottom:1px solid #E2E8F0">' + mapsSummary + '</td></tr>' : '')
         + '</table>'
@@ -666,7 +753,8 @@ module.exports = async function handler(req, res) {
     status: 'internal_review',
     data_sources: {
       gsc: gscData ? 'ok' : 'skipped',
-      gbp: gbpData ? { rating: gbpData.rating, reviews: gbpData.reviews, note: 'Basic location data only (LF). Call/direction metrics require direct GBP API.' } : 'skipped',
+      gbp_performance: gbpPerfData ? { calls: gbpPerfData.calls, website_clicks: gbpPerfData.website_clicks, direction_requests: gbpPerfData.direction_requests, impressions: gbpPerfData.impressions_total } : 'skipped',
+      gbp_location: lfLocation ? { rating: lfLocation.rating, reviews: lfLocation.reviews } : 'skipped',
       ai_visibility: aiData ? {
         engines_citing: aiData.engines_citing,
         engines_checked: aiData.engines_checked,
@@ -798,7 +886,8 @@ function buildAiKeywordBreakdown(engines) {
 // ═══════════════════════════════════════════════════════════════════
 // Helper: Google Service Account JWT -> Access Token
 // ═══════════════════════════════════════════════════════════════════
-async function getGoogleAccessToken(saJson) {
+async function getGoogleAccessToken(saJson, scope) {
+  scope = scope || 'https://www.googleapis.com/auth/webmasters.readonly';
   try {
     var sa = typeof saJson === 'string' ? JSON.parse(saJson) : saJson;
     if (!sa.private_key || !sa.client_email) {
@@ -810,7 +899,7 @@ async function getGoogleAccessToken(saJson) {
     var now = Math.floor(Date.now() / 1000);
     var claims = Buffer.from(JSON.stringify({
       iss: sa.client_email,
-      scope: 'https://www.googleapis.com/auth/webmasters.readonly',
+      scope: scope,
       aud: 'https://oauth2.googleapis.com/token',
       iat: now,
       exp: now + 3600
@@ -853,8 +942,14 @@ async function generateHighlights(snapshot, prevSnap, practiceName, apiKey) {
 
   var gbpD = snapshot.gbp_detail || {};
   if (gbpD.rating) {
-    metricsContext += 'GBP: ' + gbpD.rating + ' rating (' + gbpD.reviews + ' reviews)\n';
+    metricsContext += 'GBP: ' + gbpD.rating + ' rating (' + gbpD.reviews + ' reviews)';
   }
+  if (snapshot.gbp_calls !== null) {
+    metricsContext += (gbpD.rating ? ', ' : 'GBP: ') + snapshot.gbp_calls + ' calls, ' + snapshot.gbp_website_clicks + ' website clicks, ' + snapshot.gbp_direction_requests + ' direction requests';
+    if (snapshot.gbp_calls_prev !== null) metricsContext += ' (prev: ' + snapshot.gbp_calls_prev + ' calls)';
+    if (gbpD.impressions_total) metricsContext += ', ' + gbpD.impressions_total + ' total impressions';
+  }
+  if (gbpD.rating || snapshot.gbp_calls !== null) metricsContext += '\n';
 
   var ai = snapshot.ai_visibility || {};
   if (ai.engines_checked) {
