@@ -734,18 +734,31 @@ strong { font-weight: 600; color: var(--color-heading); }
 
       <!-- TAB: Reports -->
       <div class="tab-panel" id="tab-reports">
-        <div class="card" style="margin-bottom:1rem;" id="reportConfigCard">
-          <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-            <h3>Report Configuration</h3>
-            <div style="display:flex;gap:.5rem;">
-              <button class="btn-sm" id="compileNowBtn" onclick="compileReportNow()" style="padding:.35rem .85rem;font-size:.75rem;font-weight:600;border:1px solid var(--color-primary);background:var(--color-primary-subtle);color:var(--color-primary);border-radius:6px;cursor:pointer;font-family:inherit;">&#9654; Compile Now</button>
-            </div>
-          </div>
-          <div class="field-group" id="reportConfigFields"></div>
+        <!-- Data Streams -->
+        <div class="card" style="margin-bottom:1rem;">
+          <div class="card-header"><h3>Data Streams</h3></div>
+          <div id="rptDataStreams" style="padding:.25rem 0;"></div>
         </div>
-        <div class="section-header"><h3 style="font-size:.95rem;">Report History</h3></div>
+
+        <!-- Tracked Keywords -->
+        <div class="card" style="margin-bottom:1rem;">
+          <div class="card-header"><h3>Tracked Keywords</h3></div>
+          <div id="rptKeywords" style="padding:.25rem 0;"></div>
+        </div>
+
+        <!-- Scheduling -->
+        <div class="card" style="margin-bottom:1rem;">
+          <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <h3>Scheduling</h3>
+            <button class="btn-sm" id="compileNowBtn" onclick="compileReportNow()" style="padding:.35rem .85rem;font-size:.75rem;font-weight:600;border:1px solid var(--color-primary);background:var(--color-primary-subtle);color:var(--color-primary);border-radius:6px;cursor:pointer;font-family:inherit;">&#9654; Compile Now</button>
+          </div>
+          <div id="rptScheduling"></div>
+        </div>
+
+        <!-- Report History -->
+        <div class="section-header" style="margin-top:1.5rem;"><h3 style="font-size:.95rem;">Report History</h3></div>
         <div id="rptList"></div>
-        <div class="empty-state" id="rptEmpty" style="display:none;"><p>No reports generated yet. Complete the GSC and LBM steps in the Intro Call tab to auto-configure reporting.</p></div>
+        <div class="empty-state" id="rptEmpty" style="display:none;"><p>No reports compiled yet. Configure data streams and run your first compile above.</p></div>
       </div>
 
       <!-- TAB: Billing -->
@@ -1075,7 +1088,7 @@ strong { font-weight: 600; color: var(--color-heading); }
     var metaHtml = '<select class="status-meta-select st-' + c.status + '" onchange="setContactStatus(this.value)"' + (c.status === 'active' ? ' title="Active status is earned when all onboarding steps are complete"' : '') + '>';
     ['lead','prospect','onboarding','active'].forEach(function(s) {
       var disabled = (s === 'active' && c.status !== 'active') ? ' disabled' : '';
-      var label = s === 'active' ? 'Active (auto)' : s.charAt(0).toUpperCase() + s.slice(1);
+      var label = s.charAt(0).toUpperCase() + s.slice(1);
       metaHtml += '<option value="' + s + '"' + (c.status === s ? ' selected' : '') + disabled + '>' + label + '</option>';
     });
     metaHtml += '</select>';
@@ -1966,30 +1979,112 @@ strong { font-weight: 600; color: var(--color-heading); }
     var snaps = state.snapshots;
     var c = state.contact;
 
-    if (cfg) {
-      var gscOk = !!(cfg.gsc_property || (c && c.gsc_property));
-      var gscVal = cfg.gsc_property || (c && c.gsc_property) || 'Not configured';
-      var lbmOk = !!cfg.lbm_location_id || !!cfg.gbp_id;
+    // ── DATA STREAMS ──
+    var gscVal = (cfg && cfg.gsc_property) || (c && c.gsc_property) || '';
+    var gscOk = !!gscVal;
+    var lbmOk = cfg && (!!cfg.lbm_location_id || !!cfg.gbp_id);
+    // Check LBM from contact if not in config
+    if (!lbmOk && c && c.gbp_place_id) lbmOk = 'partial';
 
-      document.getElementById('reportConfigFields').innerHTML =
-        '<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem;">' +
-          '<span style="font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:5px;' + (gscOk ? 'background:rgba(0,212,126,.1);color:#00b86c' : 'background:rgba(239,68,68,.1);color:#EF4444') + ';">GSC ' + (gscOk ? '&#10003;' : '&#10007;') + '</span>' +
-          '<span style="font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:5px;' + (lbmOk ? 'background:rgba(0,212,126,.1);color:#00b86c' : 'background:rgba(239,68,68,.1);color:#EF4444') + ';">GBP/LBM ' + (lbmOk ? '&#10003;' : '&#10007;') + '</span>' +
-          '<span style="font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:5px;background:rgba(0,212,126,.1);color:#00b86c;">AI Visibility &#10003;</span>' +
-          '<span style="font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:5px;background:rgba(0,212,126,.1);color:#00b86c;">Tasks &#10003;</span>' +
-        '</div>' +
-        fieldRow('GSC Property', gscVal)
-        + fieldRow('Active', cfg.active ? 'Yes' : 'No')
-        + fieldRow('Last Compiled', cfg.last_compiled_at ? formatDateTime(cfg.last_compiled_at) : null);
+    var dsHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.75rem;padding:.5rem 0;">';
+
+    // GSC stream
+    dsHtml += '<div style="background:var(--color-bg);border:1px solid var(--color-border);border-radius:10px;padding:.85rem 1rem;">';
+    dsHtml += '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem;">';
+    dsHtml += '<span style="font-size:.72rem;font-weight:600;padding:.15rem .45rem;border-radius:4px;' + (gscOk ? 'background:rgba(0,212,126,.1);color:#00b86c' : 'background:rgba(239,68,68,.1);color:#EF4444') + ';">' + (gscOk ? 'Connected' : 'Not Connected') + '</span>';
+    dsHtml += '</div>';
+    dsHtml += '<div style="font-family:Outfit,sans-serif;font-weight:700;font-size:.88rem;color:var(--color-heading);margin-bottom:.2rem;">Google Search Console</div>';
+    if (gscOk) {
+      dsHtml += '<div style="font-size:.75rem;color:var(--color-muted);word-break:break-all;">' + esc(gscVal) + '</div>';
     } else {
-      document.getElementById('reportConfigFields').innerHTML =
-        '<div style="padding:.75rem;font-size:.82rem;color:var(--color-muted);"><p style="margin:0;">No report config yet. Complete the <strong>GSC</strong> and <strong>LBM Report Config</strong> steps in the Intro Call tab to auto-create.</p></div>';
+      dsHtml += '<div style="font-size:.75rem;color:var(--color-muted);">Set <code>gsc_property</code> on contact record</div>';
     }
+    dsHtml += '</div>';
 
+    // GBP/LBM stream
+    dsHtml += '<div style="background:var(--color-bg);border:1px solid var(--color-border);border-radius:10px;padding:.85rem 1rem;">';
+    dsHtml += '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem;">';
+    dsHtml += '<span style="font-size:.72rem;font-weight:600;padding:.15rem .45rem;border-radius:4px;' + (lbmOk === true ? 'background:rgba(0,212,126,.1);color:#00b86c' : lbmOk === 'partial' ? 'background:rgba(245,158,11,.1);color:#D97706' : 'background:rgba(239,68,68,.1);color:#EF4444') + ';">' + (lbmOk === true ? 'Connected' : lbmOk === 'partial' ? 'Partial' : 'Not Connected') + '</span>';
+    dsHtml += '</div>';
+    dsHtml += '<div style="font-family:Outfit,sans-serif;font-weight:700;font-size:.88rem;color:var(--color-heading);margin-bottom:.2rem;">Google Business Profile</div>';
+    if (lbmOk === true) {
+      dsHtml += '<div style="font-size:.75rem;color:var(--color-muted);">LBM location + report config active</div>';
+    } else if (lbmOk === 'partial') {
+      dsHtml += '<div style="font-size:.75rem;color:var(--color-muted);">Place ID set - need LBM location + report config</div>';
+    } else {
+      dsHtml += '<div style="font-size:.75rem;color:var(--color-muted);">Complete LBM steps in Intro Call</div>';
+    }
+    dsHtml += '</div>';
+
+    // AI Visibility stream (always on)
+    dsHtml += '<div style="background:var(--color-bg);border:1px solid var(--color-border);border-radius:10px;padding:.85rem 1rem;">';
+    dsHtml += '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem;">';
+    dsHtml += '<span style="font-size:.72rem;font-weight:600;padding:.15rem .45rem;border-radius:4px;background:rgba(0,212,126,.1);color:#00b86c;">Always On</span>';
+    dsHtml += '</div>';
+    dsHtml += '<div style="font-family:Outfit,sans-serif;font-weight:700;font-size:.88rem;color:var(--color-heading);margin-bottom:.2rem;">AI Visibility</div>';
+    dsHtml += '<div style="font-size:.75rem;color:var(--color-muted);">DataForSEO - 5 engines checked per keyword</div>';
+    dsHtml += '</div>';
+
+    // Tasks stream (always on)
+    dsHtml += '<div style="background:var(--color-bg);border:1px solid var(--color-border);border-radius:10px;padding:.85rem 1rem;">';
+    dsHtml += '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem;">';
+    dsHtml += '<span style="font-size:.72rem;font-weight:600;padding:.15rem .45rem;border-radius:4px;background:rgba(0,212,126,.1);color:#00b86c;">Always On</span>';
+    dsHtml += '</div>';
+    dsHtml += '<div style="font-family:Outfit,sans-serif;font-weight:700;font-size:.88rem;color:var(--color-heading);margin-bottom:.2rem;">Task Progress</div>';
+    dsHtml += '<div style="font-size:.75rem;color:var(--color-muted);">Supabase - audit checklist items</div>';
+    dsHtml += '</div>';
+
+    dsHtml += '</div>';
+    document.getElementById('rptDataStreams').innerHTML = dsHtml;
+
+    // ── TRACKED KEYWORDS ──
+    var kwEl = document.getElementById('rptKeywords');
+    sb('tracked_keywords?client_slug=eq.' + (c && c.slug) + '&active=eq.true&priority=eq.1&order=keyword.asc').then(function(kws) {
+      if (!kws || kws.length === 0) {
+        kwEl.innerHTML = '<div style="padding:.5rem 0;font-size:.82rem;color:var(--color-muted);">No P1 keywords configured. Add keywords in the <strong>Intro Call</strong> tab under Pick Target Keywords.</div>';
+        return;
+      }
+      var html = '<div style="padding:.25rem 0;">';
+      kws.forEach(function(kw) {
+        var isNew = (kw.notes || '').toLowerCase().indexOf('new page') >= 0;
+        html += '<div style="display:flex;align-items:center;gap:.75rem;padding:.4rem 0;border-bottom:1px solid var(--color-border);font-size:.82rem;">';
+        html += '<div style="flex:1;font-weight:500;color:var(--color-heading);">' + esc(kw.keyword) + '</div>';
+        html += '<div style="font-size:.75rem;color:var(--color-muted);max-width:200px;text-align:right;">' + esc(kw.target_page || '-') + '</div>';
+        html += '<span style="font-size:.68rem;font-weight:600;padding:.15rem .4rem;border-radius:4px;' + (isNew ? 'background:rgba(0,212,126,.08);color:#00b86c' : 'background:rgba(59,130,246,.08);color:#3B82F6') + ';">' + (isNew ? 'New' : 'Update') + '</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+      kwEl.innerHTML = html;
+    }).catch(function() {
+      kwEl.innerHTML = '<div style="padding:.5rem 0;font-size:.82rem;color:var(--color-muted);">Could not load keywords.</div>';
+    });
+
+    // ── SCHEDULING ──
+    var schHtml = '<div style="padding:.5rem 0;">';
+    var isActive = cfg && cfg.active;
+    schHtml += '<div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center;">';
+    schHtml += '<div><span style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);display:block;">Status</span>';
+    schHtml += '<span style="font-size:.88rem;font-weight:600;color:' + (isActive ? 'var(--color-success)' : 'var(--color-muted)') + ';">' + (isActive ? 'Active' : 'Inactive') + '</span></div>';
+    schHtml += '<div><span style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);display:block;">Schedule</span>';
+    schHtml += '<span style="font-size:.88rem;color:var(--color-heading);">1st of each month, 10am UTC</span></div>';
+    if (cfg && cfg.last_compiled_at) {
+      schHtml += '<div><span style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);display:block;">Last Compiled</span>';
+      schHtml += '<span style="font-size:.88rem;color:var(--color-heading);">' + formatDateTime(cfg.last_compiled_at) + '</span></div>';
+    }
+    schHtml += '</div>';
+    if (!cfg) {
+      schHtml += '<div style="margin-top:.75rem;padding:.65rem .85rem;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.15);border-radius:8px;font-size:.82rem;color:var(--color-warning);">Reporting not yet configured. Complete the GSC and LBM Report Config steps in the Intro Call tab to auto-activate.</div>';
+    }
+    schHtml += '</div>';
+    document.getElementById('rptScheduling').innerHTML = schHtml;
+
+    // ── REPORT HISTORY ──
     if (snaps.length === 0) {
       document.getElementById('rptEmpty').style.display = 'block';
+      document.getElementById('rptList').innerHTML = '';
       return;
     }
+    document.getElementById('rptEmpty').style.display = 'none';
 
     var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     function fmtMonth(d) {
@@ -2011,7 +2106,6 @@ strong { font-weight: 600; color: var(--color-heading); }
       html += '<div style="flex:1;font-size:.78rem;color:var(--color-muted);">Month ' + (s.campaign_month || '-') + ' &middot; compiled ' + formatDateTime(s.created_at) + '</div>';
       html += statusTag;
 
-      // Action buttons
       if (s.report_status === 'internal_review') {
         html += '<button class="btn btn-ghost btn-sm" style="margin-left:.5rem;color:var(--color-success);font-weight:600;" onclick="event.stopPropagation(); approveReport(\'' + s.id + '\')" title="Approve and publish">&#10003; Approve</button>';
       }
