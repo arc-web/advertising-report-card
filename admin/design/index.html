@@ -456,16 +456,75 @@ h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; font-weight: 700; color: var
 
   <div class="ds-subsection">
     <h3>Expandable Rows</h3>
-    <p style="font-size:.82rem;color:var(--color-muted);margin-bottom:.5rem;">Used across Intro Call, Deliverables, and Audit tabs. Click anywhere to expand, dropdown stops propagation.</p>
-    <div class="row-demo" onclick="this.classList.toggle('expanded'); var d=this.nextElementSibling; d.style.display=d.style.display==='block'?'none':'block';">
-      <div class="expand-icon">&#9654;</div>
+    <p style="font-size:.82rem;color:var(--color-muted);margin-bottom:.75rem;">The primary interaction pattern across Intro Call, Deliverables, and Audit tabs. Click anywhere on the row to expand/collapse. Interactive elements (dropdowns, links, delete) stop propagation.</p>
+
+    <table class="token-table" style="margin-bottom:1.25rem;">
+      <tr><th>Token</th><th>Value</th><th>Notes</th></tr>
+      <tr><td>Row padding</td><td><code>.65rem .75rem</code></td><td>Consistent across all three tabs</td></tr>
+      <tr><td>IC row right padding</td><td><code>3.5rem</code></td><td>Extra right padding to align dropdown with other tabs (no action buttons)</td></tr>
+      <tr><td>Row gap</td><td><code>.75rem</code></td><td>Between expand icon, type icon, label, and dropdown</td></tr>
+      <tr><td>Expand arrow</td><td><code>&#9654;</code> (&#x25B6;)</td><td><code>font-size: .65rem</code>, <code>color: var(--color-muted)</code></td></tr>
+      <tr><td>Arrow rotation</td><td><code>transform: rotate(90deg)</code></td><td>Applied when row has <code>.expanded</code> class, <code>transition: .2s</code></td></tr>
+      <tr><td>Expanded bg</td><td><code>var(--color-bg)</code></td><td>Subtle highlight on the active row</td></tr>
+      <tr><td>Hover bg</td><td><code>var(--sidebar-hover)</code></td><td>Subtle hover feedback</td></tr>
+      <tr><td>Row border</td><td><code>border-bottom: 1px solid var(--color-border)</code></td><td>Separator between rows</td></tr>
+      <tr><td>Expand panel padding</td><td><code>.65rem .75rem .65rem 3.25rem</code></td><td>Left indent aligns with row title (past arrow + icon)</td></tr>
+      <tr><td>Expand animation</td><td><code>max-height 0 &rarr; 600px</code></td><td><code>transition: max-height .3s ease</code>, <code>overflow: hidden</code></td></tr>
+    </table>
+
+    <p style="font-size:.78rem;font-weight:600;color:var(--color-heading);margin-bottom:.5rem;">Variant: Intro Call</p>
+    <div class="row-demo" onclick="this.querySelector('.expand-icon').style.transform=this.classList.toggle('expanded')?'rotate(90deg)':''; var d=this.nextElementSibling; d.style.display=d.style.display==='block'?'none':'block';">
+      <div class="expand-icon" style="transition:transform .2s;">&#9654;</div>
+      <div style="flex:1;"><div class="row-label">GSC Configured + Access Granted</div></div>
+      <select style="font-family:inherit;font-size:.72rem;font-weight:500;padding:.25rem .4rem;border-radius:6px;border:1px solid transparent;min-width:110px;background:rgba(107,117,153,.1);color:#6B7599;" onclick="event.stopPropagation()">
+        <option>Pending</option><option>In Progress</option><option>Complete</option><option>N/A</option></select>
+    </div>
+    <div style="display:none;padding:.65rem .75rem .65rem 2.25rem;font-size:.78rem;color:var(--color-body);line-height:1.6;border-bottom:1px solid var(--color-border);background:var(--color-surface);">
+      <div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);margin-bottom:.35rem;">Confirm During Intro Call</div>
+      <p style="margin:0;">Has the team completed the GSC deliverable? Has the service account been added?</p>
+    </div>
+
+    <p style="font-size:.78rem;font-weight:600;color:var(--color-heading);margin:.75rem 0 .5rem;">Variant: Deliverable</p>
+    <div class="row-demo" onclick="this.querySelector('.expand-icon').style.transform=this.classList.toggle('expanded')?'rotate(90deg)':''; var d=this.nextElementSibling; d.style.display=d.style.display==='block'?'none':'block';">
+      <div class="expand-icon" style="transition:transform .2s;">&#9654;</div>
       <div style="font-size:1rem;opacity:.5;width:24px;text-align:center;">&#128295;</div>
-      <div style="flex:1;"><div class="row-label">Google Search Console Setup</div><div style="font-size:.75rem;color:var(--color-muted);">Pending</div></div>
+      <div style="flex:1;"><div class="row-label">Google Search Console Setup</div><div style="font-size:.75rem;color:var(--color-muted);">Mar 20, 2026</div></div>
       <select style="font-family:inherit;font-size:.72rem;font-weight:500;padding:.25rem .4rem;border-radius:6px;border:1px solid transparent;min-width:110px;background:rgba(0,212,126,.1);color:#00b86c;" onclick="event.stopPropagation()">
         <option>Delivered</option></select>
+      <div style="display:flex;gap:.3rem;">
+        <a href="#" style="font-size:.72rem;padding:.2rem .4rem;border-radius:4px;border:1px solid var(--color-border);color:var(--color-muted);text-decoration:none;" onclick="event.stopPropagation();event.preventDefault();">&#128279;</a>
+      </div>
+      <button style="width:22px;height:22px;border:none;background:transparent;color:var(--color-muted);cursor:pointer;font-size:.72rem;border-radius:4px;opacity:.4;" onclick="event.stopPropagation()">&#10005;</button>
     </div>
-    <div style="display:none;padding:.65rem .75rem .65rem 3.25rem;font-size:.78rem;color:var(--color-body);line-height:1.6;border:1px solid var(--color-border);border-top:none;border-radius:0 0 8px 8px;background:var(--color-surface);margin-top:-9px;margin-bottom:.5rem;">
-      Prefer sc-domain: property (covers all URL variants). Grant access to support@moonraker.ai (Owner), chris@moonraker.ai (Owner). Save gsc_property on contact record.
+    <div style="display:none;padding:.65rem .75rem .65rem 3.25rem;font-size:.78rem;color:var(--color-body);line-height:1.6;border-bottom:1px solid var(--color-border);background:var(--color-surface);">
+      Prefer sc-domain: property. Grant access: support@moonraker.ai (Owner), chris@moonraker.ai (Owner). Save gsc_property on contact record.
+    </div>
+
+    <p style="font-size:.78rem;font-weight:600;color:var(--color-heading);margin:.75rem 0 .5rem;">Variant: Audit Task</p>
+    <div class="row-demo" onclick="this.querySelector('.expand-icon').style.transform=this.classList.toggle('expanded')?'rotate(90deg)':''; var d=this.nextElementSibling; d.style.display=d.style.display==='block'?'none':'block';">
+      <div class="expand-icon" style="transition:transform .2s;">&#9654;</div>
+      <div style="font-size:.82rem;font-weight:600;color:var(--color-muted);width:20px;text-align:center;">1</div>
+      <div style="flex:1;"><div class="row-label">Create brand.jsonld entity identity file</div><div style="font-size:.75rem;color:var(--color-muted);">P1 &middot; Schema &amp; Entity Identity</div></div>
+      <select style="font-family:inherit;font-size:.72rem;font-weight:500;padding:.25rem .4rem;border-radius:6px;border:1px solid transparent;min-width:90px;background:rgba(0,212,126,.12);color:#00b86c;" onclick="event.stopPropagation()">
+        <option>Moonraker</option></select>
+      <select style="font-family:inherit;font-size:.72rem;font-weight:500;padding:.25rem .4rem;border-radius:6px;border:1px solid transparent;min-width:110px;background:rgba(107,117,153,.1);color:#6B7599;" onclick="event.stopPropagation()">
+        <option>Not Started</option></select>
+    </div>
+    <div style="display:none;padding:.65rem .75rem .65rem 3.25rem;font-size:.78rem;color:var(--color-body);line-height:1.6;border-bottom:1px solid var(--color-border);background:var(--color-surface);">
+      <strong>Instructions:</strong> Create the brand.jsonld file with @type Organization, sameAs URLs for all social profiles, and postal code. Client must verify the sameAs URLs and postal code before deployment.
+    </div>
+
+    <div style="margin-top:1rem;padding:.75rem 1rem;background:var(--color-bg);border:1px solid var(--color-border);border-radius:8px;">
+      <p style="font-size:.78rem;font-weight:600;color:var(--color-heading);margin-bottom:.35rem;">Behavioral Rules</p>
+      <ul style="font-size:.78rem;color:var(--color-body);margin:0;padding-left:1.25rem;line-height:1.7;">
+        <li>Single <code>expandedXxxId</code> state variable per tab - only one row open at a time</li>
+        <li>Clicking an expanded row collapses it (toggle behavior)</li>
+        <li>Status dropdowns use <code>onclick="event.stopPropagation()"</code> to prevent expand toggle</li>
+        <li>Link buttons, delete buttons also stop propagation</li>
+        <li>Changing status triggers optimistic update (local state change + re-render, revert on API failure)</li>
+        <li>Expand panel left padding (<code>3.25rem</code>) aligns content with the row title, past the arrow and icon</li>
+        <li>IC rows use <code>padding-right: 3.5rem</code> to align dropdown position with other tabs that have extra right-side elements</li>
+      </ul>
     </div>
   </div>
 
