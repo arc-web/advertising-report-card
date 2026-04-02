@@ -21,8 +21,7 @@
   "functions": {
     "api/chat.js": {
       "maxDuration": 120,
-      "memory": 1024,
-      "supportsResponseStreaming": true
+      "memory": 1024
     },
     "api/action.js": {
       "maxDuration": 30
@@ -87,4 +86,3 @@
     }
   ]
 }
-
