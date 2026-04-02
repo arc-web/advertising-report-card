@@ -31,13 +31,6 @@ module.exports = async function handler(req, res) {
 
   var systemPrompt = buildSystemPrompt(context);
 
-  // Set SSE headers and flush immediately
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
-  res.flushHeaders();
-
   // Call Anthropic with stream: true
   var aiResp;
   try {
@@ -57,48 +50,26 @@ module.exports = async function handler(req, res) {
       })
     });
   } catch(e) {
-    res.write('data: ' + JSON.stringify({ error: 'Failed to reach Anthropic API' }) + '\n\n');
-    return res.end();
+    return res.status(500).json({ error: 'Failed to reach Anthropic API' });
   }
 
   if (!aiResp.ok) {
     var errBody = await aiResp.text();
-    res.write('data: ' + JSON.stringify({ error: 'Anthropic API error', status: aiResp.status }) + '\n\n');
-    return res.end();
+    return res.status(aiResp.status).json({ error: 'Anthropic API error', status: aiResp.status });
   }
 
-  // Stream Anthropic SSE response, extracting content_block_delta text
-  var reader = aiResp.body.getReader();
-  var decoder = new TextDecoder();
-  var sseBuffer = '';
+  // Stream: pipe raw Anthropic SSE bytes directly (no parsing, no re-encoding)
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
 
+  var reader = aiResp.body.getReader();
   try {
     while (true) {
       var chunk = await reader.read();
       if (chunk.done) break;
-      sseBuffer += decoder.decode(chunk.value, { stream: true });
-
-      var lines = sseBuffer.split('\n');
-      sseBuffer = lines.pop() || '';
-
-      for (var i = 0; i < lines.length; i++) {
-        var line = lines[i];
-        if (line.startsWith('data: ')) {
-          var data = line.substring(6).trim();
-          if (data === '[DONE]') {
-            res.write('data: [DONE]\n\n');
-            continue;
-          }
-          try {
-            var parsed = JSON.parse(data);
-            if (parsed.type === 'content_block_delta' && parsed.delta && parsed.delta.text) {
-              res.write('data: ' + JSON.stringify({ text: parsed.delta.text }) + '\n\n');
-            } else if (parsed.type === 'message_stop') {
-              res.write('data: [DONE]\n\n');
-            }
-          } catch(e) { /* skip unparseable */ }
-        }
-      }
+      res.write(chunk.value);
     }
   } catch(e) {
     // Stream error, close gracefully
