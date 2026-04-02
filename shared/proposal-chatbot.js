@@ -156,7 +156,7 @@
     .mpc-input:focus { border-color: var(--color-primary, #00D47E); }
     .mpc-input::placeholder { color: var(--color-muted, #6B7599); }
     .mpc-send {
-      width: 36px; height: 36px; border-radius: 50%;
+      width: 36px; height: 36px; border-radius: 8px;
       background: var(--color-primary, #00D47E); border: none; cursor: pointer;
       display: flex; align-items: center; justify-content: center; flex-shrink: 0;
       transition: opacity .1s;
@@ -460,4 +460,5 @@
   }
 
 })();
+
 
