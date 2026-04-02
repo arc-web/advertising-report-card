@@ -73,6 +73,10 @@
     },
     "api/delete-proposal.js": {
       "maxDuration": 60
+    },
+    "api/digest.js": {
+      "maxDuration": 120,
+      "memory": 1024
     }
   },
   "crons": [
