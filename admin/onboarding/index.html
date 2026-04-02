@@ -339,8 +339,6 @@ a:hover { color: var(--color-primary-hover); }
   var STEP_ICONS = { complete: '\u2713', in_progress: '\u25B6', pending: '\u25CB' };
 
   var state = { contacts: [], onboarding: {}, filter: 'all', view: 'cards' };
-    }).then(function(r) { return r.json(); });
-  }
 
   function loadData() {
     Promise.all([
