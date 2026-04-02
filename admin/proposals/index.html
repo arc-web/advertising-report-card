@@ -731,6 +731,7 @@ a:hover { color: var(--color-primary-hover); }
         html += '<span class="tag tag-' + p.status + '">' + statusLabel + (p.view_count > 0 ? ' (' + p.view_count + ' views)' : '') + '</span>';
       }
       if (p.proposal_url) html += ' <a href="' + esc(p.proposal_url) + '?preview=true" target="_blank" class="btn btn-ghost btn-sm" title="Preview (no tracking)" onclick="event.stopPropagation()">&#128065;</a>';
+      html += ' <button class="btn btn-ghost btn-sm" style="color:var(--color-danger);font-size:.7rem;" title="Delete proposal and deployed pages" onclick="event.stopPropagation();deleteProposal(\'' + p.id + '\')">&#128465;</button>';
       html += '</td>';
       html += '</tr>';
     });
@@ -763,6 +764,26 @@ a:hover { color: var(--color-primary-hover); }
   document.getElementById('newProposalModal').addEventListener('click', function(e) {
     if (e.target === this) closeModal();
   });
+
+  // Delete a proposal
+  window.deleteProposal = async function(proposalId) {
+    if (!confirm('Delete this proposal and remove all deployed pages (proposal, checkout, onboarding) for this prospect?')) return;
+    try {
+      var resp = await fetch('/api/delete-proposal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proposal_id: proposalId, delete_pages: true })
+      });
+      var data = await resp.json();
+      if (data.ok) {
+        await loadData();
+      } else {
+        alert('Delete failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch(e) {
+      alert('Delete error: ' + e.message);
+    }
+  };
 
   // Generate a proposal (after enrichment)
   window.generateProposal = async function(proposalId, btn) {
