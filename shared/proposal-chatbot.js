@@ -98,17 +98,9 @@
       display: flex; flex-direction: column; gap: .65rem;
     }
 
-    .mpc-msg { display: flex; gap: .5rem; max-width: 92%; animation: mpcFadeIn .2s ease; }
-    .mpc-msg-user { align-self: flex-end; flex-direction: row-reverse; }
+    .mpc-msg { display: flex; max-width: 88%; animation: mpcFadeIn .2s ease; }
+    .mpc-msg-user { align-self: flex-end; }
     .mpc-msg-ai { align-self: flex-start; }
-
-    .mpc-msg-avatar {
-      width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-      font-size: .7rem; font-weight: 600;
-    }
-    .mpc-msg-ai .mpc-msg-avatar { background: var(--color-primary-subtle, #DDF8F2); color: var(--color-primary, #00D47E); }
-    .mpc-msg-user .mpc-msg-avatar { background: var(--color-info, #3B82F6); color: #fff; }
 
     .mpc-msg-bubble {
       padding: .55rem .8rem; border-radius: 12px;
@@ -150,7 +142,7 @@
 
     /* Input */
     .mpc-input-area {
-      padding: .5rem .75rem; border-top: 1px solid var(--color-border, #E2E8F0); flex-shrink: 0;
+      padding: .65rem .75rem; border-top: 1px solid var(--color-border, #E2E8F0); flex-shrink: 0;
     }
     .mpc-input-wrap { display: flex; gap: .35rem; align-items: flex-end; }
     .mpc-input {
@@ -164,13 +156,13 @@
     .mpc-input:focus { border-color: var(--color-primary, #00D47E); }
     .mpc-input::placeholder { color: var(--color-muted, #6B7599); }
     .mpc-send {
-      width: 36px; height: 36px; border-radius: 8px;
+      width: 36px; height: 36px; border-radius: 50%;
       background: var(--color-primary, #00D47E); border: none; cursor: pointer;
       display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      transition: opacity .1s;
     }
     .mpc-send:disabled { opacity: .4; cursor: not-allowed; }
-    .mpc-send svg { width: 14px; height: 14px; fill: #0a1e14; }
-    .mpc-powered { text-align: center; padding: .25rem; font-size: .6rem; color: var(--color-muted, #6B7599); }
+    .mpc-send svg { width: 16px; height: 16px; fill: #0a1e14; }
 
     @keyframes mpcFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes mpcSlideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -237,10 +229,9 @@
     '<div class="mpc-input-area">' +
       '<div class="mpc-input-wrap">' +
         '<textarea class="mpc-input" id="mpcInput" rows="1" placeholder="Ask about your proposal..."></textarea>' +
-        '<button class="mpc-send" id="mpcSend"><svg viewBox="0 0 16 16"><path d="M1 8l6-6v4h7v4H7v4z" transform="rotate(-90 8 8)"/></svg></button>' +
+        '<button class="mpc-send" id="mpcSend"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>' +
       '</div>' +
-    '</div>' +
-    '<div class="mpc-powered">Moonraker AI</div>';
+    '</div>';
   document.body.appendChild(panel);
 
   // ============================================================
@@ -347,11 +338,7 @@
     var container = document.getElementById('mpcMessages');
     var div = document.createElement('div');
     div.className = 'mpc-msg mpc-msg-' + (role === 'user' ? 'user' : 'ai');
-
-    var avatar = role === 'user' ? 'You' : '&#x1F31F;';
-    div.innerHTML = '<div class="mpc-msg-avatar">' + avatar + '</div>' +
-      '<div class="mpc-msg-bubble">' + formatContent(content) + '</div>';
-
+    div.innerHTML = '<div class="mpc-msg-bubble">' + formatContent(content) + '</div>';
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
     return div;
@@ -378,13 +365,30 @@
     var container = document.getElementById('mpcMessages');
     var aiDiv = document.createElement('div');
     aiDiv.className = 'mpc-msg mpc-msg-ai streaming';
-    aiDiv.innerHTML = '<div class="mpc-msg-avatar">&#x1F31F;</div><div class="mpc-msg-bubble"></div>';
+    aiDiv.innerHTML = '<div class="mpc-msg-bubble"></div>';
     container.appendChild(aiDiv);
     container.scrollTop = container.scrollHeight;
 
     var bubble = aiDiv.querySelector('.mpc-msg-bubble');
     var fullText = '';
+    var displayedLen = 0;
+    var renderTimer = null;
 
+    // Character-by-character rendering for smooth typing
+    function startTypewriter() {
+      if (renderTimer) return;
+      renderTimer = setInterval(function() {
+        if (displayedLen < fullText.length) {
+          // Advance by 1-3 chars per tick for natural speed
+          var step = Math.min(3, fullText.length - displayedLen);
+          displayedLen += step;
+          bubble.innerHTML = formatContent(fullText.substring(0, displayedLen));
+        } else if (displayedLen >= fullText.length) {
+          clearInterval(renderTimer);
+          renderTimer = null;
+        }
+      }, 16); // ~60fps
+    }
     try {
       var resp = await fetch(CHAT_API, {
         method: 'POST',
@@ -406,17 +410,6 @@
       var reader = resp.body.getReader();
       var decoder = new TextDecoder();
       var buffer = '';
-      var renderPending = false;
-
-      function scheduleRender() {
-        if (!renderPending) {
-          renderPending = true;
-          requestAnimationFrame(function() {
-            bubble.innerHTML = formatContent(fullText);
-            renderPending = false;
-          });
-        }
-      }
 
       while (true) {
         var chunk = await reader.read();
@@ -434,13 +427,14 @@
               var parsed = JSON.parse(data);
               if (parsed.text) {
                 fullText += parsed.text;
-                scheduleRender();
+                startTypewriter();
               }
             } catch(e) {}
           }
         }
       }
-      // Final render to ensure everything is shown
+      // Wait for typewriter to finish rendering remaining chars
+      if (renderTimer) clearInterval(renderTimer);
       bubble.innerHTML = formatContent(fullText);
     } catch(e) {
       if (!fullText) bubble.textContent = 'Sorry, something went wrong. Please try again.';
@@ -464,3 +458,4 @@
   }
 
 })();
+
