@@ -279,7 +279,7 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
     '{{PROSPECT_FIRST_NAME}}': firstName,
     '{{LOCATION}}': location || 'United States',
     '{{DATE}}': dateStr,
-    '{{BADGE_TEXT}}': invBadge,
+    '{{BADGE_TEXT}}': campaignDisplay[primaryCampaign],
     '{{HERO_HEADLINE}}': generatedContent.hero_headline || 'Your Practice Deserves to Be Found',
     '{{HERO_SUBTITLE}}': generatedContent.hero_subtitle || '',
     '{{EXEC_SUMMARY_PARAGRAPHS}}': generatedContent.exec_summary_paragraphs || '',
