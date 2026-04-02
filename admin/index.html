@@ -364,9 +364,6 @@ strong { font-weight: 600; color: var(--color-heading); }
   // ============================================================
   // SUPABASE
   // ============================================================
-  function sb(path) {
-    return fetch(SB + '/rest/v1/' + path, {
-      headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK }
     }).then(function(r) { return r.json(); });
   }
 
@@ -375,11 +372,11 @@ strong { font-weight: 600; color: var(--color-heading); }
   // ============================================================
   function loadAll() {
     Promise.all([
-      sb('contacts?select=id,slug,status,practice_name,email,first_name,last_name,campaign_start,website_url,phone,state_province,city,team_size&order=practice_name'),
-      sb('onboarding_steps?select=contact_id,step_key,status&order=contact_id,sort_order'),
-      sb('checklist_items?select=client_slug,status'),
-      sb('report_configs?select=client_slug,active,last_compiled_at,last_compiled_status'),
-      sb('report_snapshots?select=client_slug,report_month,report_status,created_at&order=created_at.desc&limit=100')
+      fetch(SB + '/rest/v1/contacts?select=id,slug,status,practice_name,email,first_name,last_name,campaign_start,website_url,phone,state_province,city,team_size&order=practice_name', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }),
+      fetch(SB + '/rest/v1/onboarding_steps?select=contact_id,step_key,status&order=contact_id,sort_order', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }),
+      fetch(SB + '/rest/v1/checklist_items?select=client_slug,status', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }),
+      fetch(SB + '/rest/v1/report_configs?select=client_slug,active,last_compiled_at,last_compiled_status', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }),
+      fetch(SB + '/rest/v1/report_snapshots?select=client_slug,report_month,report_status,created_at&order=created_at.desc&limit=100', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); })
     ]).then(function(res) {
       state.contacts = res[0] || [];
 
