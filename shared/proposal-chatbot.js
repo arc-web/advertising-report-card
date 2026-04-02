@@ -374,16 +374,18 @@
     var displayedLen = 0;
     var renderTimer = null;
 
-    // Character-by-character rendering for smooth typing
+    // Adaptive typewriter: smooth when close to live edge, fast catch-up on bursts
     function startTypewriter() {
       if (renderTimer) return;
       renderTimer = setInterval(function() {
         if (displayedLen < fullText.length) {
-          // Advance by 1-3 chars per tick for natural speed
-          var step = Math.min(3, fullText.length - displayedLen);
+          var backlog = fullText.length - displayedLen;
+          // Scale speed: 1-2 chars when nearly caught up, up to 8 when far behind
+          var step = backlog > 200 ? 8 : backlog > 80 ? 5 : backlog > 30 ? 3 : backlog > 10 ? 2 : 1;
           displayedLen += step;
+          if (displayedLen > fullText.length) displayedLen = fullText.length;
           bubble.innerHTML = formatContent(fullText.substring(0, displayedLen));
-        } else if (displayedLen >= fullText.length) {
+        } else {
           clearInterval(renderTimer);
           renderTimer = null;
         }
