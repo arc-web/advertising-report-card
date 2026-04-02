@@ -577,6 +577,27 @@ h1, h2, h3, h4 { font-family: 'Outfit', sans-serif; font-weight: 700; color: var
       <div style="padding:.6rem 1rem;border-radius:8px;font-size:.82rem;font-weight:500;background:rgba(245,158,11,.1);color:#D97706;border-left:3px solid #F59E0B;">&#9888; No matching GSC site found</div>
       <div style="padding:.6rem 1rem;border-radius:8px;font-size:.82rem;font-weight:500;background:rgba(59,130,246,.1);color:#3B82F6;border-left:3px solid #3B82F6;">&#8505; Searching for GSC property...</div>
     </div>
+
+    <p style="font-size:.78rem;font-weight:600;color:var(--color-heading);margin-top:1rem;margin-bottom:.35rem;">Implementation</p>
+    <p style="font-size:.78rem;color:var(--color-body);margin-bottom:.35rem;">All admin pages include the same toast pattern. HTML: <code>&lt;div class="toast" id="toast"&gt;&lt;/div&gt;</code> before <code>&lt;/body&gt;</code>.</p>
+    <pre style="background:var(--color-bg);border:1px solid var(--color-border);border-radius:8px;padding:.75rem;font-size:.72rem;overflow-x:auto;color:var(--color-body);margin-bottom:.35rem;"><code>/* CSS */
+.toast { position: fixed; top: 1.25rem; left: 50%; transform: translateX(-50%);
+  padding: .65rem 1.25rem; border-radius: 10px; font-size: .82rem; font-weight: 500;
+  z-index: 1000; box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  opacity: 0; pointer-events: none; transition: opacity .3s; }
+.toast.show { opacity: 1; pointer-events: auto; }
+.toast.success { background: var(--color-primary); color: #fff; }
+.toast.error { background: var(--color-danger); color: #fff; }
+
+/* JS */
+function toast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + (type || 'success');
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 3000);
+}
+window.toast = toast;</code></pre>
   </div>
 
   <div class="ds-subsection">
@@ -733,7 +754,7 @@ fetch('/api/action', {
     <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;padding:1rem;text-align:center;">
       <div style="font-family:Outfit;font-weight:700;font-size:1.1rem;color:var(--color-heading);">Supabase</div>
       <div style="font-size:.78rem;color:var(--color-muted);">Database + RLS + Auth</div>
-      <div style="font-size:.72rem;color:var(--color-muted);margin-top:.25rem;">22 tables</div>
+      <div style="font-size:.72rem;color:var(--color-muted);margin-top:.25rem;">23 tables</div>
     </div>
     <div style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;padding:1rem;text-align:center;">
       <div style="font-family:Outfit;font-weight:700;font-size:1.1rem;color:var(--color-heading);">Stripe</div>
@@ -765,6 +786,7 @@ fetch('/api/action', {
     <div class="sitemap-item"><div class="sitemap-url">/admin/deliverables</div><div class="sitemap-desc">Deliverables workflow - List and Template Matrix views across all clients</div><div><span class="sitemap-type dynamic">Dynamic</span></div></div>
     <div class="sitemap-item"><div class="sitemap-url">/admin/audits</div><div class="sitemap-desc">Audit pipeline - CORE score badges, task progress across all clients</div><div><span class="sitemap-type dynamic">Dynamic</span></div></div>
     <div class="sitemap-item"><div class="sitemap-url">/admin/reports</div><div class="sitemap-desc">Reports overview - Clickable rows linking to client deep-dive reports tab</div><div><span class="sitemap-type dynamic">Dynamic</span></div></div>
+    <div class="sitemap-item"><div class="sitemap-url">/admin/proposals</div><div class="sitemap-desc">Proposal pipeline - Create, enrich, generate, preview, and send personalized proposals to prospects</div><div><span class="sitemap-type dynamic">Dynamic</span></div></div>
     <div class="sitemap-item"><div class="sitemap-url">/admin/design</div><div class="sitemap-desc">This page - Design system reference and sitemap</div><div><span class="sitemap-type static">Static</span></div></div>
   </div>
 </div>
@@ -824,6 +846,12 @@ fetch('/api/action', {
     <div class="sitemap-item"><div class="sitemap-url">/api/discover-services</div><div class="sitemap-desc">Auto-discovers GSC properties and LBM locations for a client. Matches by domain/practice name, saves to contact + report_configs.</div><div><span class="sitemap-type api">API</span></div></div>
     <div class="sitemap-item"><div class="sitemap-url">/api/process-entity-audit</div><div class="sitemap-desc">Processes entity audit data from Surge, generates CORE scores and findings. 120s timeout.</div><div><span class="sitemap-type api">API</span></div></div>
     <div class="sitemap-item"><div class="sitemap-url">/api/send-report-email</div><div class="sitemap-desc">Sends branded report email to client via Resend. Supports preview mode (returns HTML without sending).</div><div><span class="sitemap-type api">API</span></div></div>
+    <div class="sitemap-item"><div class="sitemap-url">/api/bootstrap-access</div><div class="sitemap-desc">Adds Google service account to client GA4, GBP, GTM via domain-wide delegation. 120s timeout.</div><div><span class="sitemap-type api">API</span></div></div>
+    <div class="sitemap-item"><div class="sitemap-url">/api/enrich-proposal</div><div class="sitemap-desc">Enriches a proposal with Gmail threads, Fathom calls, audit data, and website scan. 120s timeout.</div><div><span class="sitemap-type api">API</span></div></div>
+    <div class="sitemap-item"><div class="sitemap-url">/api/generate-proposal</div><div class="sitemap-desc">Generates personalized proposal content via Claude, deploys proposal + checkout + onboarding + router pages. 300s timeout.</div><div><span class="sitemap-type api">API</span></div></div>
+    <div class="sitemap-item"><div class="sitemap-url">/api/proposal-chat</div><div class="sitemap-desc">Streaming chat endpoint for proposal chatbot. Opus 4.6 with proposal + CSA context. 120s timeout.</div><div><span class="sitemap-type api">API</span></div></div>
+    <div class="sitemap-item"><div class="sitemap-url">/api/send-proposal-email</div><div class="sitemap-desc">Sends proposal email via Resend. From proposals@, reply-to scott@, CC chris@. Supports preview mode.</div><div><span class="sitemap-type api">API</span></div></div>
+    <div class="sitemap-item"><div class="sitemap-url">/api/delete-proposal</div><div class="sitemap-desc">Deletes a proposal record and its deployed GitHub pages (proposal, checkout, onboarding, router).</div><div><span class="sitemap-type api">API</span></div></div>
     <div class="sitemap-item"><div class="sitemap-url">/api/cron/enqueue-reports</div><div class="sitemap-desc">Monthly cron (1st at 10am UTC). Creates staggered queue entries for all active report configs, 3 min apart. Supports <code>?dry_run=true</code>.</div><div><span class="sitemap-type cron">Cron</span></div></div>
     <div class="sitemap-item"><div class="sitemap-url">/api/cron/process-queue</div><div class="sitemap-desc">Runs every 5 min. Picks one pending queue item where scheduled_for &lt;= now, compiles the report, marks complete/failed.</div><div><span class="sitemap-type cron">Cron</span></div></div>
   </div>
@@ -896,6 +924,7 @@ fetch('/api/action', {
     <div class="db-table"><div class="db-name">activity_log</div><div>Admin activity tracking. Table, record ID, field, old/new values, timestamp.</div></div>
     <div class="db-table"><div class="db-name">settings</div><div>Global platform settings key-value store.</div></div>
     <div class="db-table"><div class="db-name">csa_template_sections</div><div>Client Service Agreement template sections for rendering in onboarding.</div></div>
+    <div class="db-table"><div class="db-name">proposals</div><div>Proposal lifecycle tracking. Status (draft/enriching/review/generating/ready/sent/viewed), enrichment sources and data, campaign options, view count.</div></div>
   </div>
 </div>
 
