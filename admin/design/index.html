@@ -853,6 +853,20 @@ fetch('/api/action', {
 
 <div class="ds-divider"></div>
 
+<!-- Shared Components -->
+<div class="sitemap-group">
+  <h2 style="font-size:1.25rem;margin-bottom:.25rem;">Shared Components</h2>
+  <p class="ds-section-desc">Self-contained JS files in <code>shared/</code>. Each injects its own CSS and creates its own UI. Include via <code>&lt;script src="/shared/filename.js"&gt;</code>.</p>
+
+  <div class="sitemap-tree">
+    <div class="sitemap-item header"><div>File</div><div>Description</div><div>Used By</div></div>
+    <div class="sitemap-item"><div class="sitemap-url">shared/chat-panel.js</div><div class="sitemap-desc">MoonBot admin chat panel. Floating button, streaming Opus chat, self-contained CSS injection. 1,161 lines.</div><div><span class="sitemap-type dynamic">All Admin Pages</span></div></div>
+    <div class="sitemap-item"><div class="sitemap-url">shared/proposal-chatbot.js</div><div class="sitemap-desc">Prospect-facing chatbot widget. Floating button with dismissible tooltip, streaming Opus chat. 467 lines.</div><div><span class="sitemap-type template">Proposal Template</span></div></div>
+  </div>
+</div>
+
+<div class="ds-divider"></div>
+
 <!-- Database -->
 <div class="sitemap-group">
   <h2 style="font-size:1.25rem;margin-bottom:.25rem;">Supabase Tables</h2>
