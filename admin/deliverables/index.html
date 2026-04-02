@@ -411,17 +411,13 @@ a:hover { color: var(--color-primary-hover); }
   var STATUS_ICONS = { delivered: '\u2713', in_progress: '\u25B6', pending_review: '\u25CF', not_started: '', blocked: '\u2716', client_action: '\u25CF' };
 
   var state = { contacts: [], deliverables: [], clientFilter: 'all', phaseFilter: 'all', view: 'list' };
-
-  function sb(path) {
-    return fetch(SB + '/rest/v1/' + path, {
-      headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK }
     }).then(function(r) { return r.json(); });
   }
 
   function loadData() {
     Promise.all([
-      sb('contacts?select=id,slug,status,practice_name,first_name,last_name,email,website_platform&order=practice_name'),
-      sb('deliverables?select=*&order=created_at.desc')
+      fetch(SB + '/rest/v1/contacts?select=id,slug,status,practice_name,first_name,last_name,email,website_platform&order=practice_name', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }),
+      fetch(SB + '/rest/v1/deliverables?select=*&order=created_at.desc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); })
     ]).then(function(res) {
       state.contacts = res[0] || [];
       state.deliverables = res[1] || [];
