@@ -28,7 +28,7 @@
 
     /* Tooltip */
     .mpc-tooltip {
-      position: fixed; bottom: 5rem; right: 1.5rem; z-index: 9998;
+      position: fixed; bottom: 6.5rem; right: 1.5rem; z-index: 9998;
       background: var(--color-surface, #fff); border: 1px solid var(--color-border, #E2E8F0);
       border-radius: 12px; padding: .85rem 1rem; max-width: 280px;
       box-shadow: 0 8px 32px rgba(0,0,0,.1);
@@ -216,7 +216,7 @@
   panel.id = 'mpcPanel';
   panel.innerHTML =
     '<div class="mpc-header">' +
-      '<div class="mpc-header-icon"><img src="https://moonraker.ai/wp-content/uploads/2023/10/Moonraker-Logo-Transparent.png" alt="M"></div>' +
+      '<div class="mpc-header-icon"><img src="/assets/logo.png" alt="M"></div>' +
       '<div class="mpc-header-info"><div class="mpc-header-title">Proposal Assistant</div><div class="mpc-header-sub">Powered by Claude</div></div>' +
       '<button class="mpc-close" id="mpcClose">&times;</button>' +
     '</div>' +
@@ -406,6 +406,17 @@
       var reader = resp.body.getReader();
       var decoder = new TextDecoder();
       var buffer = '';
+      var renderPending = false;
+
+      function scheduleRender() {
+        if (!renderPending) {
+          renderPending = true;
+          requestAnimationFrame(function() {
+            bubble.innerHTML = formatContent(fullText);
+            renderPending = false;
+          });
+        }
+      }
 
       while (true) {
         var chunk = await reader.read();
@@ -423,13 +434,14 @@
               var parsed = JSON.parse(data);
               if (parsed.text) {
                 fullText += parsed.text;
-                bubble.innerHTML = formatContent(fullText);
-                container.scrollTop = container.scrollHeight;
+                scheduleRender();
               }
             } catch(e) {}
           }
         }
       }
+      // Final render to ensure everything is shown
+      bubble.innerHTML = formatContent(fullText);
     } catch(e) {
       if (!fullText) bubble.textContent = 'Sorry, something went wrong. Please try again.';
     }
