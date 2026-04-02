@@ -60,6 +60,10 @@
     "api/enrich-proposal.js": {
       "maxDuration": 120,
       "memory": 1024
+    },
+    "api/generate-proposal.js": {
+      "maxDuration": 300,
+      "memory": 1024
     }
   },
   "crons": [
