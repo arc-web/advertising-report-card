@@ -218,10 +218,10 @@
         '<h3>Hi! I\'m your Agreement Assistant</h3>' +
         '<p>I can answer questions about the Client Service Agreement, what\'s included in the CORE campaign, pricing, cancellation, or anything else you\'re curious about.</p>' +
         '<div class="mpc-welcome-chips">' +
-          '<button class="mpc-chip" data-q="What services are included?">What\'s included</button>' +
+          '<button class="mpc-chip" data-q="What services are included in the campaign?">What\'s included</button>' +
           '<button class="mpc-chip" data-q="What is the performance guarantee?">Guarantee</button>' +
-          '<button class="mpc-chip" data-q="What are the payment options?">Payment options</button>' +
-          '<button class="mpc-chip" data-q="Can I cancel at any time?">Cancellation</button>' +
+          '<button class="mpc-chip" data-q="How does payment work for my plan?">Payment</button>' +
+          '<button class="mpc-chip" data-q="Can I cancel if I need to?">Cancellation</button>' +
           '<button class="mpc-chip" data-q="Who owns the work you create?">Ownership</button>' +
         '</div>' +
       '</div>' +
@@ -462,5 +462,6 @@
   }
 
 })();
+
 
 
