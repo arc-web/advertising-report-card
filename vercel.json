@@ -30,7 +30,7 @@
       "maxDuration": 60
     },
     "api/process-entity-audit.js": {
-      "maxDuration": 120,
+      "maxDuration": 300,
       "memory": 1024
     },
     "api/delete-client.js": {
