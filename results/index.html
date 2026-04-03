@@ -39,6 +39,7 @@ html.dark {
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Inter', sans-serif; background: var(--color-bg); color: var(--color-body); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .25s; }
 /* ── Top Bar (dark navy strip) ── */
 .top-bar {
   background: #141C3A; position: relative; overflow: hidden;
@@ -415,9 +416,12 @@ window.openLightbox = function(idx) {
 window.closeLightbox = function() { document.getElementById('lightbox').classList.remove('open'); document.body.style.overflow = ''; };
 document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeLightbox(); });
 window.toggleTheme = function() {
-  var dark = document.documentElement.classList.toggle('dark');
-  localStorage.setItem('moonraker-theme', dark ? 'dark' : 'light');
-  document.getElementById('themeBtn').innerHTML = dark ? '&#9728;&#65039;' : '&#127769;';
+  function apply() {
+    var dark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('moonraker-theme', dark ? 'dark' : 'light');
+    document.getElementById('themeBtn').innerHTML = dark ? '&#9728;&#65039;' : '&#127769;';
+  }
+  if (document.startViewTransition) { document.startViewTransition(apply); } else { apply(); }
 };
 (function() { document.getElementById('themeBtn').innerHTML = document.documentElement.classList.contains('dark') ? '&#9728;&#65039;' : '&#127769;'; })();
 renderGrid();
