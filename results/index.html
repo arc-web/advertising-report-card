@@ -84,11 +84,40 @@ body {
 
 /* ── Trust badges ── */
 .trust-bar {
-  display: flex; align-items: center; justify-content: center; gap: 2rem;
-  padding: 1.5rem 2rem; flex-wrap: wrap;
+  display: flex; align-items: center; justify-content: center; gap: 1.5rem;
+  padding: 1.5rem 2rem; flex-wrap: wrap; max-width: 800px; margin: 0 auto;
 }
-.trust-bar img { height: 40px; }
-html.dark .trust-bar img { filter: brightness(1.2); }
+.trust-badge {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: 14px; padding: .75rem 1.5rem;
+  display: flex; align-items: center; justify-content: center;
+  flex: 1; min-width: 180px; max-width: 240px;
+}
+.trust-badge img { height: 44px; max-width: 100%; object-fit: contain; }
+html.dark .trust-badge img { filter: brightness(1.2); }
+
+/* ── Partners ── */
+.partners-section {
+  padding: 3rem 2rem 2rem; max-width: 1200px; margin: 0 auto; text-align: center;
+}
+.section-heading {
+  font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1.75rem;
+  color: var(--color-heading); margin-bottom: .5rem;
+}
+.section-subhead {
+  font-size: .9rem; color: var(--color-muted); max-width: 520px; margin: 0 auto 2rem;
+}
+.partners-grid {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 2rem 3rem; padding: 0 1rem;
+}
+.partner-logo {
+  height: 52px; max-width: 200px; object-fit: contain;
+  transition: transform .2s, opacity .2s; opacity: .85;
+}
+.partner-logo:hover { transform: scale(1.08); opacity: 1; }
+html.dark .partner-logo { filter: brightness(1.1) contrast(1.05); opacity: .75; }
+html.dark .partner-logo:hover { opacity: .95; }
 
 /* ── Stats ── */
 .stats-bar {
@@ -172,29 +201,6 @@ html.dark .trust-bar img { filter: brightness(1.2); }
   border: none; border-top: 1px solid var(--color-border);
 }
 
-/* ── Partners ── */
-.partners-section {
-  padding: 3rem 2rem; max-width: 1200px; margin: 0 auto; text-align: center;
-}
-.section-heading {
-  font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1.75rem;
-  color: var(--color-heading); margin-bottom: .5rem;
-}
-.section-subhead {
-  font-size: .9rem; color: var(--color-muted); max-width: 520px; margin: 0 auto 2rem;
-}
-.partners-grid {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
-  gap: 2rem 2.5rem; padding: 0 1rem;
-}
-.partner-logo {
-  height: 48px; max-width: 180px; object-fit: contain;
-  transition: transform .2s, opacity .2s; opacity: .85;
-}
-.partner-logo:hover { transform: scale(1.08); opacity: 1; }
-html.dark .partner-logo { filter: brightness(1.1) contrast(1.05); opacity: .75; }
-html.dark .partner-logo:hover { opacity: .95; }
-
 /* ── Testimonials ── */
 .testimonials-section {
   padding: 3rem 2rem; max-width: 1100px; margin: 0 auto;
@@ -248,40 +254,39 @@ html.dark .testimonial-logo { filter: brightness(1.3); }
 .google-badge-large {
   display: inline-flex; align-items: center; gap: .75rem;
   background: var(--color-surface); border: 1px solid var(--color-border);
-  border-radius: 12px; padding: 1rem 1.75rem; margin-bottom: 2rem;
+  border-radius: 14px; padding: .75rem 1.5rem; margin-bottom: 2rem;
 }
-.google-badge-large svg { width: 28px; height: 28px; }
-.google-badge-large .badge-text {
-  font-family: 'Outfit', sans-serif; font-weight: 600; font-size: .95rem;
-  color: var(--color-heading);
-}
-.google-badge-large .badge-stars { color: #FBBC05; font-size: 1.1rem; letter-spacing: 1px; }
+.google-badge-large svg { width: 28px; height: 28px; flex-shrink: 0; }
+.badge-stars { color: #F59E0B; font-size: 1.1rem; letter-spacing: .1em; line-height: 1; }
+.badge-text { font-size: .78rem; color: var(--color-muted); }
 .reviews-masonry {
-  columns: 3; column-gap: 1rem; padding: 0;
+  columns: 3; column-gap: 1rem; padding-top: .5rem;
 }
 .review-card {
   break-inside: avoid; background: var(--color-surface);
   border: 1px solid var(--color-border); border-radius: 12px;
   padding: 1.25rem; margin-bottom: 1rem; text-align: left;
+  transition: border-color .2s;
 }
-.review-card .review-stars { color: #FBBC05; font-size: .8rem; margin-bottom: .5rem; }
-.review-card .review-text { font-size: .82rem; line-height: 1.6; color: var(--color-body); }
-.review-card .review-author {
-  margin-top: .75rem; font-size: .75rem; font-weight: 600;
-  color: var(--color-muted);
+.review-card:hover { border-color: var(--color-primary); }
+.review-stars { color: #F59E0B; font-size: .85rem; margin-bottom: .5rem; }
+.review-text { font-size: .82rem; line-height: 1.65; color: var(--color-body); margin-bottom: .75rem; }
+.review-author {
+  font-family: 'Outfit', sans-serif; font-weight: 600; font-size: .78rem;
+  color: var(--color-heading);
 }
 
 /* ── CTA ── */
 .cta-section {
-  text-align: center; padding: 3.5rem 2rem;
-  background: linear-gradient(135deg, var(--color-primary-subtle), var(--color-bg));
-  border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border);
+  text-align: center; padding: 4rem 2rem; max-width: 600px; margin: 0 auto;
 }
 .cta-section h2 {
   font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1.5rem;
-  color: var(--color-heading); margin-bottom: .5rem;
+  color: var(--color-heading); margin-bottom: .75rem;
 }
-.cta-section p { color: var(--color-muted); font-size: .9rem; margin-bottom: 1.5rem; }
+.cta-section p {
+  font-size: .9rem; color: var(--color-muted); margin-bottom: 1.5rem;
+}
 .cta-btn {
   display: inline-block; padding: .75rem 2.25rem; border-radius: 99px;
   background: var(--color-primary); color: #fff; text-decoration: none;
@@ -324,16 +329,16 @@ html.dark .testimonial-logo { filter: brightness(1.3); }
   .testimonials-grid { grid-template-columns: 1fr; }
   .testimonials-section { padding: 2rem 1rem; }
   .partners-grid { gap: 1.5rem 2rem; }
-  .partner-logo { height: 36px; }
+  .partner-logo { height: 40px; }
   .reviews-masonry { columns: 1; }
   .stats-bar { gap: 1.5rem; }
-  .trust-bar { gap: 1rem; }
-  .trust-bar img { height: 32px; }
+  .trust-bar { gap: .75rem; }
+  .trust-badge { min-width: 140px; padding: .6rem 1rem; }
+  .trust-badge img { height: 36px; }
 }
 @media (max-width: 480px) {
   .stats-bar { gap: 1rem; }
   .hero h1 { font-size: 1.35rem; }
-  .partners-logos img { height: 32px; }
 }
 @media (min-width: 769px) and (max-width: 1024px) {
   .reviews-masonry { columns: 2; }
@@ -360,12 +365,41 @@ html.dark .testimonial-logo { filter: brightness(1.3); }
   <p>Verified Google Search Console data showing how therapy practices grow their online visibility with Moonraker. No vanity metrics, just the numbers that matter.</p>
 </section>
 
-<!-- ── Trust badges ── -->
+<!-- ── Trust Badges ── -->
 <div class="trust-bar">
-  <img src="/assets/badges/google-partner.png" alt="Google Partner">
-  <img src="/assets/badges/google-rating.png" alt="Google Rating 4.9 stars">
-  <img src="/assets/badges/google-local-guides.png" alt="Google Local Guides">
+  <div class="trust-badge">
+    <img src="/assets/badges/google-partner.png" alt="Google Partner">
+  </div>
+  <div class="trust-badge">
+    <img src="/assets/badges/google-rating.png" alt="Google Rating 4.9 stars">
+  </div>
+  <div class="trust-badge">
+    <img src="/assets/badges/google-local-guides.png" alt="Google Local Guides">
+  </div>
 </div>
+
+<!-- ── Partner Logos ── -->
+<section class="partners-section">
+  <h2 class="section-heading">Trusted by the Experts</h2>
+  <p class="section-subhead">Moonraker is trusted by the leading experts who educate therapists. Imagine what we can do for your practice!</p>
+  <div class="partners-grid">
+    <img class="partner-logo" src="/assets/partners/psychology-business-school.png" alt="Psychology Business School">
+    <img class="partner-logo" src="/assets/partners/walker-co-strategy.png" alt="Walker Co Strategy">
+    <img class="partner-logo" src="/assets/partners/traveling-therapist.webp" alt="The Traveling Therapist">
+    <img class="partner-logo" src="/assets/partners/berries.png" alt="Berries">
+    <img class="partner-logo" src="/assets/partners/therasaas.png" alt="TheraSaaS">
+    <img class="partner-logo" src="/assets/partners/scalingup-emdr.png" alt="ScalingUp EMDR">
+    <img class="partner-logo" src="/assets/partners/entrepreneurial-therapist.png" alt="Entrepreneurial Therapist">
+    <img class="partner-logo" src="/assets/partners/private-practice-academy.png" alt="The Private Practice Academy">
+    <img class="partner-logo" src="/assets/partners/private-practice-elevation.webp" alt="Private Practice Elevation">
+    <img class="partner-logo" src="/assets/partners/prosperous-therapist.png" alt="The Prosperous Therapist">
+    <img class="partner-logo" src="/assets/partners/mccance-method.png" alt="The McCance Method">
+    <img class="partner-logo" src="/assets/partners/balanced-private-practice.png" alt="Balanced Private Practice">
+    <img class="partner-logo" src="/assets/partners/intensive-therapy-coach.webp" alt="Intensive Therapy Coach">
+  </div>
+</section>
+
+<div class="section-divider"><hr></div>
 
 <!-- ── Stats ── -->
 <div class="stats-bar">
@@ -395,28 +429,6 @@ html.dark .testimonial-logo { filter: brightness(1.3); }
 
 <div class="section-divider"><hr></div>
 
-<!-- ── Partner Logos ── -->
-<section class="partners-section">
-  <h2 class="section-heading">Trusted by the Experts Who Educate Therapists</h2>
-  <p class="section-subhead">We partner with the industry's most respected names in practice building, clinical training, and therapist entrepreneurship.</p>
-  <div class="partners-grid">
-    <img class="partner-logo" src="/assets/partners/mccance-method.png" alt="The McCance Method">
-    <img class="partner-logo" src="/assets/partners/scalingup-emdr.png" alt="ScalingUp EMDR">
-    <img class="partner-logo" src="/assets/partners/psychology-business-school.png" alt="Psychology Business School">
-    <img class="partner-logo" src="/assets/partners/traveling-therapist.png" alt="The Traveling Therapist">
-    <img class="partner-logo" src="/assets/partners/balanced-private-practice.png" alt="Balanced Private Practice">
-    <img class="partner-logo" src="/assets/partners/entrepreneurial-therapist.png" alt="Entrepreneurial Therapist">
-    <img class="partner-logo" src="/assets/partners/therasaas.png" alt="TheraSaaS">
-    <img class="partner-logo" src="/assets/partners/private-practice-academy.png" alt="The Private Practice Academy">
-    <img class="partner-logo" src="/assets/partners/private-practice-elevation.png" alt="Private Practice Elevation">
-    <img class="partner-logo" src="/assets/partners/walker-co-strategy.png" alt="Walker Co Strategy">
-    <img class="partner-logo" src="/assets/partners/prosperous-therapist.png" alt="The Prosperous Therapist">
-    <img class="partner-logo" src="/assets/partners/berries.png" alt="Berries">
-  </div>
-</section>
-
-<div class="section-divider"><hr></div>
-
 <!-- ── Partner Testimonials ── -->
 <section class="testimonials-section">
   <h2 class="section-heading" style="text-align:center;">What Our Partners and Clients Say</h2>
@@ -438,13 +450,13 @@ html.dark .testimonial-logo { filter: brightness(1.3); }
 
     <!-- Kym Tolson -->
     <div class="testimonial-card">
-      <div class="testimonial-text">"As a multi-passionate entrepreneur, keeping my brands organized and visible online has always felt like herding cats. Enter Moonraker and Chris - absolute game-changers! Chris helped me untangle the chaos, streamline my marketing, and optimize my websites for SEO in a way that actually makes sense (and gets results). Whether it's refining my messaging, making sure my sites rank on Google, or creating a strategy that works across multiple brands, Moonraker has been an invaluable asset."</div>
+      <div class="testimonial-text">"As a multi-passionate entrepreneur, keeping my brands organized and visible online has always felt like herding cats. Enter Moonraker and Chris, absolute game-changers! Chris helped me untangle the chaos, streamline my marketing, and optimize my websites for SEO in a way that actually makes sense (and gets results). Whether it's refining my messaging, making sure my sites rank on Google, or creating a strategy that works across multiple brands, Moonraker has been an invaluable asset."</div>
       <div class="testimonial-author">
         <img class="testimonial-headshot" src="/assets/headshots/kym-tolson.png" alt="Kym Tolson">
         <div>
           <div class="testimonial-name">Kym Tolson</div>
           <div class="testimonial-role">Founder, The Traveling Therapist</div>
-          <img class="testimonial-logo" src="/assets/partners/traveling-therapist.png" alt="The Traveling Therapist">
+          <img class="testimonial-logo" src="/assets/partners/traveling-therapist.webp" alt="The Traveling Therapist">
         </div>
       </div>
     </div>
@@ -479,7 +491,7 @@ html.dark .testimonial-logo { filter: brightness(1.3); }
 
 <div class="section-divider"><hr></div>
 
-<!-- ── Google Reviews (populated dynamically) ── -->
+<!-- ── Google Reviews ── -->
 <section class="google-reviews-section" id="googleReviews">
   <h2 class="section-heading">Google Reviews</h2>
   <p class="section-subhead">What our clients are saying on Google.</p>
@@ -490,16 +502,14 @@ html.dark .testimonial-logo { filter: brightness(1.3); }
       <div class="badge-text">4.9 stars from 44 Google reviews</div>
     </div>
   </div>
-  <div class="reviews-masonry" id="reviewsMasonry">
-    <!-- Reviews will be populated here -->
-  </div>
+  <div class="reviews-masonry" id="reviewsMasonry"></div>
 </section>
 
 <!-- ── CTA ── -->
 <section class="cta-section">
   <h2>Ready to See Results Like These?</h2>
   <p>Every practice shown here started right where you are now. Book a quick call with our team to see what Moonraker can do for yours.</p>
-  <a href="https://msg.moonraker.ai/widget/bookings/scott-pope-calendar" target="_blank" rel="noopener" class="cta-btn">Book a Call</a>
+  <a href="https://msg.moonraker.ai/widget/bookings/moonraker-free-strategy-call" target="_blank" rel="noopener" class="cta-btn">Book a Free Strategy Call</a>
 </section>
 
 <footer class="footer">
@@ -611,50 +621,50 @@ window.toggleTheme = function() {
 
 renderGrid();
 
-// ── Google Reviews ──
+// ── Google Reviews (firstname + last initial) ──
 var googleReviews = [
-  {name:'Erinn Everhart',rating:5,text:'Chris is amazing!  His expertise is so valuable and we experienced a significant increase in traffic and inquiries through our website with the help of his SEO knowledge. His honesty and transparency stands out among the service providers out there.  I couldn\'t ask for more friendly, professional, and expedient service.  And his website design is absolutely stunning.'},
-  {name:'Nathan Anandappa',rating:5,text:'Thank you, Chris! Starting private practice has not been easy. I hoped this meeting would give me insights into how I can move forward. On the call, I was met where I was at in my journey, with kindness, care and insight. Chris is very knowledgeable and a great teacher! Practical tools and resources were shared and explained, providing me with simple steps that I can take to move forward: from SEOs to the importance of maps, a simple understanding into how AI works and tweaks to my website. I am more hopeful, encouraged and excited about building on what I am called to do! I look forward to our next consultation.'},
-  {name:'Christine Ruberti-Bruning',rating:5,text:'Chris and his team are amazing at what they do. Their approach is comprehensive and up-to-date with the ever-changing landscape of SEO and AI. It\'s only been a couple of months and I\'m already starting to see results. I highly recommend them!'},
+  {name:'Erinn E.',rating:5,text:'Chris is amazing!  His expertise is so valuable and we experienced a significant increase in traffic and inquiries through our website with the help of his SEO knowledge. His honesty and transparency stands out among the service providers out there.  I couldn\'t ask for more friendly, professional, and expedient service.  And his website design is absolutely stunning.'},
+  {name:'Nathan A.',rating:5,text:'Thank you, Chris! Starting private practice has not been easy. I hoped this meeting would give me insights into how I can move forward. On the call, I was met where I was at in my journey, with kindness, care and insight. Chris is very knowledgeable and a great teacher! Practical tools and resources were shared and explained, providing me with simple steps that I can take to move forward: from SEOs to the importance of maps, a simple understanding into how AI works and tweaks to my website. I am more hopeful, encouraged and excited about building on what I am called to do!'},
+  {name:'Christine R.',rating:5,text:'Chris and his team are amazing at what they do. Their approach is comprehensive and up-to-date with the ever-changing landscape of SEO and AI. It\'s only been a couple of months and I\'m already starting to see results. I highly recommend them!'},
   {name:'Carolynn',rating:5,text:'I have been able to experience Chris\' work both in presentations done alongside Business Coaches as well as one on one. He has an excellent ability to distill information into chunks that are accessible and have a clear rationale for the goals they are trying to achieve. He is thorough and knowledgeable and has a clear expertise in SEO and driving traffic to websites.'},
   {name:'George',rating:5,text:'So grateful I found Chris! I had no idea how much of an impact SEO could have on my business until I connected with him. He explained everything so clearly that I felt completely confident in his services, and within just eight months my returns had already doubled. Thanks, Chris!'},
   {name:'Jennifer',rating:5,text:'I love working with Chris!  I am not tech-savvy in ANY way.  Chris is so knowledgeable, explains things in a way I can understand without being condescending and is so patient!  It is truly refreshing to work with someone on marketing who is as passionate about the mental health field as I am and understands my role as a therapist and practice owner.  Thank you so much for what you do Chris!!'},
-  {name:'Kelly Smyth-Dent',rating:5,text:'Chris was great to work with. He was responsive, answered our questions clearly, and explained things in a way that made sense. His help improved our SEO, and we appreciate his expertise. Highly recommend!'},
-  {name:'Kym Tolson',rating:5,text:'As a multi-passionate entrepreneur, keeping my brands organized and visible online has always felt like herding cats. Enter Moonraker.ai and Chris—absolute game-changers! Chris helped me untangle the chaos, streamline my marketing, and optimize my websites for SEO in a way that actually makes sense (and gets results).  Whether it’s refining my messaging, making sure my sites rank on Google, or creating a strategy that works across multiple brands, Moonraker.ai has been an invaluable asset. If you’re juggling multiple businesses and need expert guidance on marketing and SEO, this is the team you want in your corner.  Highly recommend!'},
-  {name:'Audrey Schoen',rating:5,text:'Ive been working with Chris from Moonraker for about 6months now and the results are amazing! Clicks, impressions, and my avg position have al improved significantly. People are finding my though google more than ever before. The investment is paying off big time. They have been really easy to work with, they are punctual in their communication and very receptive to direct feedback. I also really appreciate the transparency about the process and results. They really strive to make the process easy and make sure you understand it. It\'s been a great experience!'},
-  {name:'Christopher Bagg',rating:5,text:'My business was in a really tough spot when I started working with Chris and Moonraker.ai. In a very short amount of time Chris was able to significantly improve the inbound traffic on my website. He counseled and coached me through some additional best practices, and leads started to appear again. A significant chunk of the new business we\'ve gained this past year is due to Chris and the excellent work he does at Moonraker. Thank you!'},
-  {name:'julie ann otis',rating:5,text:'Chris is an incredible, talented SEO wiz, and I love working with him. He took the time to really help me understand how we could drive business to my website as well as how to improve the usability of my site. After six months, I\'m seeing a significant increase in traffic to connect with the people I really want to find me. I would especially recommend hiring Chris if you need SEO help that is affordable and you\'re just starting out. It has totally been worth the investment, and I\'m looking forward to working with Chris as my business grows over the next year.'},
-  {name:'Jennifer Kovach',rating:5,text:'Chris has gone above and beyond for my company.  He is very knowledgeable and you can tell that he has a true passion to help small businesses thrive. If something is not working, he will do whatever he can to make it work. I am appreciative for his hard work and dedication to help my business flourish.'},
-  {name:'Ivhan Alhen Butalid',rating:5,text:'Chris is simply phenomenal! His SEO expertise propelled our website to new heights: clear communication, impressive results, and a pleasure to work with. Highly recommend!'},
-  {name:'Hannah Tosi',rating:5,text:'Chris\' SEO skills are super effective. He linked me up with just the clientele base I needed. On top of that, he is super communicative, and personable, making him a joy and super easy to work with! I appreciate his ingenuity and creativity in making my business thrive. Big thanks to Chris and Moonraker!!!'},
-  {name:'Matthew Ciaschini',rating:5,text:'You have to meet Chris to understand the power of what he is capable of doing to transform your business.  From making your website look and run amazing while bringing you into present/future with new tech.  He makes your visibility jump up dramatically in no time.  I have so many good things I can say about Chris services, but I can\'t express it as well as he can.  Do yourself a favor, take a meeting with Chris and your business will get better, period.'},
-  {name:'Stephanie Jarm',rating:5,text:'SEO optimization might be one of those "we\'ll get to it later" kind of things  for small business owners like me. But let me tell you- when you\'re absolutely blown away by the immediate results, new customers, and actual dollars driven to the bottom line, you\'ll want to shout from the rooftops about Chris too. First; he\'s a great human. Authentic, funny, personable, and present; he cares about my business AND me as person. Second; he\'s brilliant at his craft- SEO marketing, optimization, social media, viral giveaways, and building websites. He listens to your goals and designs a custom strategy that not only saves marketing dollars, but delivers increased revenue. I highly recommend Chris and his team to be included in your marketing and business arsenal if you have any presence online.'},
-  {name:'Hayley Jane',rating:5,text:'Chris is Awesome!!! He met me right where I was and was so helpful. He built me a beautiful customized website and online shop. He worked well with other folks on my team and was unbelievably patient when progress on my end slowed. He was very good at knowing when to give me a gentle push back towards progress. He is kind and funny and creates a relaxed and enjoyable experience. It all felt so personal which was very important to me. I highly recommend!!!'},
-  {name:'Jessica Dawson',rating:5,text:'Chris is very professional and responsive in addition to offering high quality SEO services. I enjoy working with him and appreciate his innovative thinking and willingness to learn and understand the specific challenges and needs of my business.'},
-  {name:'Bambi Rattner',rating:5,text:'I have been working with Chris for over a year now, and I wanted to provide an update to my earlier review. I honestly think that Chris/Moonraker is the best choice that anyone could ever make for digital marketing.  The specific services that I provide need to be targeted to a niche population and I know that I never would have been able to attract the clients that I have, in the volume that I have, without Chris’ expertise.  He designed my website from the ground up and is always taking things to the next level - constantly thinking creatively and being proactive.  When you hire Chris it’s like you have an entire team behind you providing support and guidance when needed.  In addition, he is incredibly responsive and answers my texts and emails with alacrity.  On top of it all, he is sweet and knowledgeable and a pleasure to work with!  He really is amazing!'},
-  {name:'Alina\'s Ristorante',rating:5,text:'Chris is fantastic to work with!  He designed the online food ordering system for Alina\'s Ristorante from scratch.  Ordering time was cut in HALF!  This allowed us to cater to more clients and increased our sales.  Chris\'s work can be summed up as follows: . He is professional . He is a great communicator . He offers customized solutions . His turnover time is very quick and efficient  We highly recommend Chris and look forward to working with him again in the future!'},
-  {name:'Karada Detox',rating:5,text:'I have worked with so many web designers and system engineers in the past.. and I can say that Chris is really THE BEST!! Yes, my new website looks better, my clients are happy but what I want to share about Chris is that HE MAKES ME FEEL GOOD AND BETTER about my business!!  He is really good at finding opportunities to make money that I didn’t even see on my business! His marketing knowledge makes me super excited about growing my business. Also he is very patient with me even though I don’t know much about building website or SEO. He always make sure that I understand everything what’s going on with my website.  I totally recommend you to work with him especially if you want to have full control over your website so you can update it whenever you need to! (Trust me.. you don’t want to ask someone to update your website often. It’s frustrating!)  Thank you Chris! I’m so lucky to have you!!'},
-  {name:'Bob Biron',rating:5,text:'I won\'t pretend to understand how he does what he does, but Chris is a marketing and search engine optimization genius! He can help increase your customer base exponentially with his vast wealth of ideas to market your business. He is so brilliant and amazing at building and designing websites as well. I cannot recommend his services or speak highly enough of the quality of his work!'},
-  {name:'Michael Kusek',rating:5,text:'Chris is a human Swiss army knife. Keeper of many tools and all of them useful. SEO can be a cold and numbers driven game, but Chris manages to bring some humanity to it.  He\'s a keen listener and good synthesizer of information when it comes to assessing the goals of a business. Once he has a handle on goals, he\'s able to translate it into a marketing strategy that is both data driven and aware that that there are actual humans on the receiving end of those messages.'},
-  {name:'Ross Hackerson',rating:5,text:'Chris is a magician with this SEO stuff. I\'m an older person completely baffled by technology; and I knew what I wanted in terms of marketing. I found myself talking to Chris about SEO services and he said all the right things so I said yes. Then he held my hand, walked and talked me through it and things began to happen. What I really like is that as a marketing consultant he figured out right away what I wanted. He made it all work; the way he organized the material and information was truly magical. Thank You Chris!'},
-  {name:'Tracy Snider',rating:5,text:'Chris is an SEO Pro! He can scale up or down on projects and brings his great mind and keen wit to any ask. He has a great network and team to pull in as-needed on any digital project too. Highly recommend.'},
-  {name:'Mary Kay Mower',rating:5,text:'Chris and his team have been fantastic to work with! He\'s professional and wise. He has been great at navigating through a though IT environment to help us reach the goals we have for our website. His knowledge is unmatched and I can\'t recommend Moonraker enough!'},
-  {name:'Brent Stutzman',rating:5,text:'If you\'re a therapist looking for SEO strategy and implementation, Chris and his Moonraker team know how to rank you high on Google. I highly recommend them.'},
-  {name:'Rocío Ruiz',rating:5,text:'I have been able to spend time co-working and exchanging professional experiences with Chris for a month now. I admire his clarity, passion, and commitment to his partners. Always eager to help and enhance other professionals\' careers. His focus is on getting results and at the same time adding value to the daily experience. What else can you ask for?'},
+  {name:'Kelly S.',rating:5,text:'Chris was great to work with. He was responsive, answered our questions clearly, and explained things in a way that made sense. His help improved our SEO, and we appreciate his expertise. Highly recommend!'},
+  {name:'Kym T.',rating:5,text:'As a multi-passionate entrepreneur, keeping my brands organized and visible online has always felt like herding cats. Enter Moonraker and Chris, absolute game-changers! Chris helped me untangle the chaos, streamline my marketing, and optimize my websites for SEO in a way that actually makes sense (and gets results). Whether it\'s refining my messaging, making sure my sites rank on Google, or creating a strategy that works across multiple brands, Moonraker has been an invaluable asset. If you\'re juggling multiple businesses and need expert guidance on marketing and SEO, this is the team you want in your corner. Highly recommend!'},
+  {name:'Audrey S.',rating:5,text:'I\'ve been working with Chris from Moonraker for about 6 months now and the results are amazing! Clicks, impressions, and my avg position have all improved significantly. People are finding me through Google more than ever before. The investment is paying off big time. They have been really easy to work with, they are punctual in their communication and very receptive to direct feedback. I also really appreciate the transparency about the process and results. They really strive to make the process easy and make sure you understand it. It\'s been a great experience!'},
+  {name:'Christopher B.',rating:5,text:'My business was in a really tough spot when I started working with Chris and Moonraker. In a very short amount of time Chris was able to significantly improve the inbound traffic on my website. He counseled and coached me through some additional best practices, and leads started to appear again. A significant chunk of the new business we\'ve gained this past year is due to Chris and the excellent work he does at Moonraker. Thank you!'},
+  {name:'Julie Ann O.',rating:5,text:'Chris is an incredible, talented SEO wiz, and I love working with him. He took the time to really help me understand how we could drive business to my website as well as how to improve the usability of my site. After six months, I\'m seeing a significant increase in traffic to connect with the people I really want to find me. I would especially recommend hiring Chris if you need SEO help that is affordable and you\'re just starting out. It has totally been worth the investment, and I\'m looking forward to working with Chris as my business grows over the next year.'},
+  {name:'Jennifer K.',rating:5,text:'Chris has gone above and beyond for my company. He is very knowledgeable and you can tell that he has a true passion to help small businesses thrive. If something is not working, he will do whatever he can to make it work. I am appreciative for his hard work and dedication to help my business flourish.'},
+  {name:'Ivhan A.',rating:5,text:'Chris is simply phenomenal! His SEO expertise propelled our website to new heights: clear communication, impressive results, and a pleasure to work with. Highly recommend!'},
+  {name:'Hannah T.',rating:5,text:'Chris\' SEO skills are super effective. He linked me up with just the clientele base I needed. On top of that, he is super communicative, and personable, making him a joy and super easy to work with! I appreciate his ingenuity and creativity in making my business thrive. Big thanks to Chris and Moonraker!!!'},
+  {name:'Matthew C.',rating:5,text:'You have to meet Chris to understand the power of what he is capable of doing to transform your business. From making your website look and run amazing while bringing you into present/future with new tech. He makes your visibility jump up dramatically in no time. I have so many good things I can say about Chris\' services, but I can\'t express it as well as he can. Do yourself a favor, take a meeting with Chris and your business will get better, period.'},
+  {name:'Stephanie J.',rating:5,text:'SEO optimization might be one of those "we\'ll get to it later" kind of things for small business owners like me. But let me tell you, when you\'re absolutely blown away by the immediate results, new customers, and actual dollars driven to the bottom line, you\'ll want to shout from the rooftops about Chris too. First, he\'s a great human. Authentic, funny, personable, and present. He cares about my business AND me as a person. Second, he\'s brilliant at his craft. He listens to your goals and designs a custom strategy that not only saves marketing dollars, but delivers increased revenue. I highly recommend Chris and his team!'},
+  {name:'Hayley J.',rating:5,text:'Chris is Awesome!!! He met me right where I was and was so helpful. He built me a beautiful customized website and online shop. He worked well with other folks on my team and was unbelievably patient when progress on my end slowed. He was very good at knowing when to give me a gentle push back towards progress. He is kind and funny and creates a relaxed and enjoyable experience. It all felt so personal which was very important to me. I highly recommend!!!'},
+  {name:'Jessica D.',rating:5,text:'Chris is very professional and responsive in addition to offering high quality SEO services. I enjoy working with him and appreciate his innovative thinking and willingness to learn and understand the specific challenges and needs of my business.'},
+  {name:'Bambi R.',rating:5,text:'I have been working with Chris for over a year now, and I wanted to provide an update to my earlier review. I honestly think that Chris/Moonraker is the best choice that anyone could ever make for digital marketing. The specific services that I provide need to be targeted to a niche population and I know that I never would have been able to attract the clients that I have, in the volume that I have, without Chris\' expertise. He designed my website from the ground up and is always taking things to the next level. When you hire Chris it\'s like you have an entire team behind you providing support and guidance when needed. He really is amazing!'},
+  {name:'Alina\'s Ristorante',rating:5,text:'Chris is fantastic to work with! He designed the online food ordering system for Alina\'s Ristorante from scratch. Ordering time was cut in HALF! This allowed us to cater to more clients and increased our sales. We highly recommend Chris and look forward to working with him again in the future!'},
+  {name:'Karada Detox',rating:5,text:'I have worked with so many web designers and system engineers in the past, and I can say that Chris is really THE BEST!! Yes, my new website looks better, my clients are happy but what I want to share about Chris is that HE MAKES ME FEEL GOOD AND BETTER about my business!! He is really good at finding opportunities to make money that I didn\'t even see on my business! His marketing knowledge makes me super excited about growing my business. I totally recommend you to work with him!'},
+  {name:'Bob B.',rating:5,text:'I won\'t pretend to understand how he does what he does, but Chris is a marketing and search engine optimization genius! He can help increase your customer base exponentially with his vast wealth of ideas to market your business. He is so brilliant and amazing at building and designing websites as well. I cannot recommend his services or speak highly enough of the quality of his work!'},
+  {name:'Michael K.',rating:5,text:'Chris is a human Swiss army knife. Keeper of many tools and all of them useful. SEO can be a cold and numbers driven game, but Chris manages to bring some humanity to it. He\'s a keen listener and good synthesizer of information when it comes to assessing the goals of a business. Once he has a handle on goals, he\'s able to translate it into a marketing strategy that is both data driven and aware that there are actual humans on the receiving end of those messages.'},
+  {name:'Ross H.',rating:5,text:'Chris is a magician with this SEO stuff. I\'m an older person completely baffled by technology, and I knew what I wanted in terms of marketing. I found myself talking to Chris about SEO services and he said all the right things so I said yes. Then he held my hand, walked and talked me through it and things began to happen. What I really like is that as a marketing consultant he figured out right away what I wanted. He made it all work. Thank You Chris!'},
+  {name:'Tracy S.',rating:5,text:'Chris is an SEO Pro! He can scale up or down on projects and brings his great mind and keen wit to any ask. He has a great network and team to pull in as-needed on any digital project too. Highly recommend.'},
+  {name:'Mary Kay M.',rating:5,text:'Chris and his team have been fantastic to work with! He\'s professional and wise. He has been great at navigating through a tough IT environment to help us reach the goals we have for our website. His knowledge is unmatched and I can\'t recommend Moonraker enough!'},
+  {name:'Brent S.',rating:5,text:'If you\'re a therapist looking for SEO strategy and implementation, Chris and his Moonraker team know how to rank you high on Google. I highly recommend them.'},
+  {name:'Rocio R.',rating:5,text:'I have been able to spend time co-working and exchanging professional experiences with Chris for a month now. I admire his clarity, passion, and commitment to his partners. Always eager to help and enhance other professionals\' careers. His focus is on getting results and at the same time adding value to the daily experience. What else can you ask for?'},
   {name:'Uroboros Mediations',rating:5,text:'Moonraker SEO Services was the best choice for web design and SEO services for our organization. Moonraker responded to our inquiries on Sunday mornings and 11 o\'clock at night. They were conscientious and courteous. I am a satisfied customer, and I am happy to refer them to more clients!'},
-  {name:'John Morin',rating:5,text:'Chris\'s SEO Services are top shelf. He is very creative and knowledgeable and his website update created more traffic, resulting in more business.'},
-  {name:'Eduardo Perez',rating:5,text:'Having worked with Chris in the past I new he is a responsible professional but the website created for us was much better than what we expected.  The look and feel, content, layout and pictures used creates synergies that amount to more than the value of each component.  Will work with Chris on other projects as well.  Recommended++'},
-  {name:'Steve Buller',rating:5,text:'Chris is a Marketing & SEO Specialist!   I highly recommend giving him a call if you have questions or need SEO Services.  He is always friendly, easy to talk with and never pushy. A true gentleman.  Thank you Chris!!'},
-  {name:'Shannon Mardis',rating:5,text:'Having worked with Moonraker on a number of different projects and campaigns over the years, I can say without a doubt Moonraker’s service is the best investment you can make for your business, no matter what era of development it’s currently in. Your web presence is one of the most important aspects of your brand, and Moonraker just intuitively gets that, in addition to having an impeccable design aesthetic. Their proven tech offers immediate results that will boost your engagement and increase your reach and brand appeal.  There isn’t a problem I’ve brought to the Moonraker team that they can’t solve. If you like to win, you pick a winning team. That’s why I go with Moonraker every time.'},
-  {name:'Laura R. Biron',rating:5,text:'Chris is the best in the business! He is so knowledgeable and is always such a pleasure to work with. Go see him for all of your SEO needs!'},
-  {name:'Stephanie Cocchiara',rating:5,text:'Chris is an absolute pleasure to work with. He really dove in and got to know our business from the inside out. This knowledge translated into amazing reports with actionable insights. I look forward to continuing to work with him and his team.'},
-  {name:'Salim Uqdah',rating:5,text:'I’ve used Moonraker for my company’s website, and they aim to please! They are responsive and reliable. I would recommend anyone using their services. Moonraker’s biggest strength is being able to internalize the needs, objectives and desires of their clients and regurgitate those values stylistically through curated content. I’m quite pleased with their service, and you\'ll be as well.'},
-  {name:'Liz Dawson',rating:5,text:'Expert level SEO consultant! A true jedi master. Chris is like a living marketing encyclopedia determined to help his colleagues succeed.'},
-  {name:'Myles Walsh',rating:5,text:'Chris took a data-driven approach to helping us get more traffic and convert more of those visitors into leads.  Highly recommended!'},
-  {name:'Rojan A. Shahba',rating:5,text:'Without any agreement or cost, Chris helped me take back my Google business account and helped me set it up properly. He is very knowledgeable. Highly recommend!'},
-  {name:'CHRISTINE CASAGRANDE',rating:5,text:'Chris has been a pleasure to work with.  Went above and beyond in getting our website together!   I cannot thank him enough.  Call him, you will not be disappointed!'},
-  {name:'Amy Shuman',rating:5,text:'This service is even better than I expected. Chris is intuitive, accommodating and extremely competent. I highly recommend Moonraker for search engine optimization.'},
-  {name:'Sophie McAulay',rating:5,text:'Chris really knows his stuff! He cares deeply about his clients\' success and works hard to get it done.'},
+  {name:'John M.',rating:5,text:'Chris\'s SEO Services are top shelf. He is very creative and knowledgeable and his website update created more traffic, resulting in more business.'},
+  {name:'Eduardo P.',rating:5,text:'Having worked with Chris in the past I knew he is a responsible professional but the website created for us was much better than what we expected. The look and feel, content, layout and pictures used creates synergies that amount to more than the value of each component. Will work with Chris on other projects as well. Recommended++'},
+  {name:'Steve B.',rating:5,text:'Chris is a Marketing & SEO Specialist! I highly recommend giving him a call if you have questions or need SEO Services. He is always friendly, easy to talk with and never pushy. A true gentleman. Thank you Chris!!'},
+  {name:'Shannon M.',rating:5,text:'Having worked with Moonraker on a number of different projects and campaigns over the years, I can say without a doubt Moonraker\'s service is the best investment you can make for your business, no matter what era of development it\'s currently in. Your web presence is one of the most important aspects of your brand, and Moonraker just intuitively gets that, in addition to having an impeccable design aesthetic. There isn\'t a problem I\'ve brought to the Moonraker team that they can\'t solve. If you like to win, you pick a winning team. That\'s why I go with Moonraker every time.'},
+  {name:'Laura B.',rating:5,text:'Chris is the best in the business! He is so knowledgeable and is always such a pleasure to work with. Go see him for all of your SEO needs!'},
+  {name:'Stephanie C.',rating:5,text:'Chris is an absolute pleasure to work with. He really dove in and got to know our business from the inside out. This knowledge translated into amazing reports with actionable insights. I look forward to continuing to work with him and his team.'},
+  {name:'Salim U.',rating:5,text:'I\'ve used Moonraker for my company\'s website, and they aim to please! They are responsive and reliable. I would recommend anyone using their services. Moonraker\'s biggest strength is being able to internalize the needs, objectives and desires of their clients and deliver those values stylistically through curated content. I\'m quite pleased with their service, and you\'ll be as well.'},
+  {name:'Liz D.',rating:5,text:'Expert level SEO consultant! A true jedi master. Chris is like a living marketing encyclopedia determined to help his colleagues succeed.'},
+  {name:'Myles W.',rating:5,text:'Chris took a data-driven approach to helping us get more traffic and convert more of those visitors into leads. Highly recommended!'},
+  {name:'Rojan S.',rating:5,text:'Without any agreement or cost, Chris helped me take back my Google business account and helped me set it up properly. He is very knowledgeable. Highly recommend!'},
+  {name:'Christine C.',rating:5,text:'Chris has been a pleasure to work with. Went above and beyond in getting our website together! I cannot thank him enough. Call him, you will not be disappointed!'},
+  {name:'Amy S.',rating:5,text:'This service is even better than I expected. Chris is intuitive, accommodating and extremely competent. I highly recommend Moonraker for search engine optimization.'},
+  {name:'Sophie M.',rating:5,text:'Chris really knows his stuff! He cares deeply about his clients\' success and works hard to get it done.'},
 ];
 
 function renderReviews() {
@@ -665,7 +675,6 @@ function renderReviews() {
     var stars = '';
     for (var i = 0; i < r.rating; i++) stars += '&#9733;';
     for (var j = r.rating; j < 5; j++) stars += '&#9734;';
-    // Truncate long reviews with expand
     var text = r.text;
     var truncated = text.length > 220;
     var displayText = truncated ? text.substring(0, 220) + '...' : text;
