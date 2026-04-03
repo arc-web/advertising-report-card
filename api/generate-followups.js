@@ -59,6 +59,16 @@ module.exports = async function handler(req, res) {
   var stateProvince = contact.state_province || '';
   var location = [city, stateProvince].filter(Boolean).join(', ');
 
+  // Load practice_type for results personalization
+  var practiceType = 'group'; // default
+  try {
+    var pdResp = await fetch(sbUrl + '/rest/v1/practice_details?contact_id=eq.' + contact.id + '&select=practice_type&limit=1', { headers: sbHeaders() });
+    var pdRows = await pdResp.json();
+    if (pdRows && pdRows.length > 0 && pdRows[0].practice_type) {
+      practiceType = pdRows[0].practice_type;
+    }
+  } catch (e) { /* default to group */ }
+
   // Build the 4-email sequence
   var sequence = [
     {
@@ -77,7 +87,7 @@ module.exports = async function handler(req, res) {
       sequence_number: 3,
       day_offset: 14,
       subject: 'How practices like yours are growing online',
-      body_html: buildEmail3(firstName, practiceName, proposalUrl)
+      body_html: buildEmail3(firstName, practiceName, proposalUrl, practiceType)
     },
     {
       sequence_number: 4,
@@ -182,13 +192,20 @@ function buildEmail2(firstName, practiceName, proposalUrl, location) {
   );
 }
 
-// Email 3: Day 14 - Social proof
-function buildEmail3(firstName, practiceName, proposalUrl) {
+// Email 3: Day 14 - Social proof (practice-type aware)
+function buildEmail3(firstName, practiceName, proposalUrl, practiceType) {
+  var isSolo = practiceType === 'solo';
+  var topStat = isSolo
+    ? 'our top solo therapist saw a 308% increase in organic visibility in just 3 months'
+    : 'our top group practice saw a 213% increase in organic visibility in just 6 months';
+  var typeLabel = isSolo ? 'solo therapists' : 'group practices';
+
   return emailWrap(
     greeting(firstName)
     + p('I wanted to share a quick note about something we are seeing with practices similar to ' + practiceName + '.')
     + p('The practices that tend to see the fastest growth are the ones that invest in building a strong, verified digital foundation early. Things like consistent business listings, a well-structured website, and a presence across the platforms where potential clients are searching (including AI platforms) all compound over time.')
-    + p('Many of the practices we work with started in a similar position to where ' + practiceName + ' is today. Rather than take our word for it, here are real Google Search Console results from both solo therapists and group practices:')
+    + p('To put some numbers behind it: ' + topStat + '. Across all 22 of our clients, the average increase in Google Search Console visibility is 115%.')
+    + p('Rather than take our word for it, here are real Google Search Console results from ' + typeLabel + ' and more:')
     + ctaButton('https://clients.moonraker.ai/results', 'See Client Results')
     + p('Every result on that page is verified data pulled directly from Google Search Console. No vanity metrics, just real growth numbers.')
     + ctaButton(proposalUrl, 'Revisit Your Proposal')
@@ -209,4 +226,5 @@ function buildEmail4(firstName, practiceName, proposalUrl) {
     + '<p style="color:#333F70;line-height:1.7;margin-bottom:0;">Warmly,<br>The Moonraker Team</p>'
   );
 }
+
 
