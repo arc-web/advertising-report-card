@@ -137,7 +137,7 @@ function buildDefaultEmail(firstName, practiceName, proposalUrl) {
 </div>
 
 <div style="text-align:center;padding:1.5rem 0;color:#6B7599;font-size:.8rem;">
-  <p style="margin:0;">Moonraker AI - moonraker.ai</p>
+  <p style="margin:0;">moonraker.ai</p>
   <p style="margin:.25rem 0 0;">This email was sent to you because you expressed interest in our services.</p>
 </div>
 
