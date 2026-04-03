@@ -424,6 +424,12 @@ module.exports = async function handler(req, res) {
         return trackedKeywordSet[g.keyword.toLowerCase()];
       });
     });
+    // Also filter AI results to tracked keywords
+    AI_PLATFORMS.forEach(function(p) {
+      aiResults[p] = aiResults[p].filter(function(g) {
+        return trackedKeywordSet[g.keyword.toLowerCase()];
+      });
+    });
 
     // Step 4: Compute summaries (identical logic to before)
     var allMapGrids = [];
@@ -440,10 +446,21 @@ module.exports = async function handler(req, res) {
 
     var aiEngines = AI_PLATFORMS.map(function(platform) {
       var scans = aiResults[platform] || [];
-      var cited = scans.some(function(s) { return s.found_in > 0 || s.solv > 0; });
-      var citedKeywords = scans.filter(function(s) { return s.found_in > 0 || s.solv > 0; }).map(function(s) { return s.label; });
-      var bestSolv = scans.length > 0 ? Math.max.apply(null, scans.map(function(s) { return s.solv; })) : 0;
-      var avgSolv = scans.length > 0 ? scans.reduce(function(s, g) { return s + g.solv; }, 0) / scans.length : 0;
+
+      // Deduplicate by keyword: keep best SoLV per keyword
+      var byKeyword = {};
+      scans.forEach(function(s) {
+        var key = s.keyword.toLowerCase();
+        if (!byKeyword[key] || s.solv > byKeyword[key].solv) {
+          byKeyword[key] = s;
+        }
+      });
+      var uniqueScans = Object.values(byKeyword);
+
+      var cited = uniqueScans.some(function(s) { return s.found_in > 0 || s.solv > 0; });
+      var citedKeywords = uniqueScans.filter(function(s) { return s.found_in > 0 || s.solv > 0; }).map(function(s) { return s.label; });
+      var bestSolv = uniqueScans.length > 0 ? Math.max.apply(null, uniqueScans.map(function(s) { return s.solv; })) : 0;
+      var avgSolv = uniqueScans.length > 0 ? uniqueScans.reduce(function(s, g) { return s + g.solv; }, 0) / uniqueScans.length : 0;
 
       var context = null;
       if (cited) {
@@ -455,11 +472,11 @@ module.exports = async function handler(req, res) {
         platform: platform,
         cited: cited,
         context: context,
-        queries_checked: scans.length,
+        queries_checked: uniqueScans.length,
         queries_cited: citedKeywords.length,
         avg_solv: Math.round(avgSolv * 100) / 100,
         best_solv: Math.round(bestSolv * 100) / 100,
-        scans: scans
+        scans: uniqueScans
       };
     });
 
