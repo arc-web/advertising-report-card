@@ -195,8 +195,24 @@ a:hover { color: var(--color-primary-hover); }
 .ea-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
 .ea-table th { background: var(--color-surface); font-family: 'Outfit', sans-serif; font-weight: 600; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--color-muted); padding: .65rem 1rem; text-align: left; border-bottom: 1px solid var(--color-border); white-space: nowrap; }
 .ea-table td { padding: .65rem 1rem; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
-.ea-table tr:last-child td { border-bottom: none; }
-.ea-table tr:hover { background: var(--color-primary-subtle); cursor: pointer; }
+.ea-table tr.ea-row:last-child td { border-bottom: none; }
+.ea-table tr.ea-row:hover { background: var(--color-primary-subtle); cursor: pointer; }
+.ea-table tr.ea-row.expanded { background: var(--color-bg); }
+.ea-table tr.ea-row.expanded td { border-bottom-color: transparent; }
+.ea-expand-panel { display: none; }
+.ea-expand-panel.open { display: table-row; }
+.ea-expand-panel td { padding: 0 1rem .85rem 1rem; background: var(--color-bg); border-bottom: 1px solid var(--color-border); }
+.ea-expand-inner { padding: .75rem 1rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 10px; }
+.ea-expand-inner .ea-section-label { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); margin-bottom: .5rem; }
+.ea-expand-inner .ea-field-row { display: flex; gap: .75rem; align-items: center; margin-bottom: .5rem; flex-wrap: wrap; }
+.ea-expand-inner .ea-field-label { font-size: .78rem; font-weight: 500; color: var(--color-muted); min-width: 60px; }
+.ea-expand-inner .ea-field-value { font-size: .82rem; color: var(--color-heading); }
+.ea-expand-inner .ea-actions-row { display: flex; gap: .5rem; align-items: center; margin-top: .75rem; flex-wrap: wrap; }
+.ea-expand-inner .ea-subject-input { font-family: inherit; font-size: .82rem; padding: .4rem .65rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-bg); color: var(--color-heading); flex: 1; min-width: 200px; }
+.ea-expand-inner .ea-subject-input:focus { outline: none; border-color: var(--color-primary); }
+.ea-expand-inner .ea-sent-info { font-size: .78rem; color: var(--color-muted); display: flex; gap: 1.5rem; flex-wrap: wrap; }
+.ea-expand-arrow { font-size: .6rem; color: var(--color-muted); transition: transform .2s; display: inline-block; width: 16px; text-align: center; }
+.ea-row.expanded .ea-expand-arrow { transform: rotate(90deg); }
 .tag-free { background: rgba(107,117,153,.08); color: var(--color-muted); }
 .tag-premium { background: rgba(139,92,246,.1); color: #8B5CF6; }
 .tag-pending { background: rgba(107,117,153,.08); color: var(--color-muted); }
@@ -204,7 +220,7 @@ a:hover { color: var(--color-primary-hover); }
 .tag-complete { background: rgba(245,158,11,.1); color: var(--color-warning); }
 .tag-delivered { background: rgba(0,212,126,.1); color: var(--color-success); }
 .loom-link { font-size: .78rem; color: var(--color-primary); text-decoration: underline; }
-.loom-input { font-size: .78rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; padding: .3rem .5rem; width: 200px; font-family: 'Inter', sans-serif; color: var(--color-body); }
+.loom-input { font-size: .78rem; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 6px; padding: .3rem .5rem; width: 260px; font-family: 'Inter', sans-serif; color: var(--color-body); }
 .loom-input:focus { outline: none; border-color: var(--color-primary); }
 .loom-save { font-size: .72rem; background: var(--color-primary); color: #fff; border: none; border-radius: 4px; padding: .2rem .5rem; cursor: pointer; margin-left: .25rem; font-weight: 600; }
 .mini-core { display: inline-flex; gap: .35rem; }
@@ -212,6 +228,9 @@ a:hover { color: var(--color-primary-hover); }
 .ea-actions { display: flex; gap: .35rem; }
 .ea-btn { font-size: .72rem; font-weight: 600; padding: .25rem .5rem; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-body); cursor: pointer; white-space: nowrap; transition: all .15s; }
 .ea-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.ea-btn:disabled { opacity: .5; cursor: not-allowed; }
+.ea-btn-send { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+.ea-btn-send:hover { background: var(--color-primary-hover); border-color: var(--color-primary-hover); color: #fff; }
 .ea-status-select { font-size: .78rem; font-family: 'Inter', sans-serif; font-weight: 500; padding: .25rem .5rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); color: var(--color-body); cursor: pointer; transition: border-color .2s; }
 .ea-status-select:focus { outline: none; border-color: var(--color-primary); }
 
@@ -653,6 +672,7 @@ a:hover { color: var(--color-primary-hover); }
     var premium = a.filter(function(x) { return x.audit_tier === 'premium'; }).length;
     var pending = a.filter(function(x) { return x.status === 'pending'; }).length;
     var processing = a.filter(function(x) { return x.status === 'processing'; }).length;
+    var complete = a.filter(function(x) { return x.status === 'complete'; }).length;
     var delivered = a.filter(function(x) { return x.status === 'delivered'; }).length;
     var withLoom = a.filter(function(x) { return x.loom_url; }).length;
 
@@ -660,22 +680,34 @@ a:hover { color: var(--color-primary-hover); }
       '<div class="stat-card"><div class="stat-label">Total Audits</div><div class="stat-value">' + a.length + '</div><div class="stat-sub">' + free + ' free, ' + premium + ' premium</div></div>' +
       '<div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value">' + pending + '</div></div>' +
       '<div class="stat-card"><div class="stat-label">Processing</div><div class="stat-value" style="color:var(--color-info);">' + processing + '</div></div>' +
+      '<div class="stat-card"><div class="stat-label">Ready to Send</div><div class="stat-value" style="color:var(--color-warning);">' + complete + '</div></div>' +
       '<div class="stat-card"><div class="stat-label">Delivered</div><div class="stat-value" style="color:var(--color-success);">' + delivered + '</div></div>' +
       '<div class="stat-card"><div class="stat-label">Loom Videos</div><div class="stat-value">' + withLoom + '<span style="font-size:.75rem;opacity:.5">/' + premium + '</span></div></div>';
   }
 
+  var expandedEaId = null;
+
+  function toggleEaExpand(id) {
+    expandedEaId = expandedEaId === id ? null : id;
+    renderEntityTable();
+  }
+  window.toggleEaExpand = toggleEaExpand;
+
   function renderEntityTable() {
     var html = '';
+    var colCount = document.querySelectorAll('.ea-table th').length;
     eaState.audits.forEach(function(a) {
       var c = eaState.contacts[a.contact_id] || {};
       var name = (c.first_name || '') + ' ' + (c.last_name || '');
       var practice = c.practice_name || c.slug || '--';
       var scores = a.scores || {};
+      var isExpanded = expandedEaId === a.id;
 
-      html += '<tr onclick="window.location.href=\'/admin/clients?slug=' + esc(c.slug || '') + '\'">';
+      // Data row
+      html += '<tr class="ea-row' + (isExpanded ? ' expanded' : '') + '" onclick="toggleEaExpand(\'' + a.id + '\')">';
 
-      // Contact
-      html += '<td><div style="font-weight:500;color:var(--color-heading);">' + esc(name.trim() || '--') + '</div><div style="font-size:.75rem;color:var(--color-muted);">' + esc(c.email || '') + '</div></td>';
+      // Contact (with expand arrow)
+      html += '<td><div style="display:flex;align-items:center;gap:.5rem;"><span class="ea-expand-arrow">&#9654;</span><div><div style="font-weight:500;color:var(--color-heading);">' + esc(name.trim() || '--') + '</div><div style="font-size:.75rem;color:var(--color-muted);">' + esc(c.email || '') + '</div></div></div></td>';
 
       // Practice
       html += '<td>' + esc(practice) + '</td>';
@@ -706,11 +738,9 @@ a:hover { color: var(--color-primary-hover); }
       }
       html += '<td>' + coreHtml + '</td>';
 
-      // Loom
+      // Loom (simplified: just show link or --)
       if (a.loom_url) {
         html += '<td><a href="' + esc(a.loom_url) + '" target="_blank" class="loom-link" onclick="event.stopPropagation()">View</a></td>';
-      } else if (a.audit_tier === 'premium') {
-        html += '<td><input class="loom-input" placeholder="Paste Loom URL" data-audit-id="' + a.id + '" onclick="event.stopPropagation()"><button class="loom-save" onclick="event.stopPropagation();saveLoom(this)">Save</button></td>';
       } else {
         html += '<td><span style="color:var(--color-muted);font-size:.78rem;">--</span></td>';
       }
@@ -720,21 +750,109 @@ a:hover { color: var(--color-primary-hover); }
       if (c.referral_code) srcHtml += '<div style="font-size:.7rem;color:var(--color-primary);">ref: ' + esc(c.referral_code) + '</div>';
       html += '<td style="font-size:.8rem;">' + srcHtml + '</td>';
 
-      // Actions
+      // Actions (status-aware)
       html += '<td><div class="ea-actions">';
-      if (a.status === 'delivered') {
+      if (a.status === 'pending') {
+        html += '<button class="ea-btn surge-trigger" data-audit-id="' + a.id + '" data-practice="' + esc(practice) + '" style="border-color:var(--color-info);color:var(--color-info);">Process Surge</button>';
+      } else if (a.status === 'processing') {
+        html += '<span style="font-size:.78rem;color:var(--color-info);">&#9881; Processing...</span>';
+      } else if (a.status === 'complete') {
+        html += '<button class="ea-btn ea-btn-send" onclick="event.stopPropagation();sendAuditEmail(\'' + a.id + '\',this)">&#9993; Send</button>';
+      } else if (a.status === 'delivered') {
         html += '<a href="/' + esc(c.slug || '') + '/entity-audit" target="_blank" class="ea-btn" onclick="event.stopPropagation()" style="border-color:var(--color-primary);color:var(--color-primary);">View Scorecard</a>';
-      } else {
-        html += '<button class="ea-btn surge-trigger" data-audit-id="' + a.id + '" data-practice="' + esc(practice) + '" style="border-color:var(--color-info);color:var(--color-info);">Process Surge Data</button>';
       }
       html += '</div></td>';
 
       html += '</tr>';
+
+      // Expand panel row
+      html += '<tr class="ea-expand-panel' + (isExpanded ? ' open' : '') + '"><td colspan="' + colCount + '">';
+      html += '<div class="ea-expand-inner">';
+
+      if (a.status === 'complete') {
+        // READY TO SEND panel
+        html += '<div class="ea-section-label">Send Scorecard Email</div>';
+        html += '<div class="ea-field-row">';
+        html += '<span class="ea-field-label">To</span>';
+        html += '<span class="ea-field-value">' + esc(c.email || 'No email') + '</span>';
+        html += '</div>';
+        html += '<div class="ea-field-row">';
+        html += '<span class="ea-field-label">Subject</span>';
+        html += '<input class="ea-subject-input" id="ea-subject-' + a.id + '" value="Your CORE Entity Audit Results Are Ready" onclick="event.stopPropagation()">';
+        html += '</div>';
+        html += '<div class="ea-actions-row">';
+        html += '<button class="ea-btn" onclick="event.stopPropagation();previewAuditEmail(\'' + a.id + '\')">&#128065; Preview Email</button>';
+        html += '<button class="ea-btn ea-btn-send" onclick="event.stopPropagation();sendAuditEmail(\'' + a.id + '\',this)">&#9993; Send to ' + esc(c.first_name || 'Prospect') + '</button>';
+        html += '<a href="/' + esc(c.slug || '') + '/entity-audit" target="_blank" class="ea-btn" onclick="event.stopPropagation()" style="border-color:var(--color-primary);color:var(--color-primary);">View Scorecard &#8250;</a>';
+        if (scores.credibility != null) {
+          var avg = ((scores.credibility + scores.optimization + scores.reputation + scores.engagement) / 4).toFixed(1);
+          html += '<span style="font-size:.78rem;color:var(--color-muted);margin-left:auto;">CORE avg: ' + avg + '/10</span>';
+        }
+        html += '</div>';
+
+      } else if (a.status === 'delivered') {
+        // DELIVERED panel
+        html += '<div style="display:flex;gap:2rem;flex-wrap:wrap;">';
+        // Left: sent info
+        html += '<div style="flex:1;min-width:200px;">';
+        html += '<div class="ea-section-label">Delivery Info</div>';
+        html += '<div class="ea-sent-info">';
+        if (a.sent_at) {
+          html += '<span>Sent: ' + formatDate(a.sent_at) + '</span>';
+          html += '<span>To: ' + esc(a.sent_to || c.email || '--') + '</span>';
+        } else {
+          html += '<span style="color:var(--color-warning);">Manually marked as delivered</span>';
+        }
+        html += '</div>';
+        html += '<div class="ea-actions-row" style="margin-top:.5rem;">';
+        html += '<a href="/' + esc(c.slug || '') + '/entity-audit" target="_blank" class="ea-btn" onclick="event.stopPropagation()" style="border-color:var(--color-primary);color:var(--color-primary);">View Scorecard &#8250;</a>';
+        html += '<a href="/' + esc(c.slug || '') + '/entity-audit-checkout" target="_blank" class="ea-btn" onclick="event.stopPropagation()">Checkout Page &#8250;</a>';
+        html += '<a href="/admin/clients?slug=' + esc(c.slug || '') + '" class="ea-btn" onclick="event.stopPropagation()">Client Profile &#8250;</a>';
+        html += '</div>';
+        html += '</div>';
+        // Right: Loom URL
+        if (a.audit_tier === 'premium') {
+          html += '<div style="min-width:280px;">';
+          html += '<div class="ea-section-label">Loom Walkthrough</div>';
+          if (a.loom_url) {
+            html += '<div class="ea-field-row"><a href="' + esc(a.loom_url) + '" target="_blank" class="loom-link" onclick="event.stopPropagation()">' + esc(a.loom_url) + '</a></div>';
+          } else {
+            html += '<div class="ea-field-row" onclick="event.stopPropagation()">';
+            html += '<input class="loom-input" placeholder="Paste Loom URL" data-audit-id="' + a.id + '">';
+            html += '<button class="loom-save" onclick="event.stopPropagation();saveLoom(this)">Save</button>';
+            html += '</div>';
+          }
+          html += '</div>';
+        }
+        html += '</div>';
+
+      } else if (a.status === 'pending') {
+        // PENDING panel
+        html += '<div class="ea-section-label">Audit Details</div>';
+        html += '<div class="ea-field-row">';
+        html += '<span class="ea-field-label">Website</span>';
+        html += '<a href="' + esc(a.homepage_url || '') + '" target="_blank" style="font-size:.82rem;" onclick="event.stopPropagation()">' + esc(a.homepage_url || '--') + '</a>';
+        html += '</div>';
+        html += '<div class="ea-field-row">';
+        html += '<span class="ea-field-label">Brand</span>';
+        html += '<span class="ea-field-value">' + esc(a.brand_query || '--') + '</span>';
+        html += '</div>';
+        html += '<div class="ea-actions-row">';
+        html += '<button class="ea-btn surge-trigger" data-audit-id="' + a.id + '" data-practice="' + esc(practice) + '" style="border-color:var(--color-info);color:var(--color-info);">Process Surge Data</button>';
+        html += '<a href="/admin/clients?slug=' + esc(c.slug || '') + '" class="ea-btn" onclick="event.stopPropagation()">Client Profile &#8250;</a>';
+        html += '</div>';
+
+      } else {
+        // PROCESSING panel
+        html += '<div style="text-align:center;padding:.5rem;color:var(--color-info);font-size:.82rem;">&#9881; Processing Surge data... this may take a few minutes.</div>';
+      }
+
+      html += '</div></td></tr>';
     });
 
     document.getElementById('eaBody').innerHTML = html;
 
-    // Wire up surge trigger buttons via delegation (avoids inline onclick string issues)
+    // Wire up surge trigger buttons via delegation
     document.querySelectorAll('.surge-trigger').forEach(function(btn) {
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -752,12 +870,14 @@ a:hover { color: var(--color-primary-hover); }
     fetch(SB + '/rest/v1/entity_audits?id=eq.' + auditId, {
       method: 'PATCH',
       headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ loom_url: url, status: 'delivered' })
+      body: JSON.stringify({ loom_url: url })
     }).then(function(r) {
       if (r.ok) {
-        btn.textContent = 'Saved!';
-        btn.style.background = 'var(--color-success)';
-        setTimeout(function() { eaLoaded = false; loadEntityAudits(); }, 1000);
+        toast('Loom URL saved');
+        var audit = eaState.audits.find(function(a) { return a.id === auditId; });
+        if (audit) audit.loom_url = url;
+        renderEntityTable();
+        renderEntityStats();
       }
     });
   };
@@ -776,11 +896,76 @@ a:hover { color: var(--color-primary-hover); }
         var audit = eaState.audits.find(function(a) { return a.id === auditId; });
         if (audit) audit.status = newStatus;
         renderEntityStats();
+        renderEntityTable();
         // Flash the select green briefly
-        select.style.borderColor = 'var(--color-success)';
-        setTimeout(function() { select.style.borderColor = ''; }, 1000);
+        var sel = document.querySelector('.ea-status-select[data-audit-id="' + auditId + '"]');
+        if (sel) { sel.style.borderColor = 'var(--color-success)'; setTimeout(function() { sel.style.borderColor = ''; }, 1000); }
       }
     });
+  };
+
+  // Preview entity audit email in new window
+  window.previewAuditEmail = async function(auditId) {
+    var subjectInput = document.getElementById('ea-subject-' + auditId);
+    var subject = subjectInput ? subjectInput.value : '';
+    try {
+      var resp = await fetch('/api/send-entity-audit-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audit_id: auditId, subject: subject || undefined, preview_only: true })
+      });
+      var data = await resp.json();
+      if (data.ok) {
+        var w = window.open('', '_blank');
+        w.document.write('<html><head><title>Email Preview</title></head><body>');
+        w.document.write('<div style="padding:1rem;background:#f5f5f5;font-family:sans-serif;font-size:14px;margin-bottom:1rem;">');
+        w.document.write('<strong>To:</strong> ' + data.to + '<br>');
+        w.document.write('<strong>From:</strong> ' + data.from + '<br>');
+        w.document.write('<strong>Reply-To:</strong> ' + data.reply_to + '<br>');
+        w.document.write('<strong>CC:</strong> ' + data.cc + '<br>');
+        w.document.write('<strong>Subject:</strong> ' + data.subject);
+        w.document.write('</div>');
+        w.document.write(data.body_html);
+        w.document.write('</body></html>');
+        w.document.close();
+      } else {
+        toast('Preview failed: ' + (data.error || 'Unknown error'), 'error');
+      }
+    } catch(e) {
+      toast('Preview error: ' + e.message, 'error');
+    }
+  };
+
+  // Send entity audit email
+  window.sendAuditEmail = async function(auditId, btn) {
+    if (!confirm('Send the scorecard email to this prospect?')) return;
+    var subjectInput = document.getElementById('ea-subject-' + auditId);
+    var subject = subjectInput ? subjectInput.value : '';
+    btn.disabled = true;
+    var origHtml = btn.innerHTML;
+    btn.innerHTML = 'Sending...';
+    try {
+      var resp = await fetch('/api/send-entity-audit-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audit_id: auditId, subject: subject || undefined })
+      });
+      var data = await resp.json();
+      if (data.ok) {
+        toast('Scorecard email sent!');
+        eaLoaded = false;
+        expandedEaId = null;
+        loadEntityAudits();
+      } else {
+        toast('Send failed: ' + (data.error || 'Unknown error'), 'error');
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+      }
+    } catch(e) {
+      toast('Send error: ' + e.message, 'error');
+      btn.disabled = false;
+      btn.innerHTML = origHtml;
+    }
   };
 
   window.toggleNewAuditForm = function() {
