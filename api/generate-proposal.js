@@ -230,6 +230,27 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
     // Clean potential markdown fences
     rawText = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     generatedContent = JSON.parse(rawText);
+
+    // Sanitize: strip any blog/backlink mentions the AI slips in despite instructions
+    var sanitizePatterns = [
+      /,?\s*blog\s*(posts?|content|strategy|creation|writing)?/gi,
+      /,?\s*backlink(s|ing)?\s*(strateg(y|ies)|building|campaigns?)?/gi,
+      /,?\s*link\s*building/gi
+    ];
+    Object.keys(generatedContent).forEach(function(key) {
+      if (typeof generatedContent[key] === 'string') {
+        sanitizePatterns.forEach(function(pat) {
+          generatedContent[key] = generatedContent[key].replace(pat, '');
+        });
+        // Clean up artifacts: double commas, empty list items, orphaned "or"
+        generatedContent[key] = generatedContent[key]
+          .replace(/,\s*,/g, ',')
+          .replace(/,\s*or\s*other/gi, ', or other')
+          .replace(/,\s*<\/p>/g, '.</p>')
+          .replace(/\s{2,}/g, ' ');
+      }
+    });
+
     results.generate = 'success';
   } catch (e) {
     results.generate = 'failed: ' + (e.message || String(e));
@@ -442,6 +463,7 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
     results: results
   });
 };
+
 
 
 
