@@ -2,7 +2,7 @@
 // Sends a proposal email to the prospect via Resend.
 // From: proposals@clients.moonraker.ai
 // Reply-To: scott@moonraker.ai
-// CC: chris@moonraker.ai
+// CC: chris@moonraker.ai, scott@moonraker.ai
 //
 // POST { proposal_id, subject?, body_html?, preview_only? }
 //   - If subject/body_html omitted, generates a default email
@@ -59,7 +59,7 @@ module.exports = async function handler(req, res) {
       to: contact.email,
       from: 'proposals@clients.moonraker.ai',
       reply_to: 'scott@moonraker.ai',
-      cc: 'chris@moonraker.ai',
+      cc: 'chris@moonraker.ai, scott@moonraker.ai',
       subject: subject,
       body_html: bodyHtml
     });
@@ -73,7 +73,7 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({
         from: 'Moonraker AI <proposals@clients.moonraker.ai>',
         to: [contact.email],
-        cc: ['chris@moonraker.ai'],
+        cc: ['chris@moonraker.ai', 'scott@moonraker.ai'],
         reply_to: 'scott@moonraker.ai',
         subject: subject,
         html: bodyHtml
@@ -145,3 +145,4 @@ function buildDefaultEmail(firstName, practiceName, proposalUrl) {
 </body>
 </html>`;
 }
+
