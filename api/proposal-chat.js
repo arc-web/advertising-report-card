@@ -138,6 +138,7 @@ function buildPricingContext(proposalData) {
     'Up to 5 new or optimized website pages with custom HTML and schema markup',
     'Bio page for each therapist in the practice',
     'General FAQ page',
+    '1 location page',
     'Google Business Profile optimization',
     '15+ directory listings and 5 data aggregator submissions',
     'Press release syndication (1 included)',
@@ -339,6 +340,7 @@ STATEMENT OF WORK (CORE Marketing Campaign includes):
 - Up to 5 new and optimized website pages with custom HTML and schema
 - Bio page creation for each therapist
 - General FAQ page
+- 1 location page
 - Google Business Profile optimization
 - Citation audit and directory listings management (15 citations + 5 data aggregators)
 - Press release syndication (1 included, additional at $300/ea)
@@ -381,6 +383,7 @@ The team:
 - Keep responses to 2-4 paragraphs unless the question requires more detail.
 - End responses on an encouraging, forward-moving note when natural.`;
 }
+
 
 
 
