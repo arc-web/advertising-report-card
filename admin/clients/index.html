@@ -1277,7 +1277,8 @@ strong { font-weight: 600; color: var(--color-heading); }
       practice_details: 'Practice Details',
       bio_materials: 'Bio Materials',
       social_profiles: 'Social Profiles',
-      checkins_and_drive: 'Google Drive'
+      checkins_and_drive: 'Google Drive',
+      performance_guarantee: 'Performance Guarantee'
     };
     var icons = {
       complete: '&#10003;',
@@ -1293,7 +1294,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       html += '<div class="ob-step ' + s.status + '">';
       html += '<a href="/' + esc(slug) + '/onboarding#' + s.step_key + '" target="_blank" class="ob-step-link">';
       html += '<div class="ob-icon">' + (icons[s.status] || '&#9711;') + '</div>';
-      html += '<div class="ob-label">' + esc(label) + '</div>';
+      html += '<div class="ob-label">' + esc(label) + (s.notes ? '<span style="font-weight:400;font-size:.75rem;color:var(--color-muted);margin-left:.5rem;">' + esc(s.notes) + '</span>' : '') + '</div>';
       html += '<div class="ob-status">' + esc(statusText) + '</div>';
       html += '<div class="link-arrow">&#8599;</div>';
       html += '</a></div>';
@@ -3226,6 +3227,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
