@@ -205,7 +205,7 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
   "strategy_cards": "4 HTML cards using EXACTLY these headings: <div class=\"card\"><h3 style=\"margin-bottom:1rem;\">Credibility: Prove You\'re Real</h3><p>...</p></div> then <div class=\"card\"><h3 style=\"margin-bottom:1rem;\">Optimization: Make AI Understand You</h3><p>...</p></div> then <div class=\"card\"><h3 style=\"margin-bottom:1rem;\">Reputation: Amplify the Signal</h3><p>...</p></div> then <div class=\"card\"><h3 style=\"margin-bottom:1rem;\">Engagement: Convert Visitors to Clients</h3><p>...</p></div>",
   "strategy_roi_callout": "HTML: <div class=\"roi-callout\"><h4>Title</h4><p style=\"margin-bottom:0;\">ROI calculation relevant to their practice</p></div> or empty string if insufficient data",
   "timeline_items": "3-4 timeline phases as HTML: <div class=\"timeline-item\"><span class=\"timeline-phase\">PHASE_LABEL</span><h4>PHASE_TITLE</h4><p>DESCRIPTION</p></div>",
-  "investment_features": "10-12 feature items as HTML: <li><span class=\\"check\\">&#10003;</span> FEATURE</li>. These features are IDENTICAL for all campaign lengths. Draw ONLY from the Service & Sales Reference doc. Do NOT include blog posts, backlinks, or any service not in that doc. Do NOT include the performance guarantee (it is added automatically for annual plans only).",
+
   "next_steps": [{"title":"Step Title","desc":"Step description"}] // JSON array of exactly 4 steps describing what happens after they sign up. Personalize to their practice. Typical flow: Strategy Call, Custom Proposal/Onboarding, Quick Start, Launch & Monitor."
 }`;
 
@@ -267,7 +267,26 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
   var today = new Date();
   var dateStr = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
+  // ─── Standardized investment features (hardcoded, not AI-generated) ───
+  var standardFeatures = '<li><span class="check">&#10003;</span> Comprehensive digital audit using our proprietary Surge platform</li>'
+    + '<li><span class="check">&#10003;</span> 5 dedicated service pages with custom HTML, schema markup, and targeted FAQs</li>'
+    + '<li><span class="check">&#10003;</span> Professional bio pages for each therapist at your practice</li>'
+    + '<li><span class="check">&#10003;</span> 1 location page to clearly establish where you serve</li>'
+    + '<li><span class="check">&#10003;</span> General FAQ page covering logistics, policies, and common client questions</li>'
+    + '<li><span class="check">&#10003;</span> Directory listings across 50+ platforms including all major data aggregators</li>'
+    + '<li><span class="check">&#10003;</span> Social profile buildout and optimization across 9 platforms</li>'
+    + '<li><span class="check">&#10003;</span> Entity Veracity Hub launch to verify and ground your practice online</li>'
+    + '<li><span class="check">&#10003;</span> YouTube channel setup with optimized playlist for your main specialty</li>'
+    + '<li><span class="check">&#10003;</span> Press release syndication across 500+ national and international news sites</li>'
+    + '<li><span class="check">&#10003;</span> NEO image creation and distribution to build authority across high-traffic platforms</li>'
+    + '<li><span class="check">&#10003;</span> Ongoing social posting across 4 platforms to reinforce your digital presence</li>'
+    + '<li><span class="check">&#10003;</span> Hero section and CTA optimization to convert visitors into consultation bookings</li>'
+    + '<li><span class="check">&#10003;</span> Monthly progress reports with visibility and engagement metrics</li>';
+  var guaranteeFeature = '<li><span class="check">&#10003;</span> 12-month performance guarantee: if we don\'t hit our shared goal in 12 months, we continue working for free until you get there</li>';
+
   // Build investment cards for each selected campaign length
+  var campaignInfo = {
+
   var campaignInfo = {
     annual: { badge: '12-Month CORE Campaign', price: '$20,000', period: '12-month campaign', desc: 'Full annual engagement with performance guarantee', recommended: true },
     quarterly: { badge: '3-Month Growth Engagement', price: '$5,000', period: '3-month campaign', desc: 'Foundation-building quarterly engagement' },
@@ -284,11 +303,8 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
     if (isRecommended) investmentCardsHtml += '<div style="font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--color-primary);margin-top:.5rem;">Recommended</div>';
     investmentCardsHtml += '<div class="investment-price">' + info.price + '</div>';
     investmentCardsHtml += '<div class="investment-period">' + info.period + '</div>';
-    var featuresList = generatedContent.investment_features || '';
-    // Annual plans get the 12-month performance guarantee appended
-    if (c === 'annual') {
-      featuresList += '<li><span class="check">&#10003;</span> 12-month performance guarantee: we set a measurable consultation benchmark together, and continue working for free until you hit it</li>';
-    }
+    var featuresList = standardFeatures;
+    if (c === 'annual') featuresList += guaranteeFeature;
     investmentCardsHtml += '<ul class="investment-features">' + featuresList + '</ul>';
     investmentCardsHtml += '<a href="/' + slug + '/checkout?plan=' + c + '" class="cta-btn" target="_blank">Choose Your Plan &#8594;</a>';
     investmentCardsHtml += '</div>';
@@ -299,7 +315,7 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
     investmentCardsHtml += '<span class="badge">Custom Arrangement</span>';
     investmentCardsHtml += '<div class="investment-price">$' + (customPricing.amount_cents / 100).toLocaleString() + '</div>';
     investmentCardsHtml += '<div class="investment-period">' + (customPricing.label || customPricing.period) + '</div>';
-    investmentCardsHtml += '<ul class="investment-features">' + (generatedContent.investment_features || '') + '</ul>';
+    investmentCardsHtml += '<ul class="investment-features">' + standardFeatures + '</ul>';
     investmentCardsHtml += '<a href="/' + slug + '/checkout" class="cta-btn" target="_blank">Choose Your Plan &#8594;</a>';
     investmentCardsHtml += '</div>';
   }
@@ -463,6 +479,7 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
     results: results
   });
 };
+
 
 
 
