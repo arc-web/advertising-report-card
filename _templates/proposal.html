@@ -178,6 +178,21 @@ section { padding: 4.5rem 0; }
 .investment-grid .investment-card { margin: 0; }
 @media (max-width: 640px) { .investment-grid { grid-template-columns: 1fr; } }
 
+.results-stats-bar { display: flex; justify-content: center; gap: 3rem; margin-bottom: 2rem; }
+.results-stats-bar .stat { text-align: center; }
+.results-stats-bar .stat-value { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 2rem; color: var(--color-heading); line-height: 1.1; }
+.results-stats-bar .stat-label { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--color-muted); margin-top: .25rem; }
+.results-mini-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+@media (max-width: 768px) { .results-mini-grid { grid-template-columns: repeat(2, 1fr); } .results-stats-bar { gap: 1.5rem; } }
+@media (max-width: 480px) { .results-mini-grid { grid-template-columns: 1fr; } }
+.results-mini-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; overflow: hidden; transition: transform .3s, box-shadow .3s; }
+.results-mini-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.06); }
+.results-mini-card .card-img { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; }
+.results-mini-card .card-info { padding: .75rem 1rem; display: flex; justify-content: space-between; align-items: center; }
+.results-mini-card .card-pct { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1.125rem; color: var(--color-primary); }
+.results-mini-card .card-meta { font-size: .75rem; color: var(--color-muted); }
+.results-see-all { text-align: center; margin-top: .5rem; }
+
 @media print {
   .section-nav, .theme-toggle, .progress-bar { display: none !important; }
   .reveal { opacity: 1 !important; transform: none !important; }
@@ -198,6 +213,7 @@ section { padding: 4.5rem 0; }
   <a href="#assessment"><span class="nav-dot"></span>Assessment</a>
   <a href="#strategy"><span class="nav-dot"></span>Strategy</a>
   <a href="#timeline"><span class="nav-dot"></span>Roadmap</a>
+  <a href="#results"><span class="nav-dot"></span>Results</a>
   <a href="#investment"><span class="nav-dot"></span>Investment</a>
   <a href="#next"><span class="nav-dot"></span>Next Steps</a>
 </nav>
@@ -356,6 +372,23 @@ section { padding: 4.5rem 0; }
 <hr class="divider">
 
 <!-- ============================================================
+     SECTION 6.5: PROVEN RESULTS
+     Variable: RESULTS_SECTION
+     Built by generate-proposal.js based on practice_type (solo/group).
+     Shows top 4 GSC screenshot results matching the prospect's type,
+     aggregate stats, and CTA to full results page.
+     ============================================================ -->
+<section class="reveal" id="results">
+  <div class="container">
+    <h2>Proven Results from Practices Like Yours</h2>
+    <p style="margin-bottom:2rem;">Every number below comes directly from Google Search Console, the same tool Google provides to measure real search performance. These are results from therapy practices we work with today.</p>
+{{RESULTS_SECTION}}
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ============================================================
      SECTION 7: INVESTMENT
      Variables: INVESTMENT_BADGE, INVESTMENT_PRICE, INVESTMENT_PERIOD,
                INVESTMENT_FEATURES, INVOICE_URL,
@@ -480,6 +513,7 @@ section { padding: 4.5rem 0; }
 <script src="/shared/proposal-chatbot.js"></script>
 </body>
 </html>
+
 
 
 
