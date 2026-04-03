@@ -416,6 +416,15 @@ module.exports = async function handler(req, res) {
       }
     });
 
+    // Step 3b: Filter map grids to only include tracked keywords
+    var trackedKeywordSet = {};
+    scanKeywords.forEach(function(kw) { trackedKeywordSet[kw.keyword.toLowerCase()] = true; });
+    MAPS_PLATFORMS.forEach(function(p) {
+      mapsResults[p] = mapsResults[p].filter(function(g) {
+        return trackedKeywordSet[g.keyword.toLowerCase()];
+      });
+    });
+
     // Step 4: Compute summaries (identical logic to before)
     var allMapGrids = [];
     Object.keys(mapsResults).forEach(function(p) {
@@ -509,6 +518,13 @@ module.exports = async function handler(req, res) {
   var geogridData = lfData ? lfData.maps : null;
   var aiData = lfData ? lfData.ai : null;
 
+  // Fetch CORE scores from audit_scores (fallback when prevSnap has none)
+  var auditScores = await safe('audit_scores', async function() {
+    var resp = await fetch(sbUrl + '/rest/v1/audit_scores?client_slug=eq.' + clientSlug + '&order=audit_date.desc&limit=1&select=score_credibility,score_optimization,score_reputation,score_engagement', { headers: sbHeaders() });
+    var rows = await resp.json();
+    return (Array.isArray(rows) && rows.length > 0) ? rows[0] : null;
+  });
+
   // Build citation_trend from historical snapshots
   if (aiData) {
     try {
@@ -552,11 +568,11 @@ module.exports = async function handler(req, res) {
     gbp_website_clicks_prev: prevSnap ? prevSnap.gbp_website_clicks : null,
     gbp_photo_views_prev: prevSnap ? prevSnap.gbp_photo_views : null,
 
-    // CORE scores (carry forward)
-    score_credibility: prevSnap ? prevSnap.score_credibility : null,
-    score_optimization: prevSnap ? prevSnap.score_optimization : null,
-    score_reputation: prevSnap ? prevSnap.score_reputation : null,
-    score_engagement: prevSnap ? prevSnap.score_engagement : null,
+    // CORE scores (carry forward from prevSnap, fallback to audit_scores)
+    score_credibility: (prevSnap && prevSnap.score_credibility != null) ? prevSnap.score_credibility : (auditScores ? auditScores.score_credibility : null),
+    score_optimization: (prevSnap && prevSnap.score_optimization != null) ? prevSnap.score_optimization : (auditScores ? auditScores.score_optimization : null),
+    score_reputation: (prevSnap && prevSnap.score_reputation != null) ? prevSnap.score_reputation : (auditScores ? auditScores.score_reputation : null),
+    score_engagement: (prevSnap && prevSnap.score_engagement != null) ? prevSnap.score_engagement : (auditScores ? auditScores.score_engagement : null),
 
     // Tasks
     tasks_total: taskData ? taskData.total : 0,
