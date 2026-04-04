@@ -107,7 +107,8 @@ module.exports = async function handler(req, res) {
     var results = [], errors = [];
     var slugs = singleSlug ? [singleSlug] : allSlugs;
 
-    for (var slug of slugs) {
+    var delay = function(ms){return new Promise(function(r){setTimeout(r,ms);});};
+    for (var idx = 0; idx < slugs.length; idx++) { var slug = slugs[idx]; if (idx > 0) await delay(1500);
       var sheetId = SHEETS[slug]; var contactId = slugToId[slug];
       if (!sheetId || !contactId) { errors.push({slug:slug, error:'Missing sheet or contact'}); continue; }
       try {
