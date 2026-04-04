@@ -1028,8 +1028,8 @@ strong { font-weight: 600; color: var(--color-heading); }
     filtered.sort(function(a, b) {
       var aName, bName;
       if (dm === 'name') {
-        aName = ((a.last_name || '') + ' ' + (a.first_name || '')).trim().toLowerCase() || a.slug;
-        bName = ((b.last_name || '') + ' ' + (b.first_name || '')).trim().toLowerCase() || b.slug;
+        aName = ((a.first_name || '') + ' ' + (a.last_name || '')).trim().toLowerCase() || a.slug;
+        bName = ((b.first_name || '') + ' ' + (b.last_name || '')).trim().toLowerCase() || b.slug;
       } else {
         aName = (a.practice_name || a.slug).toLowerCase();
         bName = (b.practice_name || b.slug).toLowerCase();
