@@ -205,7 +205,11 @@ module.exports = async function handler(req, res) {
   });
 
   // --- 3b. GBP Performance API (calls, clicks, directions, impressions) ---
+  // DISABLED: API quota is zero pending Google approval (case 8-326800040416).
+  // Re-enable once quota is granted by removing the early return below.
   var gbpPerfFn = safe('gbp_performance', async function() {
+    warnings.push('GBP Performance: disabled pending API quota approval');
+    return null;
     if (!googleSA || !config.gbp_location_id) {
       warnings.push('GBP Performance: skipped (no service account or gbp_location_id configured)');
       return null;
@@ -1005,4 +1009,5 @@ async function generateHighlights(snapshot, prevSnap, practiceName, apiKey) {
     };
   });
 }
+
 
