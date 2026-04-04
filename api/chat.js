@@ -30,8 +30,7 @@ module.exports = async function handler(req, res) {
 
     // Try Opus first with retries, then fall back to Sonnet
     var models = [
-      { id: 'claude-opus-4-6', label: 'Opus 4.6', retries: 2 },
-      { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6', retries: 1 }
+      { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6', retries: 2 }
     ];
 
     var anthropicRes = null;
@@ -101,7 +100,7 @@ module.exports = async function handler(req, res) {
     res.setHeader('X-Accel-Buffering', 'no');
 
     // Send a custom event with the model used (so the UI can show it)
-    if (usedModel && usedModel.id !== 'claude-opus-4-6') {
+    if (false) { // single model, no fallback notice needed
       res.write('event: model_info\ndata: {"model":"' + usedModel.id + '","label":"' + usedModel.label + '"}\n\n');
     }
 
