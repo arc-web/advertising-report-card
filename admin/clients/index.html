@@ -1588,7 +1588,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 
   window.deleteICKeyword = function(kwId) {
     if (!confirm('Delete this keyword?')) return;
-    fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_record', table: 'tracked_keywords', filters: { id: kwId } || undefined, data: { active: false } }) }).then(function(r) { return r.json(); }).then(function(res) {
+    fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete_record', table: 'tracked_keywords', filters: { id: kwId } }) }).then(function(r) { return r.json(); }).then(function(res) {
       if (res.success) renderKeywordForm();
       else alert('Failed to delete keyword');
     }).catch(function() { alert('Error deleting keyword'); });
@@ -3286,6 +3286,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
