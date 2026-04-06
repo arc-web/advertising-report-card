@@ -201,8 +201,20 @@ strong { font-weight: 600; color: var(--color-heading); }
 .tab-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
 .tab-btn .tab-count { font-size: .68rem; padding: .05rem .4rem; border-radius: 4px; background: var(--color-bg); margin-left: .3rem; }
 .tab-btn.active .tab-count { background: var(--color-primary-subtle); }
+.tab-btn.tab-hidden { display: none; }
+.tab-btn.tab-history { color: var(--color-muted); opacity: .6; font-size: .78rem; }
+.tab-btn.tab-history::after { content: ' \2713'; font-size: .7rem; }
+.tab-btn.tab-history.active { opacity: 1; }
+.history-toggle { padding: .6rem .5rem; font-size: .72rem; font-weight: 500; color: var(--color-muted); cursor: pointer; border: none; background: none; font-family: inherit; transition: all .15s; white-space: nowrap; margin-left: auto; }
+.history-toggle:hover { color: var(--color-primary); }
+.history-toggle .ht-icon { display: inline-block; transition: transform .2s; font-size: .65rem; margin-right: .2rem; }
+.history-toggle.expanded .ht-icon { transform: rotate(90deg); }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
+.collapsible-header { cursor: pointer; user-select: none; }
+.collapsible-header .collapse-icon { display: inline-block; transition: transform .2s; margin-left: .35rem; font-size: .7rem; color: var(--color-muted); }
+.collapsible-header.collapsed .collapse-icon { transform: rotate(-90deg); }
+.collapsible-body.collapsed { display: none; }
 
 /* ---- PROGRESS BAR (MINI) ---- */
 .progress-mini { display: flex; align-items: center; gap: .5rem; }
@@ -732,6 +744,7 @@ strong { font-weight: 600; color: var(--color-heading); }
         <button class="tab-btn" data-tab="audit">Audit</button>
         <button class="tab-btn" data-tab="reports">Reports</button>
         <button class="tab-btn" data-tab="billing">Billing</button>
+        <button class="history-toggle tab-hidden" id="historyToggle" onclick="toggleHistoryTabs()"><span class="ht-icon">&#9654;</span>History</button>
       </div>
 
       <!-- TAB: Overview -->
@@ -819,18 +832,20 @@ strong { font-weight: 600; color: var(--color-heading); }
         <div class="stat-row" id="rptOverview"></div>
 
         <!-- Configuration -->
-        <div class="card" style="margin-bottom:1rem;">
-          <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-            <h3>Configuration</h3>
-            <button class="btn-sm" id="rptSaveBtn" onclick="saveReportConfig()" style="padding:.35rem .85rem;font-size:.75rem;font-weight:600;border:none;background:var(--color-primary);color:#fff;border-radius:6px;cursor:pointer;font-family:inherit;">Save Configuration</button>
+        <div class="card" style="margin-bottom:1rem;" id="rptConfigCard">
+          <div class="card-header collapsible-header" style="display:flex;justify-content:space-between;align-items:center;" onclick="toggleReportSection('config')">
+            <h3>Configuration <span class="collapse-icon" id="rptConfigIcon">&#9660;</span></h3>
+            <button class="btn-sm" id="rptSaveBtn" onclick="event.stopPropagation();saveReportConfig()" style="padding:.35rem .85rem;font-size:.75rem;font-weight:600;border:none;background:var(--color-primary);color:#fff;border-radius:6px;cursor:pointer;font-family:inherit;">Save Configuration</button>
           </div>
-          <div id="rptConfigForm"></div>
+          <div id="rptConfigForm" class="collapsible-body"></div>
         </div>
 
         <!-- Keyword Targets -->
-        <div class="card" style="margin-bottom:1rem;">
-          <div class="card-header"><h3>Keyword Targets</h3></div>
-          <div id="rptKeywordForm" style="padding:.25rem 0;"></div>
+        <div class="card" style="margin-bottom:1rem;" id="rptKeywordCard">
+          <div class="card-header collapsible-header" onclick="toggleReportSection('keywords')">
+            <h3>Keyword Targets <span class="collapse-icon" id="rptKeywordsIcon">&#9660;</span></h3>
+          </div>
+          <div id="rptKeywordForm" class="collapsible-body" style="padding:.25rem 0;"></div>
         </div>
 
         <!-- Report History -->
@@ -1170,9 +1185,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       html += '<td class="hide-mobile">' + tHtml + '</td>';
       }
       var fuHtml = '';
-      if (c.status === 'lead') {
-        fuHtml = '<button class="convert-btn" onclick="event.stopPropagation();convertToProspect(\'' + c.slug + '\',\'' + c.id + '\',\'' + esc(c.practice_name || c.slug) + '\')">Convert to Prospect</button>';
-      } else if (c.follow_up_date && !c.lost) {
+      if (c.follow_up_date && !c.lost) {
         var fuDate = new Date(c.follow_up_date);
         var today = new Date(); today.setHours(0,0,0,0);
         var diff = Math.round((fuDate - today) / 86400000);
@@ -1248,6 +1261,7 @@ strong { font-weight: 600; color: var(--color-heading); }
     setTabCount('reports', rptCount);
 
     renderOverview(c, p);
+    updateTabVisibility();
     renderProposals();
     renderOnboarding();
     renderIntroCall();
@@ -1363,12 +1377,13 @@ strong { font-weight: 600; color: var(--color-heading); }
     // Update the dropdown class
     var sel = document.querySelector('.status-meta-select');
     if (sel) { sel.className = 'status-meta-select st-' + newStatus; }
+    updateTabVisibility();
     fetch('/api/action', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'update_record', table: 'contacts', filters: { id: c.id }, data: { status: newStatus, updated_at: new Date().toISOString() } })
     }).then(function(r) { return r.json(); }).then(function(res) {
-      if (!res.success) { c.status = oldStatus; if (sel) { sel.value = oldStatus; sel.className = 'status-meta-select st-' + oldStatus; } }
-    }).catch(function() { c.status = oldStatus; if (sel) { sel.value = oldStatus; sel.className = 'status-meta-select st-' + oldStatus; } });
+      if (!res.success) { c.status = oldStatus; if (sel) { sel.value = oldStatus; sel.className = 'status-meta-select st-' + oldStatus; } updateTabVisibility(); }
+    }).catch(function() { c.status = oldStatus; if (sel) { sel.value = oldStatus; sel.className = 'status-meta-select st-' + oldStatus; } updateTabVisibility(); });
   };
 
   // ---- ONBOARDING TAB ----
@@ -2358,6 +2373,37 @@ strong { font-weight: 600; color: var(--color-heading); }
   }
 
   // ---- REPORTS TAB ----
+  window.toggleReportSection = function(section) {
+    var bodyId = section === 'config' ? 'rptConfigForm' : 'rptKeywordForm';
+    var iconId = section === 'config' ? 'rptConfigIcon' : 'rptKeywordsIcon';
+    var headerId = section === 'config' ? 'rptConfigCard' : 'rptKeywordCard';
+    var body = document.getElementById(bodyId);
+    var icon = document.getElementById(iconId);
+    var header = headerId ? document.querySelector('#' + headerId + ' .collapsible-header') : null;
+    if (!body) return;
+    var isCollapsed = body.classList.contains('collapsed');
+    body.classList.toggle('collapsed', !isCollapsed);
+    if (header) header.classList.toggle('collapsed', !isCollapsed);
+    try { localStorage.setItem('moonraker-rpt-' + section, isCollapsed ? 'expanded' : 'collapsed'); } catch(e) {}
+  };
+
+  function autoCollapseReportSections() {
+    var cfg = state.reportConfig;
+    var status = state.contact && state.contact.status;
+    var isConfigured = cfg && cfg.gsc_property && cfg.active;
+    ['config', 'keywords'].forEach(function(section) {
+      var saved = null;
+      try { saved = localStorage.getItem('moonraker-rpt-' + section); } catch(e) {}
+      var shouldCollapse = saved === 'collapsed' || (saved === null && isConfigured && status === 'active');
+      var bodyId = section === 'config' ? 'rptConfigForm' : 'rptKeywordForm';
+      var cardId = section === 'config' ? 'rptConfigCard' : 'rptKeywordCard';
+      var body = document.getElementById(bodyId);
+      var header = document.querySelector('#' + cardId + ' .collapsible-header');
+      if (body) body.classList.toggle('collapsed', shouldCollapse);
+      if (header) header.classList.toggle('collapsed', shouldCollapse);
+    });
+  }
+
   function renderReports() {
     var cfg = state.reportConfig;
     var snaps = state.snapshots;
@@ -2457,6 +2503,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       html += '</div>';
     });
     document.getElementById('rptList').innerHTML = html;
+    autoCollapseReportSections();
   }
 
   window.saveReportConfig = function() {
@@ -3250,6 +3297,73 @@ strong { font-weight: 600; color: var(--color-heading); }
   })();
 
   // ============================================================
+  // TAB VISIBILITY (status-aware)
+  // ============================================================
+  var TAB_VISIBILITY = {
+    lead:       ['overview', 'proposals', 'audit'],
+    prospect:   ['overview', 'proposals', 'audit'],
+    onboarding: ['overview', 'proposals', 'onboarding', 'intro-call', 'deliverables', 'audit', 'reports', 'billing'],
+    active:     ['overview', 'proposals', 'onboarding', 'intro-call', 'deliverables', 'audit', 'reports', 'billing']
+  };
+  var HISTORY_TABS = ['onboarding', 'intro-call'];
+
+  function updateTabVisibility() {
+    if (!state.contact) return;
+    var status = state.contact.status || 'lead';
+    var visible = TAB_VISIBILITY[status] || TAB_VISIBILITY['active'];
+    var isActive = status === 'active';
+    var historyExpanded = false;
+    try { historyExpanded = localStorage.getItem('moonraker-history-tabs') === 'expanded'; } catch(e) {}
+
+    document.querySelectorAll('#tabBar .tab-btn').forEach(function(btn) {
+      var tab = btn.dataset.tab;
+      if (!tab) return;
+      var isVisible = visible.indexOf(tab) !== -1;
+      var isHistory = isActive && HISTORY_TABS.indexOf(tab) !== -1;
+
+      if (!isVisible) {
+        btn.classList.add('tab-hidden');
+        btn.classList.remove('tab-history');
+      } else if (isHistory) {
+        btn.classList.remove('tab-hidden');
+        btn.classList.toggle('tab-hidden', !historyExpanded);
+        btn.classList.add('tab-history');
+      } else {
+        btn.classList.remove('tab-hidden', 'tab-history');
+      }
+    });
+
+    var ht = document.getElementById('historyToggle');
+    if (ht) {
+      if (isActive) {
+        ht.classList.remove('tab-hidden');
+        ht.classList.toggle('expanded', historyExpanded);
+      } else {
+        ht.classList.add('tab-hidden');
+      }
+    }
+
+    var activeBtn = document.querySelector('#tabBar .tab-btn.active');
+    if (activeBtn && activeBtn.classList.contains('tab-hidden')) {
+      var overviewBtn = document.querySelector('.tab-btn[data-tab="overview"]');
+      if (overviewBtn) {
+        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+        overviewBtn.classList.add('active');
+        document.getElementById('tab-overview').classList.add('active');
+      }
+    }
+  }
+
+  window.toggleHistoryTabs = function() {
+    var ht = document.getElementById('historyToggle');
+    var expanded = ht && ht.classList.contains('expanded');
+    var newState = !expanded;
+    try { localStorage.setItem('moonraker-history-tabs', newState ? 'expanded' : 'collapsed'); } catch(e) {}
+    updateTabVisibility();
+  };
+
+  // ============================================================
   // DIRECTORY FILTERS
   // ============================================================
   document.getElementById('dirFilterBar').addEventListener('click', function(e) {
@@ -3880,6 +3994,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
