@@ -534,6 +534,15 @@
   }
 
   function formatAIMessage(text, msgIdx) {
+    // During streaming, hide any trailing unclosed action block (partial JSON would leak as text)
+    var lastOpen = text.lastIndexOf('```action');
+    if (lastOpen !== -1) {
+      var afterOpen = text.substring(lastOpen);
+      if (!afterOpen.match(/```action\n?[\s\S]*?```/)) {
+        text = text.substring(0, lastOpen);
+      }
+    }
+
     // Parse action blocks and format the rest as basic markdown
     var parts = text.split(/```action\n?([\s\S]*?)```/g);
     var html = '';
