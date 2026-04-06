@@ -969,7 +969,9 @@ strong { font-weight: 600; color: var(--color-heading); }
     Promise.all([
       fetch(SB + '/rest/v1/contacts?select=id,slug,status,practice_name,email,first_name,last_name,campaign_start,website_url,phone,state_province,city,team_size,lost,follow_up_date,audit_tier,referral_code,source&order=practice_name', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }),
       fetch(SB + '/rest/v1/onboarding_steps?select=contact_id,step_key,status', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }),
-      fetch(SB + '/rest/v1/checklist_items?select=client_slug,status', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); })
+      fetch(SB + '/rest/v1/checklist_items?select=client_slug,status', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }),
+      fetch(SB + '/rest/v1/intro_call_steps?select=contact_id,step_key,status', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
+      fetch(SB + '/rest/v1/deliverables?select=contact_id,status', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; })
     ]).then(function(res) {
       state.contacts = res[0] || [];
 
@@ -986,18 +988,69 @@ strong { font-weight: 600; color: var(--color-heading); }
         if (t.status === 'complete') state.allTasks[t.client_slug].complete++;
       });
 
+      // Index intro call steps by contact_id
+      var allIntroCall = {};
+      (res[3] || []).forEach(function(s) {
+        if (!allIntroCall[s.contact_id]) allIntroCall[s.contact_id] = {};
+        allIntroCall[s.contact_id][s.step_key] = s.status;
+      });
+
+      // Index deliverables by contact_id
+      var allDeliverables = {};
+      (res[4] || []).forEach(function(d) {
+        if (!allDeliverables[d.contact_id]) allDeliverables[d.contact_id] = { not_started: 0, in_progress: 0, internal_review: 0, waiting_on_client: 0, delivered: 0 };
+        if (allDeliverables[d.contact_id][d.status] !== undefined) allDeliverables[d.contact_id][d.status]++;
+      });
+
       document.getElementById('loadingState').style.display = 'none';
       document.getElementById('directoryView').style.display = 'block';
       renderDirectory();
       refreshTime();
 
-      // Wire up chat panel context
+      // Wire up chat panel context with rich cross-client summaries
       if (window.MoonrakerChat) {
         var summary = { total: state.contacts.length };
         ['active','onboarding','prospect','lead'].forEach(function(s) {
-          summary[s] = state.contacts.filter(function(c) { return c.status === s; }).length;
+          summary[s] = state.contacts.filter(function(c) { return c.status === s && !c.lost; }).length;
         });
-        window.MoonrakerChat.setContext({ clientData: { contacts: state.contacts, summary: summary } });
+        summary.lost = state.contacts.filter(function(c) { return c.lost; }).length;
+
+        // Build per-client summary for COREBot (only active/onboarding clients)
+        var clientSummaries = state.contacts.filter(function(c) {
+          return !c.lost && (c.status === 'active' || c.status === 'onboarding');
+        }).map(function(c) {
+          var ob = state.allOnboarding[c.id] || [];
+          var obComplete = ob.filter(function(s) { return s.status === 'complete'; }).length;
+          var introCallBooked = ob.some(function(s) { return s.step_key === 'book_intro_call' && s.status === 'complete'; });
+          var accountsConnected = ob.some(function(s) { return s.step_key === 'connect_accounts' && s.status === 'complete'; });
+
+          var ic = allIntroCall[c.id] || {};
+          var introCallDone = ic.intro_call_complete === 'complete';
+
+          var tasks = state.allTasks[c.slug] || { total: 0, complete: 0 };
+          var dels = allDeliverables[c.id] || { not_started: 0, in_progress: 0, internal_review: 0, waiting_on_client: 0, delivered: 0 };
+
+          var s = {
+            name: c.practice_name || (c.first_name + ' ' + c.last_name),
+            slug: c.slug,
+            status: c.status,
+            campaign_start: c.campaign_start || null,
+            intro_call_booked: introCallBooked,
+            intro_call_complete: introCallDone,
+            accounts_connected: accountsConnected,
+            onboarding: obComplete + '/' + ob.length + ' steps done',
+            tasks: tasks.complete + '/' + tasks.total + ' complete',
+            deliverables: dels
+          };
+          return s;
+        });
+
+        window.MoonrakerChat.setContext({
+          clientData: {
+            summary: summary,
+            clientSummaries: clientSummaries
+          }
+        });
       }
     });
   }
