@@ -721,7 +721,7 @@
 
       // Suppress reads for tables already in the client deep-dive context
       var ctx = window._mrChatContext;
-      if (ctx && ctx.clientData) {
+      if (ctx && ctx.clientSlug && ctx.clientData) {
         var alreadyLoaded = ['contacts', 'onboarding_steps', 'intro_call_steps', 'checklist_items',
           'deliverables', 'audit_scores', 'report_snapshots', 'practice_details', 'proposals'];
         if (alreadyLoaded.indexOf(table) !== -1) {
