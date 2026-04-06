@@ -1501,10 +1501,12 @@ strong { font-weight: 600; color: var(--color-heading); }
     { key: 'schedule_checkins', label: 'Schedule Check-in Cadence', cat: 'expectations', sort: 22,
       desc: '<div class="ic-detail-label">Talking Points</div><ul><li>Book the next check-in call before ending this one</li><li>Typical cadence: monthly for the first 3 months, then quarterly</li><li>Use Scott\'s calendar: <a href="https://msg.moonraker.ai/widget/bookings/scott-pope-calendar" target="_blank">Book a call</a></li><li>Between calls, Loom is preferred for async updates (always encourage Loom over calls)</li></ul>' },
     { key: 'client_tracking_sheet', label: 'Share Client Tracking Sheet', cat: 'expectations', sort: 23,
-      desc: '<div class="ic-detail-label">What to Share</div><p>The <a href="https://docs.google.com/spreadsheets/d/1N6gkmiJPAJsEMxmZG-4dfabiii7CoNCfrUDi6l1-txc/edit?gid=1346489400#gid=1346489400" target="_blank">Client Tracking Sheet</a> - a simple spreadsheet template for logging new client inquiries and attributing them to specific marketing channels.</p><div class="ic-detail-label">How to Frame It</div><p>This complements the "How did you hear about us?" form field. Even if attribution is on the forms, having a central tracking sheet helps the client see the pattern over time and gives us data to reference in monthly reports.</p>' }
+      desc: '<div class="ic-detail-label">What to Share</div><p>The <a href="https://docs.google.com/spreadsheets/d/1N6gkmiJPAJsEMxmZG-4dfabiii7CoNCfrUDi6l1-txc/edit?gid=1346489400#gid=1346489400" target="_blank">Client Tracking Sheet</a> - a simple spreadsheet template for logging new client inquiries and attributing them to specific marketing channels.</p><div class="ic-detail-label">How to Frame It</div><p>This complements the "How did you hear about us?" form field. Even if attribution is on the forms, having a central tracking sheet helps the client see the pattern over time and gives us data to reference in monthly reports.</p>' },
+    { key: 'intro_call_complete', label: 'Mark Intro Call Complete', cat: 'completion', sort: 99,
+      desc: '<div class="ic-detail-label">Final Step</div><p>Mark this step complete when the intro call is finished. This sends a notification to the team with a summary of which checklist items were covered and which still need follow-up.</p><p style="color:var(--color-muted);font-size:.8rem;">Not all tasks above need to be complete before marking this done. Pending items will be flagged in the notification so the team can follow up.</p>' }
   ];
 
-  var IC_CATEGORIES = { platform_access: 'Platform Access & Configuration', campaign_setup: 'Campaign Setup', expectations: 'Expectations & Scheduling' };
+  var IC_CATEGORIES = { platform_access: 'Platform Access & Configuration', campaign_setup: 'Campaign Setup', expectations: 'Expectations & Scheduling', completion: 'Completion' };
   var IC_STATUSES = [{v:'pending',l:'Pending'},{v:'in_progress',l:'In Progress'},{v:'complete',l:'Complete'},{v:'not_applicable',l:'N/A'}];
   var expandedICId = null;
 
@@ -1531,7 +1533,7 @@ strong { font-weight: 600; color: var(--color-heading); }
     var byCat = {};
     steps.forEach(function(s) { var cat = s.category || 'other'; if (!byCat[cat]) byCat[cat] = []; byCat[cat].push(s); });
     var html = '';
-    ['platform_access','campaign_setup','expectations'].forEach(function(cat) {
+    ['platform_access','campaign_setup','expectations','completion'].forEach(function(cat) {
       var items = byCat[cat]; if (!items || items.length === 0) return;
       html += '<div class="ic-category"><div class="ic-category-header">' + esc(IC_CATEGORIES[cat] || cat) + '</div>';
       items.forEach(function(s) {
@@ -1543,7 +1545,8 @@ strong { font-weight: 600; color: var(--color-heading); }
           gbp_service_account: '&#128202;', referral_source: '&#129309;', pick_target_keywords: '&#127919;',
           review_socials: '&#128101;', check_booking_calendar: '&#128197;', lead_attribution: '&#128203;',
           google_marketing_account: '&#9993;', content_turnaround: '&#9200;', scope_boundaries: '&#128208;',
-          schedule_checkins: '&#128197;', client_tracking_sheet: '&#128202;'
+          schedule_checkins: '&#128197;', client_tracking_sheet: '&#128202;',
+          intro_call_complete: '&#9989;'
         };
         var icIcon = icIcons[s.step_key] || '&#128196;';
         html += '<div class="ic-row' + (isExp ? ' expanded' : '') + '" onclick="toggleICExpand(\'' + s.id + '\')">';
@@ -1575,6 +1578,12 @@ strong { font-weight: 600; color: var(--color-heading); }
     if (newStatus === 'complete') { body.completed_at = new Date().toISOString(); body.completed_by = 'admin'; }
     fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_record', table: 'intro_call_steps', filters: { id: stepId } || undefined, data: body }) }).then(function(r) { return r.json(); }).then(function(r) {
       if (!r.success) { step.status = oldStatus; renderIntroCall(); return; }
+      // Fire team notification when intro call is marked complete
+      if (step.step_key === 'intro_call_complete' && newStatus === 'complete') {
+        fetch('/api/notify-team', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ event: 'intro_call_complete', slug: slug }) })
+          .then(function() { toast('Team notified: intro call complete', 'success'); })
+          .catch(function() { console.log('Notification send failed'); });
+      }
     }).catch(function() { step.status = oldStatus; renderIntroCall(); });
   };
 
