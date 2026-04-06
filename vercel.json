@@ -112,6 +112,12 @@
     },
     "api/send-audit-email.js": {
       "maxDuration": 30
+    },
+    "api/generate-audit-followups.js": {
+      "maxDuration": 30
+    },
+    "api/approve-audit-followups.js": {
+      "maxDuration": 30
     }
   },
   "crons": [
