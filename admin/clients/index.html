@@ -1322,6 +1322,10 @@ strong { font-weight: 600; color: var(--color-heading); }
       metaHtml += '<option value="' + s + '"' + (c.status === s ? ' selected' : '') + disabled + '>' + label + '</option>';
     });
     metaHtml += '</select>';
+    metaHtml += '<select class="status-meta-select' + (c.campaign_type === 'national' ? ' st-prospect' : ' st-active') + '" onchange="setCampaignType(this.value)" style="margin-left:.5rem;">';
+    metaHtml += '<option value="local"' + (c.campaign_type !== 'national' ? ' selected' : '') + '>Local</option>';
+    metaHtml += '<option value="national"' + (c.campaign_type === 'national' ? ' selected' : '') + '>National</option>';
+    metaHtml += '</select>';
     if (c.city || c.state_province) metaHtml += '<span class="sep">&middot;</span><span>' + esc([c.city, c.state_province].filter(Boolean).join(', ')) + '</span>';
     if (c.email) metaHtml += '<span class="sep">&middot;</span><span>' + esc(c.email) + '</span>';
     document.getElementById('detailMeta').innerHTML = metaHtml;
@@ -1483,6 +1487,24 @@ strong { font-weight: 600; color: var(--color-heading); }
     }).then(function(r) { return r.json(); }).then(function(res) {
       if (!res.success) { c.status = oldStatus; if (sel) { sel.value = oldStatus; sel.className = 'status-meta-select st-' + oldStatus; } updateTabVisibility(); }
     }).catch(function() { c.status = oldStatus; if (sel) { sel.value = oldStatus; sel.className = 'status-meta-select st-' + oldStatus; } updateTabVisibility(); });
+  };
+
+  window.setCampaignType = function(newType) {
+    var c = state.contact;
+    if (!c) return;
+    var oldType = c.campaign_type || 'local';
+    c.campaign_type = newType;
+    fetch('/api/action', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_record', table: 'contacts', filters: { id: c.id }, data: { campaign_type: newType, updated_at: new Date().toISOString() } })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        renderReports();
+      } else {
+        c.campaign_type = oldType;
+        renderDetail();
+      }
+    }).catch(function() { c.campaign_type = oldType; renderDetail(); });
   };
 
   // ---- ONBOARDING TAB ----
