@@ -97,7 +97,8 @@ strong { font-weight: 600; color: var(--color-heading); }
 .search-result { display: flex; align-items: center; gap: .75rem; padding: .6rem 1rem; cursor: pointer; transition: background .1s; }
 .search-result:hover, .search-result.focused { background: var(--color-primary-subtle); }
 .search-result .result-name { font-weight: 500; font-size: .85rem; color: var(--color-heading); }
-.search-result .result-slug { font-size: .75rem; color: var(--color-muted); }
+.search-result .result-practice { font-size: .75rem; color: var(--color-muted); }
+.search-result .result-slug { font-size: .7rem; color: var(--color-muted); opacity: .7; }
 .search-result .result-status { margin-left: auto; }
 .topbar-right { display: flex; align-items: center; gap: .5rem; margin-left: auto; }
 
@@ -546,8 +547,14 @@ strong { font-weight: 600; color: var(--color-heading); }
     } else {
       searchResults.innerHTML = matches.map(function(c, i) {
         var statusClass = 'tag-' + c.status;
+        var fullName = ((c.first_name || '') + ' ' + (c.last_name || '')).trim();
+        var practiceName = c.practice_name || '';
+        var displayName = fullName || practiceName || c.slug;
+        var displayPractice = practiceName && practiceName !== fullName ? practiceName : '';
         return '<div class="search-result" data-slug="' + c.slug + '" onclick="window._openClient(\'' + c.slug + '\')">' +
-          '<div><div class="result-name">' + esc(c.practice_name || c.slug) + '</div><div class="result-slug">' + esc(c.slug) + '</div></div>' +
+          '<div><div class="result-name">' + esc(displayName) + '</div>' +
+          (displayPractice ? '<div class="result-practice">' + esc(displayPractice) + '</div>' : '') +
+          '<div class="result-slug">' + esc(c.slug) + '</div></div>' +
           '<span class="result-status"><span class="tag ' + statusClass + '">' + c.status + '</span></span></div>';
       }).join('');
     }
