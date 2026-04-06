@@ -170,6 +170,17 @@ module.exports = async function handler(req, res) {
         );
         results.action = 'status_flipped_to_onboarding';
         results.previous_status = 'prospect';
+
+        // Fire team notification (non-blocking)
+        try {
+          fetch('https://clients.moonraker.ai/api/notify-team', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event: 'payment_received', slug: slug })
+          }).catch(function(e) { console.log('Notification fire-and-forget error:', e.message); });
+        } catch (notifyErr) {
+          console.log('Failed to trigger payment notification:', notifyErr.message);
+        }
       } else {
         results.action = 'no_status_change';
         results.reason = 'Contact status is ' + contact.status + ', not prospect';
