@@ -816,14 +816,19 @@ strong { font-weight: 600; color: var(--color-heading); }
 
       <!-- TAB: Audit -->
       <div class="tab-panel" id="tab-audit">
-        <div id="auditScores" style="margin-bottom:1.5rem;"></div>
-        <div class="stat-row" id="auditStats"></div>
-        <div class="section-header">
-          <h3 style="font-size:.95rem;">Checklist Tasks</h3>
-          <div class="task-filters" id="taskFilters"></div>
+        <!-- Entity Audit section (leads/prospects) -->
+        <div id="auditEntitySection" style="display:none;"></div>
+        <!-- Surge Audit section (onboarding/active) -->
+        <div id="auditSurgeSection" style="display:none;">
+          <div id="auditScores" style="margin-bottom:1.5rem;"></div>
+          <div class="stat-row" id="auditStats"></div>
+          <div class="section-header">
+            <h3 style="font-size:.95rem;">Checklist Tasks</h3>
+            <div class="task-filters" id="taskFilters"></div>
+          </div>
+          <div id="taskList"></div>
+          <div class="empty-state" id="auditEmpty" style="display:none;"><p>No audit tasks found. Run a Surge audit to get started.</p></div>
         </div>
-        <div id="taskList"></div>
-        <div class="empty-state" id="auditEmpty" style="display:none;"><p>No audit tasks found. Run a Surge audit to get started.</p></div>
       </div>
 
       <!-- TAB: Reports -->
@@ -916,6 +921,7 @@ strong { font-weight: 600; color: var(--color-heading); }
     taskOwnerFilter: 'all',
     introCall: [],
     proposals: [],
+    entityAudit: null,
     proposalFollowups: {}
   };
 
@@ -1000,7 +1006,8 @@ strong { font-weight: 600; color: var(--color-heading); }
         fetch(SB + '/rest/v1/report_snapshots?select=*&client_slug=eq.' + slug + '&order=report_month.desc&limit=20', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
         fetch(SB + '/rest/v1/signed_agreements?select=*&contact_id=eq.' + cid + '&limit=1', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
         fetch(SB + '/rest/v1/intro_call_steps?select=*&order=sort_order&contact_id=eq.' + cid, { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/proposals?select=*&contact_id=eq.' + cid + '&order=created_at.desc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; })
+        fetch(SB + '/rest/v1/proposals?select=*&contact_id=eq.' + cid + '&order=created_at.desc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
+        fetch(SB + '/rest/v1/entity_audits?select=*&contact_id=eq.' + cid + '&order=created_at.desc&limit=1', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; })
       ]);
     }).then(function(res) {
       if (!res) return; // Contact not found, already handled
@@ -1015,6 +1022,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       state.signed = (res[7] && res[7][0]) || null;
       state.introCall = res[8] || [];
       state.proposals = res[9] || [];
+      state.entityAudit = (res[10] && res[10][0]) || null;
       state.proposalFollowups = {};
 
       // Load followups for proposals (async, re-renders proposals tab when done)
@@ -1703,6 +1711,126 @@ strong { font-weight: 600; color: var(--color-heading); }
   };
   // ---- AUDIT TAB ----
   function renderAudit() {
+    var c = state.contact;
+    var status = c ? c.status : '';
+    var isLeadOrProspect = status === 'lead' || status === 'prospect';
+
+    if (isLeadOrProspect) {
+      document.getElementById('auditEntitySection').style.display = 'block';
+      document.getElementById('auditSurgeSection').style.display = 'none';
+      renderEntityAudit();
+    } else {
+      document.getElementById('auditEntitySection').style.display = 'none';
+      document.getElementById('auditSurgeSection').style.display = 'block';
+      renderSurgeAudit();
+    }
+  }
+
+  function renderEntityAudit() {
+    var c = state.contact;
+    var ea = state.entityAudit;
+    var container = document.getElementById('auditEntitySection');
+
+    if (!ea) {
+      // No entity audit yet — show launch card
+      var h = '<div class="card" style="text-align:center;padding:2.5rem;">';
+      h += '<div style="font-size:2rem;margin-bottom:.75rem;">&#128202;</div>';
+      h += '<h3 style="font-size:1.1rem;margin-bottom:.5rem;">Run Entity Audit</h3>';
+      h += '<p style="color:var(--color-muted);font-size:.88rem;margin-bottom:1.5rem;max-width:400px;margin-left:auto;margin-right:auto;line-height:1.6;">Analyze ' + esc(c.practice_name || c.first_name + '\'s practice') + ' across all four CORE pillars. The system will scan their website, Google Business Profile, social presence, and AI visibility.</p>';
+      h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;max-width:400px;margin:0 auto 1.25rem;">';
+      h += '<div><label style="font-size:.72rem;font-weight:600;color:var(--color-muted);display:block;margin-bottom:.25rem;text-transform:uppercase;letter-spacing:.04em;">Website URL</label>';
+      h += '<input id="eaUrl" type="url" value="' + esc(c.website_url || '') + '" placeholder="https://practice.com" style="width:100%;padding:.5rem .65rem;border:1px solid var(--color-border);border-radius:8px;font-size:.84rem;background:var(--color-bg);color:var(--color-heading);font-family:inherit;"></div>';
+      h += '<div><label style="font-size:.72rem;font-weight:600;color:var(--color-muted);display:block;margin-bottom:.25rem;text-transform:uppercase;letter-spacing:.04em;">Brand Query</label>';
+      h += '<input id="eaBrand" type="text" value="' + esc(c.practice_name || '') + '" placeholder="Practice Name City" style="width:100%;padding:.5rem .65rem;border:1px solid var(--color-border);border-radius:8px;font-size:.84rem;background:var(--color-bg);color:var(--color-heading);font-family:inherit;"></div>';
+      h += '</div>';
+      h += '<div style="display:flex;gap:.5rem;justify-content:center;align-items:center;">';
+      h += '<select id="eaTier" style="padding:.5rem .65rem;border:1px solid var(--color-border);border-radius:8px;font-size:.84rem;background:var(--color-bg);color:var(--color-heading);font-family:inherit;"><option value="free">Free Audit</option><option value="premium">Premium Audit</option></select>';
+      h += '<button onclick="launchEntityAudit()" style="padding:.55rem 1.25rem;background:var(--color-primary);color:#fff;border:none;border-radius:8px;font-size:.88rem;font-weight:600;font-family:Outfit,sans-serif;cursor:pointer;">Launch Audit &#8594;</button>';
+      h += '</div>';
+      h += '<span id="eaLaunchStatus" style="display:block;margin-top:.75rem;font-size:.82rem;color:var(--color-muted);"></span>';
+      h += '</div>';
+      container.innerHTML = h;
+      return;
+    }
+
+    // Entity audit exists — show management view
+    var h = '';
+
+    // CORE Scores (if available)
+    if (ea.scores) {
+      var pillars = [
+        { key: 'credibility', label: 'Credibility', color: '#00D47E' },
+        { key: 'optimization', label: 'Optimization', color: '#3B82F6' },
+        { key: 'reputation', label: 'Reputation', color: '#F59E0B' },
+        { key: 'engagement', label: 'Engagement', color: '#8B5CF6' }
+      ];
+      var circumference = 2 * Math.PI * 34;
+
+      h += '<div class="card" style="margin-bottom:1rem;"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center;"><h3>CORE Assessment</h3>';
+      h += '<span class="tag tag-' + (ea.audit_tier === 'premium' ? 'active' : 'prospect') + '" style="font-size:.7rem;">' + (ea.audit_tier === 'premium' ? 'Premium' : 'Free') + '</span></div>';
+      h += '<div class="score-grid">';
+      pillars.forEach(function(p) {
+        var val = (ea.scores && ea.scores[p.key]) || 0;
+        var offset = circumference - (val / 100 * circumference);
+        h += '<div class="score-item"><div class="score-ring">';
+        h += '<svg viewBox="0 0 76 76"><circle class="ring-bg" cx="38" cy="38" r="34"/>';
+        h += '<circle class="ring-fg" cx="38" cy="38" r="34" stroke="' + p.color + '" stroke-dasharray="' + circumference.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '"/></svg>';
+        h += '<div class="ring-label">' + Math.round(val) + '</div></div>';
+        h += '<div class="score-name">' + p.label + '</div></div>';
+      });
+      h += '</div></div>';
+    }
+
+    // Status + Actions card
+    h += '<div class="card" style="margin-bottom:1rem;"><div class="card-header"><h3>Entity Audit Details</h3></div>';
+    h += '<div style="padding:.75rem 0;">';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">';
+
+    // Status
+    var statusLabel = { pending: 'Pending', processing: 'Processing', complete: 'Complete', delivered: 'Delivered' };
+    var statusColor = { pending: 'var(--color-muted)', processing: 'var(--color-info)', complete: 'var(--color-warning)', delivered: 'var(--color-success)' };
+    h += '<div><div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);margin-bottom:.25rem;">Status</div>';
+    h += '<select id="eaStatusSelect" onchange="updateEntityAuditField(\'status\',this.value)" style="width:100%;padding:.45rem .65rem;border:1px solid var(--color-border);border-radius:8px;font-size:.84rem;background:var(--color-surface);color:var(--color-heading);font-family:inherit;">';
+    ['pending','processing','complete','delivered'].forEach(function(s) {
+      h += '<option value="' + s + '"' + (ea.status === s ? ' selected' : '') + '>' + (statusLabel[s] || s) + '</option>';
+    });
+    h += '</select></div>';
+
+    // Tier
+    h += '<div><div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);margin-bottom:.25rem;">Tier</div>';
+    h += '<select id="eaTierSelect" onchange="updateEntityAuditField(\'audit_tier\',this.value)" style="width:100%;padding:.45rem .65rem;border:1px solid var(--color-border);border-radius:8px;font-size:.84rem;background:var(--color-surface);color:var(--color-heading);font-family:inherit;">';
+    h += '<option value="free"' + (ea.audit_tier === 'free' ? ' selected' : '') + '>Free</option>';
+    h += '<option value="premium"' + (ea.audit_tier === 'premium' ? ' selected' : '') + '>Premium</option>';
+    h += '</select></div>';
+
+    // Date
+    h += '<div><div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);margin-bottom:.25rem;">Created</div>';
+    h += '<div style="font-size:.88rem;padding:.45rem 0;color:var(--color-body);">' + (ea.created_at ? new Date(ea.created_at).toLocaleDateString() : '--') + '</div></div>';
+
+    h += '</div>';
+
+    // Loom URL
+    h += '<div style="margin-top:1rem;"><div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);margin-bottom:.25rem;">Loom Walkthrough URL</div>';
+    h += '<div style="display:flex;gap:.5rem;"><input id="eaLoomUrl" type="url" value="' + esc(ea.loom_url || '') + '" placeholder="https://loom.com/share/..." style="flex:1;padding:.45rem .65rem;border:1px solid var(--color-border);border-radius:8px;font-size:.84rem;background:var(--color-surface);color:var(--color-heading);font-family:inherit;">';
+    h += '<button onclick="updateEntityAuditField(\'loom_url\',document.getElementById(\'eaLoomUrl\').value)" style="padding:.45rem .85rem;border:1px solid var(--color-primary);background:var(--color-primary-subtle);color:var(--color-primary);border-radius:8px;font-size:.78rem;font-weight:600;cursor:pointer;font-family:inherit;">Save</button></div></div>';
+
+    h += '</div></div>';
+
+    // Actions row
+    h += '<div style="display:flex;gap:.5rem;flex-wrap:wrap;">';
+    if (ea.status === 'pending' || ea.status === 'processing') {
+      h += '<button onclick="processSurgeAudit()" style="padding:.5rem 1rem;background:var(--color-info);color:#fff;border:none;border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:Outfit,sans-serif;">&#9889; Process Surge</button>';
+    }
+    h += '<a href="/' + esc(c.slug) + '/entity-audit" target="_blank" style="padding:.5rem 1rem;border:1px solid var(--color-primary);color:var(--color-primary);border-radius:8px;font-size:.82rem;font-weight:600;text-decoration:none;font-family:Outfit,sans-serif;">View Scorecard &#8250;</a>';
+    if (ea.status === 'complete' || ea.status === 'delivered') {
+      h += '<button onclick="sendEntityAuditEmail()" id="eaSendBtn" style="padding:.5rem 1rem;border:1px solid var(--color-border);color:var(--color-body);border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;background:none;font-family:Outfit,sans-serif;">&#9993; Send to Client</button>';
+    }
+    h += '</div>';
+
+    container.innerHTML = h;
+  }
+
+  function renderSurgeAudit() {
     var tasks = state.tasks;
     var scores = state.scores;
 
@@ -1792,6 +1920,143 @@ strong { font-weight: 600; color: var(--color-heading); }
       }
     });
   }
+
+  // ── Entity Audit Actions ──
+  window.launchEntityAudit = function() {
+    var c = state.contact;
+    if (!c) return;
+    var url = (document.getElementById('eaUrl') || {}).value || '';
+    var brand = (document.getElementById('eaBrand') || {}).value || '';
+    var tier = (document.getElementById('eaTier') || {}).value || 'free';
+    var statusEl = document.getElementById('eaLaunchStatus');
+
+    if (!url) { if (statusEl) statusEl.textContent = 'Website URL is required.'; return; }
+    if (statusEl) statusEl.textContent = 'Creating audit...';
+
+    // Also update the contact's website_url if it was empty
+    if (!c.website_url && url) {
+      fetch('/api/action', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_record', table: 'contacts', filters: { id: c.id }, data: { website_url: url } })
+      }).catch(function() {});
+      c.website_url = url;
+    }
+
+    fetch('/api/action', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'create_record', table: 'entity_audits',
+        data: {
+          contact_id: c.id,
+          audit_tier: tier,
+          homepage_url: url,
+          brand_query: brand,
+          status: 'pending',
+          audit_date: new Date().toISOString().split('T')[0]
+        }
+      })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success && res.data) {
+        state.entityAudit = res.data;
+        renderAudit();
+        toast('Entity audit created', 'success');
+      } else {
+        if (statusEl) statusEl.textContent = 'Failed to create audit: ' + (res.error || 'Unknown error');
+      }
+    }).catch(function(e) {
+      if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+    });
+  };
+
+  window.updateEntityAuditField = function(field, value) {
+    var ea = state.entityAudit;
+    if (!ea) return;
+    var data = {};
+    data[field] = value;
+    data['updated_at'] = new Date().toISOString();
+    var oldVal = ea[field];
+    ea[field] = value;
+
+    fetch('/api/action', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_record', table: 'entity_audits', filters: { id: ea.id }, data: data })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        toast(field.replace(/_/g, ' ') + ' updated', 'success');
+        if (field === 'status' || field === 'audit_tier') renderEntityAudit();
+      } else {
+        ea[field] = oldVal;
+        toast('Failed to update', 'error');
+      }
+    }).catch(function() { ea[field] = oldVal; toast('Failed to update', 'error'); });
+  };
+
+  window.processSurgeAudit = function() {
+    var ea = state.entityAudit;
+    var c = state.contact;
+    if (!ea || !c) return;
+
+    if (!confirm('Process Surge audit for ' + (c.practice_name || c.slug) + '? This will analyze their website and generate CORE scores and tasks.')) return;
+
+    toast('Processing Surge audit...', 'info');
+    ea.status = 'processing';
+    renderEntityAudit();
+
+    fetch('/api/process-entity-audit', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audit_id: ea.id })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success || res.audit) {
+        // Reload the audit data
+        fetch(SB + '/rest/v1/entity_audits?id=eq.' + ea.id + '&limit=1', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } })
+          .then(function(r) { return r.json(); })
+          .then(function(audits) {
+            if (audits && audits[0]) { state.entityAudit = audits[0]; }
+            renderAudit();
+            toast('Surge audit processed', 'success');
+          });
+      } else {
+        ea.status = 'pending';
+        renderEntityAudit();
+        toast('Surge processing failed: ' + (res.error || 'Unknown'), 'error');
+      }
+    }).catch(function(e) {
+      ea.status = 'pending';
+      renderEntityAudit();
+      toast('Surge processing error: ' + e.message, 'error');
+    });
+  };
+
+  window.sendEntityAuditEmail = function() {
+    var ea = state.entityAudit;
+    var c = state.contact;
+    if (!ea || !c) return;
+    if (!c.email) { toast('No email address on file', 'error'); return; }
+
+    var btn = document.getElementById('eaSendBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+
+    fetch('/api/action', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'update_record', table: 'entity_audits', filters: { id: ea.id },
+        data: { status: 'delivered', sent_at: new Date().toISOString(), sent_to: c.email, updated_at: new Date().toISOString() }
+      })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        ea.status = 'delivered';
+        ea.sent_at = new Date().toISOString();
+        ea.sent_to = c.email;
+        renderEntityAudit();
+        toast('Audit marked as delivered to ' + c.email, 'success');
+      } else {
+        if (btn) { btn.disabled = false; btn.textContent = '\u2709 Send to Client'; }
+        toast('Failed to update', 'error');
+      }
+    }).catch(function() {
+      if (btn) { btn.disabled = false; btn.textContent = '\u2709 Send to Client'; }
+    });
+  };
 
   // Activity log - fire-and-forget, never blocks the UI
   function logActivity(tableName, recordId, field, oldVal, newVal, label) {
@@ -3994,6 +4259,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
