@@ -841,7 +841,7 @@ strong { font-weight: 600; color: var(--color-heading); }
         <div id="auditEntitySection" style="display:none;"></div>
         <!-- Campaign Task Tracker (active/onboarding) -->
         <div id="auditSurgeSection" style="display:none;">
-          <div class="card-header" style="margin-bottom:.75rem;padding:0;"><h3>Campaign Tasks</h3></div>
+
           <div id="auditScores" style="margin-bottom:1.5rem;"></div>
           <div class="stat-row" id="auditStats"></div>
           <div class="section-header">
@@ -1996,7 +1996,7 @@ strong { font-weight: 600; color: var(--color-heading); }
     h += '</div></div>';
 
     // Actions row
-    h += '<div style="display:flex;gap:.5rem;flex-wrap:wrap;">';
+    h += '<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.25rem;">';
     if (ea.status === 'processing') {
       h += '<button disabled style="padding:.5rem 1rem;background:var(--color-info);color:#fff;border:none;border-radius:8px;font-size:.82rem;font-weight:600;cursor:wait;font-family:Outfit,sans-serif;opacity:.7;">&#9881; Processing...</button>';
     } else if (ea.status === 'agent_running') {
@@ -2103,7 +2103,8 @@ strong { font-weight: 600; color: var(--color-heading); }
     var entitySection = document.getElementById('auditEntitySection');
     var entityVisible = entitySection && entitySection.style.display !== 'none' && entitySection.innerHTML.indexOf('score-grid') !== -1;
 
-    if (scores && !entityVisible) {
+    var hasAnyScore = scores && (scores.score_credibility != null || scores.score_optimization != null || scores.score_reputation != null || scores.score_engagement != null);
+    if (hasAnyScore && !entityVisible) {
       var pillars = [
         { key: 'score_credibility', label: 'Credibility', color: '#00D47E' },
         { key: 'score_optimization', label: 'Optimization', color: '#3B82F6' },
