@@ -839,8 +839,9 @@ strong { font-weight: 600; color: var(--color-heading); }
       <div class="tab-panel" id="tab-audit">
         <!-- Entity Audit section (leads/prospects) -->
         <div id="auditEntitySection" style="display:none;"></div>
-        <!-- Surge Audit section (onboarding/active) -->
+        <!-- Campaign Task Tracker (active/onboarding) -->
         <div id="auditSurgeSection" style="display:none;">
+          <div class="card-header" style="margin-bottom:.75rem;padding:0;"><h3>Campaign Tasks</h3></div>
           <div id="auditScores" style="margin-bottom:1.5rem;"></div>
           <div class="stat-row" id="auditStats"></div>
           <div class="section-header">
@@ -848,7 +849,7 @@ strong { font-weight: 600; color: var(--color-heading); }
             <div class="task-filters" id="taskFilters"></div>
           </div>
           <div id="taskList"></div>
-          <div class="empty-state" id="auditEmpty" style="display:none;"><p>No audit tasks found. Run a Surge audit to get started.</p></div>
+          <div class="empty-state" id="auditEmpty" style="display:none;"><p>No audit tasks yet. Process Surge data above to generate structured tasks.</p></div>
         </div>
       </div>
 
@@ -1078,7 +1079,7 @@ strong { font-weight: 600; color: var(--color-heading); }
         fetch(SB + '/rest/v1/practice_details?select=*&contact_id=eq.' + cid, { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
         fetch(SB + '/rest/v1/onboarding_steps?select=*&order=sort_order&contact_id=eq.' + cid, { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
         fetch(SB + '/rest/v1/checklist_items?select=*&client_slug=eq.' + slug + '&order=sort_order', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }),
-        fetch(SB + '/rest/v1/audit_scores?select=*&client_slug=eq.' + slug + '&order=audit_date.desc&limit=1', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }),
+        fetch(SB + '/rest/v1/entity_audits?select=*&contact_id=eq.' + cid + '&order=created_at.desc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
         fetch(SB + '/rest/v1/deliverables?select=*&order=created_at.desc&contact_id=eq.' + cid, { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
         fetch(SB + '/rest/v1/report_configs?select=*&client_slug=eq.' + slug + '&limit=1', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
         fetch(SB + '/rest/v1/report_snapshots?select=*&client_slug=eq.' + slug + '&order=report_month.desc&limit=20', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
@@ -1094,16 +1095,31 @@ strong { font-weight: 600; color: var(--color-heading); }
       state.practice = (res[0] && res[0][0]) || null;
       state.onboarding = res[1] || [];
       state.tasks = res[2] || [];
-      state.scores = (res[3] && res[3][0]) || null;
+      state.allAudits = res[3] || []; // All entity_audits for this contact
       state.deliverables = res[4] || [];
       state.reportConfig = (res[5] && res[5][0]) || null;
       state.snapshots = res[6] || [];
       state.signed = (res[7] && res[7][0]) || null;
       state.introCall = res[8] || [];
       state.proposals = res[9] || [];
-      state.entityAudit = (res[10] && res[10][0]) || null;
+      state.entityAudit = (state.allAudits.length > 0) ? state.allAudits[0] : ((res[10] && res[10][0]) || null);
       state.trackedKeywords = res[11] || [];
       state.proposalFollowups = {};
+
+      // Derive CORE scores from entity_audits (replaces audit_scores table)
+      if (state.entityAudit) {
+        state.scores = {
+          score_credibility: state.entityAudit.score_credibility,
+          score_optimization: state.entityAudit.score_optimization,
+          score_reputation: state.entityAudit.score_reputation,
+          score_engagement: state.entityAudit.score_engagement,
+          variance_score: state.entityAudit.variance_score,
+          variance_label: state.entityAudit.variance_label,
+          cres_score: state.entityAudit.cres_score
+        };
+      } else {
+        state.scores = null;
+      }
 
       // Load followups for proposals (async, re-renders proposals tab when done)
       if (state.proposals.length > 0) {
@@ -1835,16 +1851,18 @@ strong { font-weight: 600; color: var(--color-heading); }
   function renderAudit() {
     var c = state.contact;
     var status = c ? c.status : '';
-    var isLeadOrProspect = status === 'lead' || status === 'prospect';
+    var isActiveCampaign = status === 'active' || status === 'onboarding';
 
-    if (isLeadOrProspect) {
-      document.getElementById('auditEntitySection').style.display = 'block';
-      document.getElementById('auditSurgeSection').style.display = 'none';
-      renderEntityAudit();
-    } else {
-      document.getElementById('auditEntitySection').style.display = 'none';
+    // Always show entity audit management section
+    document.getElementById('auditEntitySection').style.display = 'block';
+    renderEntityAudit();
+
+    // For active/onboarding, also show the task tracker below
+    if (isActiveCampaign && (state.tasks.length > 0 || state.scores)) {
       document.getElementById('auditSurgeSection').style.display = 'block';
       renderSurgeAudit();
+    } else {
+      document.getElementById('auditSurgeSection').style.display = 'none';
     }
   }
 
@@ -1852,13 +1870,22 @@ strong { font-weight: 600; color: var(--color-heading); }
     var c = state.contact;
     var ea = state.entityAudit;
     var container = document.getElementById('auditEntitySection');
+    var status = c ? c.status : '';
+    var isActiveCampaign = status === 'active' || status === 'onboarding';
+    var isLeadOrProspect = status === 'lead' || status === 'prospect';
 
     if (!ea) {
       // No entity audit yet — show launch card
+      var launchTitle = isActiveCampaign ? 'Create Campaign Audit' : 'Run Entity Audit';
+      var launchDesc = isActiveCampaign
+        ? 'Establish the CORE audit baseline for ' + esc(c.practice_name || c.first_name + '\'s practice') + '. Paste Surge data to generate the campaign audit with structured tasks, diagnosis, action plan, and progress tracking.'
+        : 'Analyze ' + esc(c.practice_name || c.first_name + '\'s practice') + ' across all four CORE pillars. The system will scan their website, Google Business Profile, social presence, and AI visibility.';
+      var defaultTier = isActiveCampaign ? 'premium' : 'free';
+
       var h = '<div class="card" style="text-align:center;padding:2.5rem;">';
-      h += '<div style="font-size:2rem;margin-bottom:.75rem;">&#128202;</div>';
-      h += '<h3 style="font-size:1.1rem;margin-bottom:.5rem;">Run Entity Audit</h3>';
-      h += '<p style="color:var(--color-muted);font-size:.88rem;margin-bottom:1.5rem;max-width:400px;margin-left:auto;margin-right:auto;line-height:1.6;">Analyze ' + esc(c.practice_name || c.first_name + '\'s practice') + ' across all four CORE pillars. The system will scan their website, Google Business Profile, social presence, and AI visibility.</p>';
+      h += '<div style="font-size:2rem;margin-bottom:.75rem;">' + (isActiveCampaign ? '&#9881;' : '&#128202;') + '</div>';
+      h += '<h3 style="font-size:1.1rem;margin-bottom:.5rem;">' + launchTitle + '</h3>';
+      h += '<p style="color:var(--color-muted);font-size:.88rem;margin-bottom:1.5rem;max-width:400px;margin-left:auto;margin-right:auto;line-height:1.6;">' + launchDesc + '</p>';
       h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;max-width:400px;margin:0 auto 1.25rem;">';
       h += '<div><label style="font-size:.72rem;font-weight:600;color:var(--color-muted);display:block;margin-bottom:.25rem;text-transform:uppercase;letter-spacing:.04em;">Website URL</label>';
       h += '<input id="eaUrl" type="url" value="' + esc(c.website_url || '') + '" placeholder="https://practice.com" style="width:100%;padding:.5rem .65rem;border:1px solid var(--color-border);border-radius:8px;font-size:.84rem;background:var(--color-bg);color:var(--color-heading);font-family:inherit;"></div>';
@@ -1866,8 +1893,12 @@ strong { font-weight: 600; color: var(--color-heading); }
       h += '<input id="eaBrand" type="text" value="' + esc(c.practice_name || '') + '" placeholder="Practice Name City" style="width:100%;padding:.5rem .65rem;border:1px solid var(--color-border);border-radius:8px;font-size:.84rem;background:var(--color-bg);color:var(--color-heading);font-family:inherit;"></div>';
       h += '</div>';
       h += '<div style="display:flex;gap:.5rem;justify-content:center;align-items:center;">';
-      h += '<select id="eaTier" style="padding:.5rem .65rem;border:1px solid var(--color-border);border-radius:8px;font-size:.84rem;background:var(--color-bg);color:var(--color-heading);font-family:inherit;"><option value="free">Free Audit</option><option value="premium">Premium Audit</option></select>';
-      h += '<button onclick="launchEntityAudit()" style="padding:.55rem 1.25rem;background:var(--color-primary);color:#fff;border:none;border-radius:8px;font-size:.88rem;font-weight:600;font-family:Outfit,sans-serif;cursor:pointer;">Launch Audit &#8594;</button>';
+      if (!isActiveCampaign) {
+        h += '<select id="eaTier" style="padding:.5rem .65rem;border:1px solid var(--color-border);border-radius:8px;font-size:.84rem;background:var(--color-bg);color:var(--color-heading);font-family:inherit;"><option value="free">Free Audit</option><option value="premium">Premium Audit</option></select>';
+      } else {
+        h += '<input type="hidden" id="eaTier" value="premium">';
+      }
+      h += '<button onclick="launchEntityAudit()" style="padding:.55rem 1.25rem;background:var(--color-primary);color:#fff;border:none;border-radius:8px;font-size:.88rem;font-weight:600;font-family:Outfit,sans-serif;cursor:pointer;">' + launchTitle + ' &#8594;</button>';
       h += '</div>';
       h += '<span id="eaLaunchStatus" style="display:block;margin-top:.75rem;font-size:.82rem;color:var(--color-muted);"></span>';
       h += '</div>';
@@ -1878,26 +1909,44 @@ strong { font-weight: 600; color: var(--color-heading); }
     // Entity audit exists — show management view
     var h = '';
 
+    // Context header for campaign vs lead
+    if (isActiveCampaign) {
+      h += '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem;">';
+      h += '<span style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--color-primary);background:var(--color-primary-subtle);padding:.25rem .6rem;border-radius:4px;">Campaign Audit Baseline</span>';
+      if (ea.audit_period && ea.audit_period !== 'initial') {
+        h += '<span style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--color-info);background:rgba(59,130,246,.08);padding:.25rem .6rem;border-radius:4px;">' + esc(ea.audit_period) + '</span>';
+      }
+      h += '</div>';
+    }
+
     // CORE Scores (if available)
-    if (ea.scores) {
+    var hasPromotedScores = ea.score_credibility != null || ea.score_optimization != null;
+    var scoreSource = hasPromotedScores ? 'promoted' : (ea.scores ? 'jsonb' : null);
+
+    if (scoreSource) {
       var pillars = [
-        { key: 'credibility', label: 'Credibility', color: '#00D47E' },
-        { key: 'optimization', label: 'Optimization', color: '#3B82F6' },
-        { key: 'reputation', label: 'Reputation', color: '#F59E0B' },
-        { key: 'engagement', label: 'Engagement', color: '#8B5CF6' }
+        { key: 'credibility', promoted: 'score_credibility', label: 'Credibility', color: '#00D47E' },
+        { key: 'optimization', promoted: 'score_optimization', label: 'Optimization', color: '#3B82F6' },
+        { key: 'reputation', promoted: 'score_reputation', label: 'Reputation', color: '#F59E0B' },
+        { key: 'engagement', promoted: 'score_engagement', label: 'Engagement', color: '#8B5CF6' }
       ];
       var circumference = 2 * Math.PI * 34;
 
       h += '<div class="card" style="margin-bottom:1rem;"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center;"><h3>CORE Assessment</h3>';
-      h += '<span class="tag tag-' + (ea.audit_tier === 'premium' ? 'active' : 'prospect') + '" style="font-size:.7rem;">' + (ea.audit_tier === 'premium' ? 'Premium' : 'Free') + '</span></div>';
+      h += '<div style="display:flex;gap:.5rem;align-items:center;">';
+      if (ea.variance_score != null) {
+        h += '<span style="font-size:.75rem;color:var(--color-muted);">Variance: ' + ea.variance_score + '/100</span>';
+      }
+      h += '<span class="tag tag-' + (ea.audit_tier === 'premium' ? 'active' : 'prospect') + '" style="font-size:.7rem;">' + (ea.audit_tier === 'premium' ? 'Premium' : 'Free') + '</span>';
+      h += '</div></div>';
       h += '<div class="score-grid">';
       pillars.forEach(function(p) {
-        var val = (ea.scores && ea.scores[p.key]) || 0;
-        var offset = circumference - (val / 100 * circumference);
+        var val = (scoreSource === 'promoted') ? (ea[p.promoted] || 0) : ((ea.scores && ea.scores[p.key]) || 0);
+        var offset = circumference - (val / 10 * circumference);
         h += '<div class="score-item"><div class="score-ring">';
         h += '<svg viewBox="0 0 76 76"><circle class="ring-bg" cx="38" cy="38" r="34"/>';
         h += '<circle class="ring-fg" cx="38" cy="38" r="34" stroke="' + p.color + '" stroke-dasharray="' + circumference.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '"/></svg>';
-        h += '<div class="ring-label">' + Math.round(val) + '</div></div>';
+        h += '<div class="ring-label">' + val + '/10</div></div>';
         h += '<div class="score-name">' + p.label + '</div></div>';
       });
       h += '</div></div>';
@@ -1948,14 +1997,23 @@ strong { font-weight: 600; color: var(--color-heading); }
       h += '<button onclick="processSurgeAudit()" style="padding:.5rem 1rem;border:1px solid var(--color-info);color:var(--color-info);background:none;border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:Outfit,sans-serif;">&#9889; Reprocess Surge</button>';
     }
     h += '<a href="/' + esc(c.slug) + '/entity-audit" target="_blank" style="padding:.5rem 1rem;border:1px solid var(--color-primary);color:var(--color-primary);border-radius:8px;font-size:.82rem;font-weight:600;text-decoration:none;font-family:Outfit,sans-serif;">View Scorecard &#8250;</a>';
-    if (ea.status === 'complete' || ea.status === 'delivered') {
+
+    // Campaign audit suite links (active/onboarding only)
+    if (isActiveCampaign && (ea.status === 'complete' || ea.status === 'delivered')) {
+      h += '<a href="/' + esc(c.slug) + '/audits/diagnosis" target="_blank" style="padding:.5rem 1rem;border:1px solid var(--color-border);color:var(--color-body);border-radius:8px;font-size:.82rem;font-weight:600;text-decoration:none;font-family:Outfit,sans-serif;">Diagnosis &#8250;</a>';
+      h += '<a href="/' + esc(c.slug) + '/audits/action-plan" target="_blank" style="padding:.5rem 1rem;border:1px solid var(--color-border);color:var(--color-body);border-radius:8px;font-size:.82rem;font-weight:600;text-decoration:none;font-family:Outfit,sans-serif;">Action Plan &#8250;</a>';
+      h += '<a href="/' + esc(c.slug) + '/audits/progress" target="_blank" style="padding:.5rem 1rem;border:1px solid var(--color-border);color:var(--color-body);border-radius:8px;font-size:.82rem;font-weight:600;text-decoration:none;font-family:Outfit,sans-serif;">Progress &#8250;</a>';
+    }
+
+    // Lead-specific: send to client
+    if (isLeadOrProspect && (ea.status === 'complete' || ea.status === 'delivered')) {
       h += '<button onclick="sendEntityAuditEmail()" id="eaSendBtn" style="padding:.5rem 1rem;border:1px solid var(--color-border);color:var(--color-body);border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;background:none;font-family:Outfit,sans-serif;">&#9993; Send to Client</button>';
     }
     h += '<button onclick="deleteEntityAudit()" style="padding:.5rem 1rem;border:1px solid var(--color-danger);color:var(--color-danger);background:rgba(239,68,68,.04);border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:Outfit,sans-serif;margin-left:auto;">Delete Audit</button>';
     h += '</div>';
 
-    // ── Follow-up Sequence (only after delivery) ──
-    if (ea.status === 'delivered') {
+    // ── Follow-up Sequence (only for leads after delivery) ──
+    if (isLeadOrProspect && ea.status === 'delivered') {
       var afus = state.auditFollowups || [];
       var draftCount = afus.filter(function(f) { return f.status === 'draft'; }).length;
       var pendingCount = afus.filter(function(f) { return f.status === 'pending'; }).length;
@@ -2023,8 +2081,12 @@ strong { font-weight: 600; color: var(--color-heading); }
       return;
     }
 
-    // CORE Scores
-    if (scores) {
+    // CORE Scores are now rendered by renderEntityAudit() above
+    // Only show them here if entity audit section is hidden (fallback)
+    var entitySection = document.getElementById('auditEntitySection');
+    var entityVisible = entitySection && entitySection.style.display !== 'none' && entitySection.innerHTML.indexOf('score-grid') !== -1;
+
+    if (scores && !entityVisible) {
       var pillars = [
         { key: 'score_credibility', label: 'Credibility', color: '#00D47E' },
         { key: 'score_optimization', label: 'Optimization', color: '#3B82F6' },
