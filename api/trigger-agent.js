@@ -8,7 +8,7 @@
  * 
  * Flow:
  * 1. Looks up contact + entity_audit data from Supabase
- * 2. Validates required fields (website_url, practice_name, city, state)
+ * 2. Validates required fields (website_url, practice_name)
  * 3. POSTs to agent service to start the audit
  * 4. Updates entity_audit status to 'agent_running'
  * 5. Returns task_id for client-side polling
@@ -56,14 +56,19 @@ module.exports = async function(req, res) {
     }
     var audit = audits[0];
 
-    // 3. Validate required fields
+    // 3. Assemble fields: prefer audit row, fall back to contact
     var websiteUrl = audit.homepage_url || contact.website_url || '';
     var practiceName = audit.brand_query || contact.practice_name || (contact.first_name + ' ' + contact.last_name);
-    var city = contact.city || '';
-    var state = contact.state_province || '';
+    var geoTarget = audit.geo_target || '';
+    var gbpLink = audit.gbp_share_link || '';
+
+    // Fall back to contact city/state if geo_target wasn't set on the audit
+    if (!geoTarget && (contact.city || contact.state_province)) {
+      geoTarget = (contact.city || '') + (contact.city && contact.state_province ? ', ' : '') + (contact.state_province || '');
+    }
 
     if (!websiteUrl) {
-      return res.status(400).json({ error: 'Website URL is required. Add it to the contact or audit before running.' });
+      return res.status(400).json({ error: 'Website URL is required. Add it to the audit before running.' });
     }
     if (!practiceName) {
       return res.status(400).json({ error: 'Practice name or brand query is required.' });
@@ -80,9 +85,10 @@ module.exports = async function(req, res) {
         audit_id: body.audit_id,
         practice_name: practiceName,
         website_url: websiteUrl,
-        city: city,
-        state: state,
-        gbp_link: contact.gbp_share_link || '',
+        city: contact.city || '',
+        state: contact.state_province || '',
+        geo_target: geoTarget,
+        gbp_link: gbpLink,
         client_slug: contact.slug
       })
     });
