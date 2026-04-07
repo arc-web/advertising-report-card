@@ -140,6 +140,13 @@ section{padding:3.5rem 0}
 .finding-owner.client{background:rgba(59,130,246,.1);color:#3B82F6}
 .finding-owner.collaboration{background:rgba(245,158,11,.1);color:#D97706}
 
+/* Code boxes (schema code in findings) */
+.finding code,.finding pre code{background:rgba(0,212,126,.06);border:1px solid rgba(0,212,126,.15);border-radius:6px;padding:.15rem .4rem;font-size:.8125rem;font-family:'SF Mono','Fira Code',monospace;color:var(--color-heading);overflow-wrap:break-word;word-break:break-all}
+.finding pre{background:linear-gradient(135deg,#0D2E22,#0A1E30);color:#B4EEE0;border-radius:10px;padding:1rem 1.25rem;margin:.75rem 0;overflow-x:auto;font-size:.8125rem;line-height:1.6;border:1px solid rgba(0,212,126,.15)}
+.finding pre code{background:none;border:none;padding:0;color:inherit;white-space:pre-wrap;word-break:break-word}
+
+::view-transition-old(root),::view-transition-new(root){animation-duration:.25s}
+
 .footer{text-align:center;padding:3rem 0;font-size:.8125rem;color:var(--color-muted)}
 .loading-state{text-align:center;padding:8rem 2rem}
 .spinner{width:32px;height:32px;border:3px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
@@ -417,7 +424,14 @@ section{padding:3.5rem 0}
   // Theme toggle
   var tb=document.getElementById('themeBtn');
   var ct=document.documentElement.getAttribute('data-theme');
-  if(tb){tb.innerHTML=ct==='dark'?'&#9728;&#65039;':'&#x1F319;';tb.addEventListener('click',function(){var h=document.documentElement;if(h.getAttribute('data-theme')==='light'){h.setAttribute('data-theme','dark');tb.innerHTML='&#9728;&#65039;';try{localStorage.setItem('moonraker-theme','dark')}catch(e){}}else{h.setAttribute('data-theme','light');tb.innerHTML='&#x1F319;';try{localStorage.setItem('moonraker-theme','light')}catch(e){}}})}
+  if(tb){tb.innerHTML=ct==='dark'?'&#9728;&#65039;':'&#x1F319;';tb.addEventListener('click',function(){
+    var h=document.documentElement;
+    function apply(){
+      if(h.getAttribute('data-theme')==='light'){h.setAttribute('data-theme','dark');tb.innerHTML='&#9728;&#65039;';try{localStorage.setItem('moonraker-theme','dark')}catch(e){}}
+      else{h.setAttribute('data-theme','light');tb.innerHTML='&#x1F319;';try{localStorage.setItem('moonraker-theme','light')}catch(e){}}
+    }
+    if(document.startViewTransition){document.startViewTransition(apply)}else{apply()}
+  })}
 
   // Scroll tracking
   var pLine=document.getElementById('progressLine');
