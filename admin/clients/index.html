@@ -2198,13 +2198,22 @@ strong { font-weight: 600; color: var(--color-heading); }
     if (!url) { if (statusEl) statusEl.textContent = 'Website URL is required.'; return; }
     if (statusEl) statusEl.textContent = 'Creating audit...';
 
-    // Also update the contact's website_url if it was empty
-    if (!c.website_url && url) {
+    // Sync audit fields back to contact record
+    var contactUpdates = {};
+    if (!c.website_url && url) { contactUpdates.website_url = url; c.website_url = url; }
+    if (gbpLink) { contactUpdates.gbp_url = gbpLink; c.gbp_url = gbpLink; }
+    if (geo) {
+      var parts = geo.split(',');
+      var geoCity = parts[0] ? parts[0].trim() : '';
+      var geoState = parts[1] ? parts[1].trim() : '';
+      if (!c.city && geoCity) { contactUpdates.city = geoCity; c.city = geoCity; }
+      if (!c.state_province && geoState) { contactUpdates.state_province = geoState; c.state_province = geoState; }
+    }
+    if (Object.keys(contactUpdates).length > 0) {
       fetch('/api/action', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'update_record', table: 'contacts', filters: { id: c.id }, data: { website_url: url } })
+        body: JSON.stringify({ action: 'update_record', table: 'contacts', filters: { id: c.id }, data: contactUpdates })
       }).catch(function() {});
-      c.website_url = url;
     }
 
     fetch('/api/action', {
