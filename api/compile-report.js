@@ -184,21 +184,34 @@ module.exports = async function handler(req, res) {
     var gscHeaders = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
 
     var results = await Promise.all([
-      fetchT(gscBase, { method: 'POST', headers: gscHeaders, body: JSON.stringify({ startDate: range.start, endDate: range.end, dimensions: [], rowLimit: 1 }) }, 15000).then(function(r) { return r.json(); }),
-      fetchT(gscBase, { method: 'POST', headers: gscHeaders, body: JSON.stringify({ startDate: range.start, endDate: range.end, dimensions: ['page'], rowLimit: 10, orderBy: [{ fieldName: 'clicks', sortOrder: 'DESCENDING' }] }) }, 15000).then(function(r) { return r.json(); }),
-      fetchT(gscBase, { method: 'POST', headers: gscHeaders, body: JSON.stringify({ startDate: range.start, endDate: range.end, dimensions: ['query'], rowLimit: 10, orderBy: [{ fieldName: 'clicks', sortOrder: 'DESCENDING' }] }) }, 15000).then(function(r) { return r.json(); })
+      fetchT(gscBase, { method: 'POST', headers: gscHeaders, body: JSON.stringify({ startDate: range.start, endDate: range.end, dimensions: [], rowLimit: 1 }) }, 15000),
+      fetchT(gscBase, { method: 'POST', headers: gscHeaders, body: JSON.stringify({ startDate: range.start, endDate: range.end, dimensions: ['page'], rowLimit: 10, orderBy: [{ fieldName: 'clicks', sortOrder: 'DESCENDING' }] }) }, 15000),
+      fetchT(gscBase, { method: 'POST', headers: gscHeaders, body: JSON.stringify({ startDate: range.start, endDate: range.end, dimensions: ['query'], rowLimit: 10, orderBy: [{ fieldName: 'clicks', sortOrder: 'DESCENDING' }] }) }, 15000)
     ]);
 
-    var totals = (results[0].rows && results[0].rows[0]) || {};
+    // Check for auth/permission errors
+    if (!results[0].ok) {
+      var errBody = await results[0].text().catch(function() { return ''; });
+      var errMsg = 'GSC API ' + results[0].status;
+      if (results[0].status === 403) errMsg += ' - support@moonraker.ai may not have access to ' + config.gsc_property;
+      else if (results[0].status === 404) errMsg += ' - property ' + config.gsc_property + ' not found';
+      if (errBody) errMsg += ' (' + errBody.substring(0, 200) + ')';
+      warnings.push(errMsg);
+      return null;
+    }
+
+    var data = await Promise.all(results.map(function(r) { return r.json(); }));
+
+    var totals = (data[0].rows && data[0].rows[0]) || {};
     return {
       clicks: Math.round(totals.clicks || 0),
       impressions: Math.round(totals.impressions || 0),
       ctr: Math.round((totals.ctr || 0) * 10000) / 100,
       position: Math.round((totals.position || 0) * 10) / 10,
-      pages: (results[1].rows || []).slice(0, 5).map(function(r) {
+      pages: (data[1].rows || []).slice(0, 5).map(function(r) {
         return { page: r.keys[0].replace(/https?:\/\/[^/]+/, ''), clicks: r.clicks, impressions: r.impressions, ctr: Math.round(r.ctr * 10000) / 100, position: Math.round(r.position * 10) / 10 };
       }),
-      queries: (results[2].rows || []).slice(0, 5).map(function(r) {
+      queries: (data[2].rows || []).slice(0, 5).map(function(r) {
         return { query: r.keys[0], clicks: r.clicks, impressions: r.impressions, ctr: Math.round(r.ctr * 10000) / 100, position: Math.round(r.position * 10) / 10 };
       })
     };
