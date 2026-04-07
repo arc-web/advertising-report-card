@@ -50,6 +50,10 @@ section{padding:3.5rem 0}
 .section-nav .nav-dot{width:6px;height:6px;border-radius:50%;background:var(--color-border);flex-shrink:0;transition:all .25s}
 .section-nav a.active .nav-dot{background:var(--color-primary);width:8px;height:8px;box-shadow:0 0 6px rgba(0,212,126,.5)}
 @media print{.section-nav,.theme-toggle,.progress-line,.suite-nav{display:none !important}}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.25s}
+.task-detail code,.task-detail pre code{background:rgba(0,212,126,.06);border:1px solid rgba(0,212,126,.15);border-radius:6px;padding:.15rem .4rem;font-size:.8125rem;font-family:'SF Mono','Fira Code',monospace;color:var(--color-heading);overflow-wrap:break-word;word-break:break-all}
+.task-detail pre{background:linear-gradient(135deg,#0D2E22,#0A1E30);color:#B4EEE0;border-radius:10px;padding:1rem 1.25rem;margin:.75rem 0;overflow-x:auto;font-size:.8125rem;line-height:1.6;border:1px solid rgba(0,212,126,.15)}
+.task-detail pre code{background:none;border:none;padding:0;color:inherit;white-space:pre-wrap;word-break:break-word}
 .hero{padding:5.5rem 0 4rem;position:relative;overflow:hidden}
 .hero::before{content:'';position:absolute;top:-100px;right:-80px;width:500px;height:500px;background:radial-gradient(circle at 30% 40%,rgba(0,212,126,.06) 0%,transparent 60%);pointer-events:none}
 .hero-layout{display:grid;grid-template-columns:1fr 280px;gap:3rem;align-items:center}
@@ -60,18 +64,19 @@ section{padding:3.5rem 0}
 .badge{display:inline-block;background:var(--color-primary-subtle);color:var(--color-primary);font-weight:600;font-size:.75rem;padding:.4rem 1rem;border-radius:100px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:1rem}
 .hero-visual svg{width:100%;height:auto}
 /* Progress hero */
-.progress-hero{text-align:center;padding:2rem 0}
-.progress-pct{font-family:'Outfit',sans-serif;font-weight:800;font-size:5rem;line-height:1;color:var(--color-primary)}
-.progress-pct span{font-size:2rem;color:var(--color-muted)}
-.progress-bar-lg{height:14px;background:var(--color-bg);border-radius:7px;overflow:hidden;margin:1.5rem auto;max-width:500px;border:1px solid var(--color-border)}
-.progress-bar-fill{height:100%;border-radius:7px;transition:width .5s;display:flex}
-.progress-bar-fill .seg{height:100%}
-.seg-complete{background:var(--color-success)}
-.seg-ip{background:var(--color-info)}
+.progress-hero{padding:1rem 0}
 .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin:1.5rem 0}
 .stat-box{background:var(--color-surface);border:1px solid var(--color-border);border-radius:10px;padding:1rem;text-align:center}
 .stat-val{font-family:'Outfit',sans-serif;font-weight:800;font-size:1.5rem;color:var(--color-heading);line-height:1}
 .stat-label{font-size:.6875rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--color-muted);margin-top:.3rem}
+.progress-ring-wrap{position:relative;width:200px;height:200px;margin:0 auto}
+.progress-ring-bg,.progress-ring-fg{fill:none;stroke-linecap:round}
+.progress-ring-bg{stroke:var(--color-border);stroke-width:10}
+.progress-ring-fg{stroke:var(--color-primary);stroke-width:10;transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1);transform:rotate(-90deg);transform-origin:center}
+.progress-ring-val{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+.progress-ring-val .pct-num{font-family:'Outfit',sans-serif;font-weight:800;font-size:3rem;line-height:1;color:var(--color-primary)}
+.progress-ring-val .pct-sign{font-size:1.25rem;color:var(--color-muted)}
+.progress-ring-val .pct-label{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--color-muted);margin-top:.25rem}
 /* Task list */
 .task-item{display:flex;align-items:center;gap:.75rem;padding:.85rem 1.25rem;border-radius:10px;margin-bottom:.5rem;background:var(--color-surface);border:1px solid var(--color-border);cursor:pointer;transition:all .2s;user-select:none}
 .task-item:hover{border-color:rgba(0,212,126,.25)}
@@ -133,21 +138,19 @@ section{padding:3.5rem 0}
       <p class="subtitle">Track task completion in real time. Click any task to update its status.</p>
     </div>
     <div class="hero-visual">
-      <svg viewBox="0 0 280 280" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="140" cy="140" r="120" stroke="var(--color-primary)" stroke-width=".5" opacity=".2"/>
-        <circle cx="140" cy="140" r="90" stroke="var(--color-primary)" stroke-width=".5" opacity=".15"/>
-        <circle cx="140" cy="140" r="60" stroke="var(--color-primary)" stroke-width=".5" opacity=".1"/>
-        <circle cx="140" cy="60" r="8" fill="var(--color-primary)" opacity=".7"><animateTransform attributeName="transform" type="rotate" from="0 140 140" to="360 140 140" dur="20s" repeatCount="indefinite"/></circle>
-        <circle cx="230" cy="140" r="6" fill="var(--color-info)" opacity=".5"><animateTransform attributeName="transform" type="rotate" from="0 140 140" to="-360 140 140" dur="25s" repeatCount="indefinite"/></circle>
-        <circle cx="140" cy="200" r="5" fill="var(--color-warning)" opacity=".4"><animateTransform attributeName="transform" type="rotate" from="0 140 140" to="360 140 140" dur="30s" repeatCount="indefinite"/></circle>
-        <text x="140" y="130" text-anchor="middle" font-family="Outfit" font-weight="700" font-size="16" fill="var(--color-heading)">CORE</text>
-        <text x="140" y="148" text-anchor="middle" font-family="Inter" font-weight="400" font-size="10" fill="var(--color-muted)" letter-spacing=".06em">PROGRESS</text>
-      </svg>
+      <div class="progress-ring-wrap" id="ringWrap">
+        <svg viewBox="0 0 200 200" width="200" height="200">
+          <circle class="progress-ring-bg" cx="100" cy="100" r="85"/>
+          <circle class="progress-ring-fg" id="ringFg" cx="100" cy="100" r="85" stroke-dasharray="534.07" stroke-dashoffset="534.07"/>
+        </svg>
+        <div class="progress-ring-val">
+          <div><span class="pct-num" id="pctNum">0</span><span class="pct-sign">%</span></div>
+          <div class="pct-label">Complete</div>
+        </div>
+      </div>
     </div>
   </div>
-  <div class="progress-hero" style="margin-top:2rem;">
-    <div class="progress-pct" id="pctDisplay">0<span>%</span></div>
-    <div class="progress-bar-lg"><div class="progress-bar-fill" id="progressBar"></div></div>
+  <div class="progress-hero">
     <div class="stat-row" id="statRow"></div>
   </div>
 </div></section>
@@ -206,10 +209,6 @@ section{padding:3.5rem 0}
     renderTasks();
     document.getElementById('loadingState').style.display='none';
     document.getElementById('mainContent').style.display='block';
-    setTimeout(function(){
-      document.querySelectorAll('.hero-visual animateTransform').forEach(function(a){if(a.beginElement)a.beginElement()});
-      var svg=document.querySelector('.hero-visual svg');if(svg){svg.style.display='none';svg.offsetHeight;svg.style.display=''}
-    },50);
   }
   var expandedTask=null;
   function renderTasks(){
@@ -218,10 +217,10 @@ section{padding:3.5rem 0}
     var ip=allTasks.filter(function(t){return t.status==='in_progress'}).length;
     var ns=total-complete-ip;
     var pct=total>0?Math.round(complete/total*100):0;
-    document.getElementById('pctDisplay').innerHTML=pct+'<span>%</span>';
-    var cPct=total>0?Math.round(complete/total*100):0;
-    var iPct=total>0?Math.round(ip/total*100):0;
-    document.getElementById('progressBar').innerHTML=(cPct>0?'<div class="seg seg-complete" style="width:'+cPct+'%"></div>':'')+(iPct>0?'<div class="seg seg-ip" style="width:'+iPct+'%"></div>':'');
+    document.getElementById('pctNum').textContent=pct;
+    var circumference=2*Math.PI*85;
+    var offset=circumference-(pct/100*circumference);
+    document.getElementById('ringFg').style.strokeDashoffset=offset;
     var moon=allTasks.filter(function(t){return t.owner==='Moonraker'}).length;
     var cli=allTasks.filter(function(t){return t.owner==='Client'}).length;
     var collab=allTasks.filter(function(t){return t.owner==='Collaboration'}).length;
@@ -294,7 +293,14 @@ section{padding:3.5rem 0}
   };
   var tb=document.getElementById('themeBtn');
   var ct=document.documentElement.getAttribute('data-theme');
-  if(tb){tb.innerHTML=ct==='dark'?'&#9728;&#65039;':'&#x1F319;';tb.addEventListener('click',function(){var h=document.documentElement;if(h.getAttribute('data-theme')==='light'){h.setAttribute('data-theme','dark');tb.innerHTML='&#9728;&#65039;';try{localStorage.setItem('moonraker-theme','dark')}catch(e){}}else{h.setAttribute('data-theme','light');tb.innerHTML='&#x1F319;';try{localStorage.setItem('moonraker-theme','light')}catch(e){}}})}
+  if(tb){tb.innerHTML=ct==='dark'?'&#9728;&#65039;':'&#x1F319;';tb.addEventListener('click',function(){
+    var h=document.documentElement;
+    function apply(){
+      if(h.getAttribute('data-theme')==='light'){h.setAttribute('data-theme','dark');tb.innerHTML='&#9728;&#65039;';try{localStorage.setItem('moonraker-theme','dark')}catch(e){}}
+      else{h.setAttribute('data-theme','light');tb.innerHTML='&#x1F319;';try{localStorage.setItem('moonraker-theme','light')}catch(e){}}
+    }
+    if(document.startViewTransition){document.startViewTransition(apply)}else{apply()}
+  })}
   var pLine=document.getElementById('progressLine');
   function onScroll(){
     var st=window.scrollY;var dh=document.documentElement.scrollHeight-window.innerHeight;
