@@ -874,15 +874,20 @@ strong { font-weight: 600; color: var(--color-heading); }
           <div id="rptConfigForm" class="collapsible-body"></div>
         </div>
 
-        <!-- Campaign Readiness -->
-        <div id="rptCampaignReadiness" style="margin-bottom:1rem;"></div>
-
         <!-- Keyword Targets -->
         <div class="card" style="margin-bottom:1rem;" id="rptKeywordCard">
           <div class="card-header collapsible-header" onclick="toggleReportSection('keywords')">
             <h3>Keyword Targets <span class="collapse-icon" id="rptKeywordsIcon">&#9660;</span></h3>
           </div>
           <div id="rptKeywordForm" class="collapsible-body" style="padding:.25rem 0;"></div>
+        </div>
+
+        <!-- Campaign Readiness -->
+        <div class="card" style="margin-bottom:1rem;" id="rptReadinessCard">
+          <div class="card-header collapsible-header" onclick="toggleReportSection('readiness')">
+            <h3>Campaign Readiness <span class="collapse-icon" id="rptReadinessIcon">&#9660;</span></h3>
+          </div>
+          <div id="rptCampaignReadiness" class="collapsible-body" style="padding:.25rem 1rem 1rem;"></div>
         </div>
 
         <!-- Report History -->
@@ -3258,9 +3263,9 @@ strong { font-weight: 600; color: var(--color-heading); }
 
   // ---- REPORTS TAB ----
   window.toggleReportSection = function(section) {
-    var bodyId = section === 'config' ? 'rptConfigForm' : 'rptKeywordForm';
-    var iconId = section === 'config' ? 'rptConfigIcon' : 'rptKeywordsIcon';
-    var headerId = section === 'config' ? 'rptConfigCard' : 'rptKeywordCard';
+    var bodyId = section === 'config' ? 'rptConfigForm' : section === 'keywords' ? 'rptKeywordForm' : 'rptCampaignReadiness';
+    var iconId = section === 'config' ? 'rptConfigIcon' : section === 'keywords' ? 'rptKeywordsIcon' : 'rptReadinessIcon';
+    var headerId = section === 'config' ? 'rptConfigCard' : section === 'keywords' ? 'rptKeywordCard' : 'rptReadinessCard';
     var body = document.getElementById(bodyId);
     var icon = document.getElementById(iconId);
     var header = headerId ? document.querySelector('#' + headerId + ' .collapsible-header') : null;
@@ -3275,12 +3280,12 @@ strong { font-weight: 600; color: var(--color-heading); }
     var cfg = state.reportConfig;
     var status = state.contact && state.contact.status;
     var isConfigured = cfg && cfg.gsc_property && cfg.active;
-    ['config', 'keywords'].forEach(function(section) {
+    ['config', 'keywords', 'readiness'].forEach(function(section) {
       var saved = null;
       try { saved = localStorage.getItem('moonraker-rpt-' + section); } catch(e) {}
       var shouldCollapse = saved === 'collapsed' || (saved === null && isConfigured && status === 'active');
-      var bodyId = section === 'config' ? 'rptConfigForm' : 'rptKeywordForm';
-      var cardId = section === 'config' ? 'rptConfigCard' : 'rptKeywordCard';
+      var bodyId = section === 'config' ? 'rptConfigForm' : section === 'keywords' ? 'rptKeywordForm' : 'rptCampaignReadiness';
+      var cardId = section === 'config' ? 'rptConfigCard' : section === 'keywords' ? 'rptKeywordCard' : 'rptReadinessCard';
       var body = document.getElementById(bodyId);
       var header = document.querySelector('#' + cardId + ' .collapsible-header');
       if (body) body.classList.toggle('collapsed', shouldCollapse);
@@ -3366,8 +3371,7 @@ strong { font-weight: 600; color: var(--color-heading); }
         var check = '<span style="color:var(--color-success);font-weight:700;margin-right:.5rem;">&#10003;</span>';
         var cross = '<span style="color:var(--color-danger);font-weight:700;margin-right:.5rem;">&#10007;</span>';
 
-        var crHtml = '<div style="padding:.85rem 1rem;background:var(--color-surface);border:1px solid var(--color-border);border-radius:10px;margin-bottom:1rem;">';
-        crHtml += '<div style="font-size:.78rem;font-weight:600;color:var(--color-heading);margin-bottom:.65rem;">Campaign Readiness</div>';
+        var crHtml = '';
 
         crHtml += '<div style="display:flex;flex-direction:column;gap:.35rem;margin-bottom:.75rem;">';
         crHtml += '<div style="font-size:.78rem;color:var(--color-text);display:flex;align-items:center;">' + (hasGbp ? check : cross) + 'GBP Place ID' + (hasGbp ? '' : '<span style="color:var(--color-muted);margin-left:.4rem;font-size:.72rem;">Set in contact record</span>') + '</div>';
@@ -3393,7 +3397,6 @@ strong { font-weight: 600; color: var(--color-heading); }
           crHtml += '<div style="font-size:.72rem;color:var(--color-muted);margin-top:.35rem;">Missing: ' + missing.join(', ') + '</div>';
         }
 
-        crHtml += '</div>';
         crEl.innerHTML = crHtml;
       }
     }
@@ -5023,6 +5026,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
