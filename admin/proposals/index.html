@@ -197,6 +197,8 @@ a:hover { color: var(--color-primary-hover); }
 .theme-toggle { background: none; border: none; font-size: 1.05rem; cursor: pointer; padding: .25rem; }
 .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.35); z-index: 199; }
 .sidebar.open ~ .sidebar-overlay { display: block; }
+.sidebar-close { display: none; margin-left: auto; background: none; border: none; color: var(--color-muted); font-size: 1.3rem; cursor: pointer; padding: .25rem; line-height: 1; }
+.sidebar-close:hover { color: var(--color-heading); }
 .mobile-toggle { display: none; background: none; border: none; color: var(--color-heading); font-size: 1.25rem; cursor: pointer; padding: .25rem; }
 
 @media (max-width: 860px) {
@@ -204,6 +206,7 @@ a:hover { color: var(--color-primary-hover); }
   .sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,.15); }
   .main { margin-left: 0 !important; }
   .mobile-toggle { display: block; }
+  .sidebar-close { display: block; }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 860px) {
@@ -233,6 +236,7 @@ a:hover { color: var(--color-primary-hover); }
   <div class="sidebar-header">
     <img src="/assets/logo.png" alt="Moonraker">
     <span>Client HQ</span>
+    <button class="sidebar-close" id="sidebarClose" aria-label="Close menu">&times;</button>
   </div>
   <nav class="sidebar-nav">
     <div class="nav-section">Overview</div>
