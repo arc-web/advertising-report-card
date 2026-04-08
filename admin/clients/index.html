@@ -102,7 +102,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 .topbar-right { display: flex; align-items: center; gap: .5rem; margin-left: auto; }
 
 /* ---- CONTENT ---- */
-.content { padding: 2rem; }
+.content { padding: 2rem; overflow-x: hidden; }
 @media (max-width: 1024px) { .content { padding: 1.5rem; } }
 
 /* ---- BUTTONS ---- */
@@ -216,7 +216,8 @@ strong { font-weight: 600; color: var(--color-heading); }
 .field-value.empty { color: var(--color-muted); font-style: italic; }
 
 /* ---- TABS ---- */
-.tab-bar { display: flex; gap: .25rem; border-bottom: 1px solid var(--color-border); margin-bottom: 1.5rem; overflow-x: auto; }
+.tab-bar { display: flex; gap: .25rem; border-bottom: 1px solid var(--color-border); margin-bottom: 1.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.tab-bar::-webkit-scrollbar { display: none; }
 .tab-btn { padding: .6rem 1rem; font-size: .82rem; font-weight: 500; color: var(--color-muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; font-family: inherit; transition: all .15s; white-space: nowrap; }
 .tab-btn:hover { color: var(--color-heading); }
 .tab-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
@@ -479,8 +480,9 @@ strong { font-weight: 600; color: var(--color-heading); }
 .sort-arrow { font-size: .6rem; margin-left: .25rem; display: inline-block; transition: transform .2s; opacity: .5; }
 .sortable-th:hover .sort-arrow { opacity: 1; }
 .sort-arrow.desc { transform: rotate(180deg); }
-.filter-bar { display: flex; align-items: center; gap: .25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--color-border); }
-.filter-tab { padding: .55rem 1rem; font-size: .82rem; font-weight: 500; color: var(--color-muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; font-family: inherit; transition: all .15s; }
+.filter-bar { display: flex; align-items: center; gap: .25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--color-border); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.filter-bar::-webkit-scrollbar { display: none; }
+.filter-tab { padding: .55rem 1rem; font-size: .82rem; font-weight: 500; color: var(--color-muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; font-family: inherit; transition: all .15s; white-space: nowrap; flex-shrink: 0; }
 .filter-tab:hover { color: var(--color-heading); }
 .filter-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
 .filter-tab .count { font-size: .7rem; padding: .05rem .4rem; border-radius: 4px; background: var(--color-bg); margin-left: .3rem; }
@@ -552,6 +554,7 @@ strong { font-weight: 600; color: var(--color-heading); }
   .field-group { grid-template-columns: 1fr; }
   .score-grid { grid-template-columns: repeat(2, 1fr); }
   .client-table .hide-mobile { display: none; }
+  .dir-controls { flex-wrap: wrap; gap: .5rem; }
 }
 @media (max-width: 560px) {
   .content { padding: 1rem; }
@@ -724,6 +727,7 @@ strong { font-weight: 600; color: var(--color-heading); }
         </div>
       </div>
 
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
       <table class="client-table">
         <thead>
           <tr>
@@ -738,6 +742,7 @@ strong { font-weight: 600; color: var(--color-heading); }
         </thead>
         <tbody id="dirBody"></tbody>
       </table>
+      </div>
     </div>
 
     <!-- DETAIL VIEW (with slug) -->
@@ -5203,6 +5208,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
