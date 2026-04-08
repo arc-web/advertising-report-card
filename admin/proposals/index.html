@@ -78,7 +78,7 @@ a:hover { color: var(--color-primary-hover); }
 .topbar { position: sticky; top: 0; z-index: 100; background: var(--color-surface); border-bottom: 1px solid var(--color-border); padding: 0 2rem; height: 56px; display: flex; align-items: center; gap: 1rem; }
 .topbar h1 { font-size: 1.1rem; margin: 0; }
 .topbar-right { display: flex; align-items: center; gap: .5rem; margin-left: auto; }
-.content { padding: 2rem; }
+.content { padding: 2rem; overflow-x: hidden; }
 
 /* Buttons */
 .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .45rem .85rem; border-radius: 8px; font-size: .82rem; font-weight: 500; border: none; cursor: pointer; transition: all .2s; font-family: inherit; }
@@ -122,8 +122,9 @@ a:hover { color: var(--color-primary-hover); }
 @keyframes dotPulse { 0%, 100% { opacity: .3; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.2); } }
 
 /* Filter tabs */
-.filter-bar { display: flex; align-items: center; gap: .25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--color-border); }
-.filter-tab { padding: .55rem 1rem; font-size: .82rem; font-weight: 500; color: var(--color-muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; font-family: inherit; transition: all .15s; }
+.filter-bar { display: flex; align-items: center; gap: .25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--color-border); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.filter-bar::-webkit-scrollbar { display: none; }
+.filter-tab { padding: .55rem 1rem; font-size: .82rem; font-weight: 500; color: var(--color-muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; font-family: inherit; transition: all .15s; white-space: nowrap; flex-shrink: 0; }
 .filter-tab:hover { color: var(--color-heading); }
 .filter-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
 .filter-tab .count { font-size: .7rem; padding: .05rem .4rem; border-radius: 4px; background: var(--color-bg); margin-left: .3rem; }
@@ -278,7 +279,7 @@ a:hover { color: var(--color-primary-hover); }
       <button class="filter-tab" data-filter="accepted">Accepted<span class="count" id="countAccepted">0</span></button>
     </div>
 
-    <div id="proposalsList"></div>
+    <div id="proposalsList" style="overflow-x:auto;-webkit-overflow-scrolling:touch;"></div>
     <div id="emptyState" class="empty-state" style="display:none;">
       <div class="empty-icon">&#128203;</div>
       <div class="empty-title">No proposals yet</div>
