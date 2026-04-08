@@ -124,6 +124,10 @@
     },
     "api/poll-agent.js": {
       "maxDuration": 15
+    },
+    "api/batch-create-drive.js": {
+      "maxDuration": 300,
+      "memory": 1024
     }
   },
   "crons": [
