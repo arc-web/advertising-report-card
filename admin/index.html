@@ -103,7 +103,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 .topbar-right { display: flex; align-items: center; gap: .5rem; margin-left: auto; }
 
 /* ---- CONTENT ---- */
-.content { padding: 2rem; }
+.content { padding: 2rem; overflow-x: hidden; }
 @media (max-width: 1024px) { .content { padding: 1.5rem; } }
 
 /* ---- BUTTONS ---- */
@@ -137,8 +137,9 @@ strong { font-weight: 600; color: var(--color-heading); }
 .dot-gray { background: var(--color-muted); }
 
 /* ---- FILTER TABS ---- */
-.filter-bar { display: flex; align-items: center; gap: .25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--color-border); }
-.filter-tab { padding: .55rem 1rem; font-size: .82rem; font-weight: 500; color: var(--color-muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; font-family: inherit; transition: all .15s; }
+.filter-bar { display: flex; align-items: center; gap: .25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--color-border); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.filter-bar::-webkit-scrollbar { display: none; }
+.filter-tab { padding: .55rem 1rem; font-size: .82rem; font-weight: 500; color: var(--color-muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; font-family: inherit; transition: all .15s; white-space: nowrap; flex-shrink: 0; }
 .filter-tab:hover { color: var(--color-heading); }
 .filter-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
 .filter-tab .count { font-size: .7rem; padding: .05rem .4rem; border-radius: 4px; background: var(--color-bg); margin-left: .3rem; }
@@ -320,7 +321,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       <button class="filter-tab" data-filter="lead">Leads</button>
     </div>
 
-    <div id="tableWrap">
+    <div id="tableWrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
       <table class="client-table">
         <thead>
           <tr>
@@ -666,5 +667,6 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
