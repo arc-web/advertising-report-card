@@ -3349,55 +3349,88 @@ strong { font-weight: 600; color: var(--color-heading); }
     fHtml += '</div>';
     document.getElementById('rptConfigForm').innerHTML = fHtml;
 
-    // ── CAMPAIGN READINESS CARD ──
+    // ── CAMPAIGN READINESS CARD (Stepped Orchestration) ──
     var crEl = document.getElementById('rptCampaignReadiness');
     if (crEl) {
       var isNational = c && c.campaign_type === 'national';
       if (isNational) {
-        crEl.innerHTML = '<div style="padding:.85rem 1rem;background:var(--color-surface);border:1px solid var(--color-border);border-radius:10px;margin-bottom:1rem;">' +
-          '<div style="font-size:.78rem;font-weight:600;color:var(--color-heading);margin-bottom:.4rem;">Campaign Type: National</div>' +
-          '<div style="font-size:.78rem;color:var(--color-muted);">LocalFalcon geogrid tracking is not applicable for national campaigns. Reporting pulls from Google Search Console only.</div>' +
-          '</div>';
+        crEl.innerHTML = '<div style="font-size:.78rem;color:var(--color-muted);padding:.5rem 0;">National campaign. LocalFalcon geogrid tracking is not applicable. Reporting pulls from Google Search Console only.</div>';
       } else {
         var hasGbp = !!(c && c.gbp_place_id);
         var hasKw = state.trackedKeywords && state.trackedKeywords.length > 0;
         var kwCount = state.trackedKeywords ? state.trackedKeywords.length : 0;
         var hasLfPlace = !!(cfg && cfg.localfalcon_place_id);
         var hasLfCampaigns = !!(cfg && cfg.lf_campaign_keys && Object.keys(cfg.lf_campaign_keys).length > 0);
-        var allReady = hasGbp && hasKw && hasLfPlace;
+        var isActive = !!(cfg && cfg.active);
         var lfKeys = (cfg && cfg.lf_campaign_keys) || {};
         var lfPlatformNames = { google: 'Google Maps', apple: 'Apple Maps', aimode: 'AI Mode', gaio: 'AI Overviews', chatgpt: 'ChatGPT', gemini: 'Gemini' };
 
-        var check = '<span style="color:var(--color-success);font-weight:700;margin-right:.5rem;">&#10003;</span>';
-        var cross = '<span style="color:var(--color-danger);font-weight:700;margin-right:.5rem;">&#10007;</span>';
+        var stepDone = '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--color-success);color:#fff;font-size:.65rem;font-weight:700;flex-shrink:0;">&#10003;</span>';
+        var stepOpen = function(n) { return '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:2px solid var(--color-border);color:var(--color-muted);font-size:.65rem;font-weight:700;flex-shrink:0;">' + n + '</span>'; };
+        var stepBtn = function(label, fn) { return '<button onclick="' + fn + '" style="padding:.3rem .7rem;font-size:.72rem;font-weight:600;border:1px solid var(--color-primary);background:var(--color-primary-subtle);color:var(--color-primary);border-radius:5px;cursor:pointer;font-family:inherit;white-space:nowrap;">' + label + '</button>'; };
+        var stepMuted = function(txt) { return '<span style="font-size:.72rem;color:var(--color-muted);">' + txt + '</span>'; };
+        var stepRow = function(icon, label, right) { return '<div style="display:flex;align-items:center;gap:.6rem;padding:.55rem 0;border-bottom:1px solid var(--color-border);">' + icon + '<span style="font-size:.8rem;font-weight:500;color:var(--color-heading);flex:1;">' + label + '</span><div style="display:flex;align-items:center;gap:.5rem;">' + (right || '') + '</div></div>'; };
 
-        var crHtml = '';
+        var h = '';
 
-        crHtml += '<div style="display:flex;flex-direction:column;gap:.35rem;margin-bottom:.75rem;">';
-        crHtml += '<div style="font-size:.78rem;color:var(--color-text);display:flex;align-items:center;">' + (hasGbp ? check : cross) + 'GBP Place ID' + (hasGbp ? '' : '<span style="color:var(--color-muted);margin-left:.4rem;font-size:.72rem;">Set in contact record</span>') + '</div>';
-        crHtml += '<div style="font-size:.78rem;color:var(--color-text);display:flex;align-items:center;">' + (hasKw ? check : cross) + 'Keywords' + (hasKw ? '<span style="color:var(--color-muted);margin-left:.4rem;font-size:.72rem;">' + kwCount + ' tracked</span>' : '<span style="color:var(--color-muted);margin-left:.4rem;font-size:.72rem;">Add keywords in Targets tab</span>') + '</div>';
-        crHtml += '<div style="font-size:.78rem;color:var(--color-text);display:flex;align-items:center;">' + (hasLfPlace ? check : cross) + 'LocalFalcon Place ID' + (hasLfPlace ? '' : '<span style="color:var(--color-muted);margin-left:.4rem;font-size:.72rem;">Enter above or use Bootstrap</span>') + '</div>';
-        crHtml += '<div style="font-size:.78rem;color:var(--color-text);display:flex;align-items:center;">' + (hasLfCampaigns ? check : cross) + 'LF Campaigns' + (hasLfCampaigns ? '<span style="color:var(--color-muted);margin-left:.4rem;font-size:.72rem;">' + Object.keys(lfKeys).length + ' active</span>' : '') + '</div>';
-        crHtml += '</div>';
-
-        if (hasLfCampaigns) {
-          crHtml += '<div style="display:flex;flex-wrap:wrap;gap:.35rem;">';
-          Object.keys(lfKeys).forEach(function(p) {
-            crHtml += '<span style="font-size:.68rem;font-weight:600;padding:.15rem .45rem;border-radius:4px;background:rgba(0,212,126,.1);color:#00b86c;">' + (lfPlatformNames[p] || p) + '</span>';
-          });
-          crHtml += '</div>';
-        } else if (allReady) {
-          crHtml += '<button id="btnActivateLF" onclick="window.activateLFCampaigns()" style="padding:.4rem .85rem;font-size:.78rem;font-weight:600;border:none;background:var(--color-primary);color:#fff;border-radius:6px;cursor:pointer;font-family:inherit;">Create LF Campaigns</button>';
+        // Step 1: GBP Place ID
+        if (hasGbp) {
+          h += stepRow(stepDone, 'GBP Place ID', stepMuted(esc(c.gbp_place_id).substring(0, 20) + '...'));
         } else {
-          var missing = [];
-          if (!hasGbp) missing.push('GBP Place ID');
-          if (!hasKw) missing.push('Keywords');
-          if (!hasLfPlace) missing.push('LocalFalcon Place ID');
-          crHtml += '<button disabled style="padding:.4rem .85rem;font-size:.78rem;font-weight:600;border:none;background:var(--color-border);color:var(--color-muted);border-radius:6px;cursor:not-allowed;font-family:inherit;">Create LF Campaigns</button>';
-          crHtml += '<div style="font-size:.72rem;color:var(--color-muted);margin-top:.35rem;">Missing: ' + missing.join(', ') + '</div>';
+          h += stepRow(stepOpen('1'), 'GBP Place ID', stepBtn('Search', 'window.crSearchGBP()'));
+        }
+        h += '<div id="crSearchResults" style="display:none;"></div>';
+
+        // Step 2: LocalFalcon Location
+        if (hasLfPlace) {
+          h += stepRow(stepDone, 'LocalFalcon Location', stepMuted('Linked'));
+        } else if (hasGbp) {
+          h += stepRow(stepOpen('2'), 'LocalFalcon Location', stepBtn('Link Location', 'window.crLinkLF()'));
+        } else {
+          h += stepRow(stepOpen('2'), 'LocalFalcon Location', stepMuted('Complete step 1 first'));
         }
 
-        crEl.innerHTML = crHtml;
+        // Step 3: Tracked Keywords (read-only)
+        if (hasKw) {
+          h += stepRow(stepDone, 'Tracked Keywords', stepMuted(kwCount + ' keywords'));
+        } else {
+          h += stepRow(stepOpen('3'), 'Tracked Keywords', stepMuted('Add in Keyword Targets above'));
+        }
+
+        // Step 4: LF Campaigns
+        if (hasLfCampaigns) {
+          var badges = '';
+          Object.keys(lfKeys).forEach(function(p) {
+            badges += '<span style="font-size:.62rem;font-weight:600;padding:.1rem .35rem;border-radius:3px;background:rgba(0,212,126,.1);color:#00b86c;">' + (lfPlatformNames[p] || p) + '</span>';
+          });
+          h += stepRow(stepDone, 'LF Campaigns', '<div style="display:flex;flex-wrap:wrap;gap:.25rem;">' + badges + '</div>');
+        } else if (hasGbp && hasLfPlace && hasKw) {
+          h += stepRow(stepOpen('4'), 'LF Campaigns', stepBtn('Create 6 Campaigns', 'window.crCreateCampaigns()'));
+        } else {
+          h += stepRow(stepOpen('4'), 'LF Campaigns', stepMuted('Complete steps 1-3 first'));
+        }
+
+        // Remove last border
+        h = h.replace(/border-bottom:1px solid var\(--color-border\);">\s*$/, ';">');
+
+        // Progress status area
+        h += '<div id="crProgress" style="display:none;margin-top:.75rem;"></div>';
+
+        // Activation button (only when all 4 steps done)
+        if (hasGbp && hasLfPlace && hasKw && hasLfCampaigns) {
+          if (isActive) {
+            h += '<div style="margin-top:.85rem;display:flex;align-items:center;gap:.5rem;">';
+            h += '<span style="display:inline-flex;align-items:center;gap:.35rem;padding:.4rem .85rem;font-size:.78rem;font-weight:600;border-radius:6px;background:rgba(0,212,126,.1);color:#00b86c;">&#10003; Campaign Reporting Active</span>';
+            h += '</div>';
+          } else {
+            h += '<div style="margin-top:.85rem;">';
+            h += '<button id="btnActivateReporting" onclick="window.crActivateReporting()" style="padding:.45rem 1rem;font-size:.8rem;font-weight:600;border:none;background:var(--color-primary);color:#fff;border-radius:6px;cursor:pointer;font-family:inherit;">Activate Campaign Reporting</button>';
+            h += '<div style="font-size:.72rem;color:var(--color-muted);margin-top:.3rem;">This will schedule this client for monthly report compilation.</div>';
+            h += '</div>';
+          }
+        }
+
+        crEl.innerHTML = h;
       }
     }
 
@@ -3447,52 +3480,202 @@ strong { font-weight: 600; color: var(--color-heading); }
     autoCollapseReportSections();
   }
 
-  window.activateLFCampaigns = function() {
+  // ── Campaign Readiness Orchestration ──
+  function crProgress(msg, type) {
+    var el = document.getElementById('crProgress');
+    if (!el) return;
+    el.style.display = 'block';
+    var color = type === 'error' ? 'var(--color-danger)' : type === 'success' ? 'var(--color-success)' : 'var(--color-muted)';
+    el.innerHTML = '<div style="font-size:.75rem;color:' + color + ';padding:.4rem .6rem;background:var(--color-bg);border-radius:6px;">' + msg + '</div>';
+  }
+
+  window.crSearchGBP = function() {
+    var c = state.contact;
+    if (!c) return;
+    var name = c.practice_name || ((c.first_name || '') + ' ' + (c.last_name || '')).trim();
+    crProgress('Searching LocalFalcon for "' + esc(name) + '"...');
+
+    fetch('/api/lf-proxy', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'search', name: name, city: c.city || '', state: c.state || c.province || '' })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      var panel = document.getElementById('crSearchResults');
+      if (!panel) return;
+
+      if (!res.success || !res.results || res.results.length === 0) {
+        // Try saved locations as fallback
+        fetch('/api/lf-proxy', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'saved', query: name })
+        }).then(function(r) { return r.json(); }).then(function(saved) {
+          var locs = (saved.success && saved.locations) || [];
+          if (locs.length === 0) {
+            crProgress('No results found for "' + esc(name) + '". Try adjusting the practice name or city.', 'error');
+            panel.style.display = 'none';
+            return;
+          }
+          crProgress('Found in saved LocalFalcon locations:');
+          renderCrResults(panel, locs, true);
+        });
+        return;
+      }
+      crProgress('Select the correct listing:');
+      renderCrResults(panel, res.results, false);
+    }).catch(function(err) {
+      crProgress('Search failed: ' + err.message, 'error');
+    });
+  };
+
+  function renderCrResults(panel, results, isSaved) {
+    panel.style.display = 'block';
+    var h = '<div style="display:flex;flex-direction:column;gap:.4rem;margin:.5rem 0;">';
+    results.forEach(function(r) {
+      var pid = esc(r.place_id || '');
+      var nm = esc(r.name || 'Unknown');
+      var addr = esc(r.address || '');
+      var cat = r.category ? '<span style="font-size:.65rem;color:var(--color-muted);margin-left:.35rem;">' + esc(r.category) + '</span>' : '';
+      h += '<div data-place-id="' + pid + '" data-name="' + nm + '" data-saved="' + (isSaved ? '1' : '0') + '" style="display:flex;align-items:center;gap:.6rem;padding:.55rem .75rem;border:1px solid var(--color-border);border-radius:8px;cursor:pointer;transition:border-color .15s;" onmouseover="this.style.borderColor=\'var(--color-primary)\'" onmouseout="this.style.borderColor=\'var(--color-border)\'" onclick="window.crSelectGBP(this)">';
+      h += '<div style="flex:1;min-width:0;"><div style="font-size:.78rem;font-weight:600;color:var(--color-heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + nm + cat + '</div>';
+      if (addr) h += '<div style="font-size:.7rem;color:var(--color-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + addr + '</div>';
+      h += '</div>';
+      h += '<div style="font-size:.6rem;color:var(--color-muted);font-family:monospace;flex-shrink:0;max-width:140px;overflow:hidden;text-overflow:ellipsis;">' + pid + '</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+    panel.innerHTML = h;
+  }
+
+  window.crSelectGBP = function(el) {
+    var placeId = el.getAttribute('data-place-id');
+    var name = el.getAttribute('data-name');
+    var isSaved = el.getAttribute('data-saved') === '1';
+    if (!placeId) return;
+
+    crProgress('Saving GBP Place ID...');
+    document.getElementById('crSearchResults').style.display = 'none';
+
+    // Save gbp_place_id to contacts
+    fetch('/api/action', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_record', table: 'contacts', filters: { slug: state.contact.slug }, data: { gbp_place_id: placeId } })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        state.contact.gbp_place_id = placeId;
+        crProgress('GBP Place ID saved. Now linking to LocalFalcon...', 'success');
+        // Auto-advance to Step 2
+        setTimeout(function() { window.crLinkLF(placeId, isSaved); }, 500);
+      } else {
+        crProgress('Failed to save: ' + (res.error || 'Unknown error'), 'error');
+        renderReports();
+      }
+    }).catch(function(err) { crProgress('Error: ' + err.message, 'error'); });
+  };
+
+  window.crLinkLF = function(overridePlaceId, alreadySaved) {
+    var c = state.contact;
+    var cfg = state.reportConfig;
+    if (!c) return;
+    var placeId = overridePlaceId || c.gbp_place_id;
+    if (!placeId) { crProgress('No GBP Place ID set.', 'error'); return; }
+
+    crProgress('Adding location to LocalFalcon...');
+
+    // If we already know it's saved from search, skip add
+    if (alreadySaved) {
+      saveLfPlaceId(placeId);
+      return;
+    }
+
+    fetch('/api/lf-proxy', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add', place_id: placeId })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        saveLfPlaceId(placeId);
+      } else {
+        crProgress('LF add failed: ' + (res.error || res.detail || 'Unknown'), 'error');
+      }
+    }).catch(function(err) { crProgress('Error: ' + err.message, 'error'); });
+  };
+
+  function saveLfPlaceId(placeId) {
+    var c = state.contact;
+    var cfg = state.reportConfig;
+
+    var configData = { localfalcon_place_id: placeId };
+
+    if (cfg) {
+      fetch('/api/action', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_record', table: 'report_configs', filters: { client_slug: c.slug }, data: configData })
+      }).then(function(r) { return r.json(); }).then(function(res) {
+        if (res.success) {
+          state.reportConfig.localfalcon_place_id = placeId;
+          crProgress('LocalFalcon location linked.', 'success');
+          setTimeout(function() { document.getElementById('crProgress').style.display = 'none'; renderReports(); }, 800);
+        } else { crProgress('Failed to save LF Place ID', 'error'); }
+      });
+    } else {
+      // Create report_configs record
+      configData.client_slug = c.slug;
+      fetch('/api/action', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create_record', table: 'report_configs', data: configData })
+      }).then(function(r) { return r.json(); }).then(function(res) {
+        if (res.success) {
+          state.reportConfig = (res.data && res.data[0]) || configData;
+          crProgress('LocalFalcon location linked.', 'success');
+          setTimeout(function() { document.getElementById('crProgress').style.display = 'none'; renderReports(); }, 800);
+        } else { crProgress('Failed to create report config', 'error'); }
+      });
+    }
+  }
+
+  window.crCreateCampaigns = function() {
     var c = state.contact;
     if (!c || !c.slug) return;
-    var btn = document.getElementById('btnActivateLF');
-    if (!btn) return;
-
-    btn.disabled = true;
-    btn.textContent = 'Creating campaigns...';
-    btn.style.background = 'var(--color-border)';
-    btn.style.color = 'var(--color-muted)';
-    btn.style.cursor = 'wait';
+    crProgress('Creating 6 LF campaigns (Google Maps, Apple Maps, AI Mode, AI Overviews, ChatGPT, Gemini)...');
 
     fetch('/api/activate-reporting', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ client_slug: c.slug })
     }).then(function(r) { return r.json(); }).then(function(res) {
       if (res.success || res.campaign_keys) {
-        // Reload report config to get the new campaign keys
+        crProgress(res.campaigns_created + ' campaigns created. ' + res.keywords + ' keywords, ~' + res.credits_per_run + ' credits/run. First run: ' + res.first_run, 'success');
+        // Reload report config
         fetch(SB + '/rest/v1/report_configs?client_slug=eq.' + c.slug + '&limit=1', {
           headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK }
         }).then(function(r) { return r.json(); }).then(function(cfgs) {
           state.reportConfig = (cfgs && cfgs[0]) || state.reportConfig;
-          renderReports();
-        });
-        // Also reload deliverables
-        fetch(SB + '/rest/v1/deliverables?select=*&order=created_at.desc&contact_id=eq.' + c.id, {
-          headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK }
-        }).then(function(r) { return r.json(); }).then(function(dels) {
-          state.deliverables = dels || [];
+          setTimeout(function() { renderReports(); }, 1200);
         });
       } else {
-        alert('Campaign creation failed: ' + (res.error || 'Unknown error'));
-        btn.disabled = false;
-        btn.textContent = 'Create LF Campaigns';
-        btn.style.background = 'var(--color-primary)';
-        btn.style.color = '#fff';
-        btn.style.cursor = 'pointer';
+        crProgress('Campaign creation failed: ' + (res.error || 'Unknown error'), 'error');
+      }
+    }).catch(function(err) { crProgress('Network error: ' + err.message, 'error'); });
+  };
+
+  window.crActivateReporting = function() {
+    var c = state.contact;
+    if (!c || !c.slug) return;
+    var btn = document.getElementById('btnActivateReporting');
+    if (btn) { btn.disabled = true; btn.textContent = 'Activating...'; }
+
+    fetch('/api/action', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_record', table: 'report_configs', filters: { client_slug: c.slug }, data: { active: true, report_day: 1 } })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        state.reportConfig.active = true;
+        toast('Campaign reporting activated', 'success');
+        renderReports();
+      } else {
+        toast('Failed to activate', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Activate Campaign Reporting'; }
       }
     }).catch(function(err) {
-      alert('Network error: ' + err.message);
-      btn.disabled = false;
-      btn.textContent = 'Create LF Campaigns';
-      btn.style.background = 'var(--color-primary)';
-      btn.style.color = '#fff';
-      btn.style.cursor = 'pointer';
+      toast('Error: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Activate Campaign Reporting'; }
     });
   };
 
