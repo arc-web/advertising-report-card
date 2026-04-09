@@ -446,6 +446,10 @@ a:hover { color: var(--color-primary-hover); }
   });
   var mobileToggle = document.getElementById('mobileToggle');
   if (mobileToggle) mobileToggle.addEventListener('click', function() { sidebar.classList.toggle('open'); });
+  var sidebarOverlay = document.getElementById('sidebarOverlay');
+  if (sidebarOverlay) sidebarOverlay.addEventListener('click', function() { sidebar.classList.remove('open'); });
+  var sidebarClose = document.getElementById('sidebarClose');
+  if (sidebarClose) sidebarClose.addEventListener('click', function() { sidebar.classList.remove('open'); });
 
   // Theme
   var themeBtn = document.getElementById('themeBtn');
