@@ -567,7 +567,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 }
 
 /* ---- COLLAPSIBLE SIDEBAR ---- */
-.sidebar { transition: width .2s ease; overflow: hidden; }
+.sidebar { transition: width .2s ease, transform .25s ease; overflow: hidden; }
 .sidebar-header { white-space: nowrap; }
 .sidebar-header span { transition: color .15s; }
 .sidebar-nav .nav-icon { width: 18px; min-width: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -5118,6 +5118,10 @@ strong { font-weight: 600; color: var(--color-heading); }
   // Mobile sidebar
   var mobileToggle = document.getElementById('mobileToggle');
   if (mobileToggle) mobileToggle.addEventListener('click', function() { sidebar.classList.toggle('open'); });
+  var sidebarOverlay = document.getElementById('sidebarOverlay');
+  if (sidebarOverlay) sidebarOverlay.addEventListener('click', function() { sidebar.classList.remove('open'); });
+  var sidebarClose = document.getElementById('sidebarClose');
+  if (sidebarClose) sidebarClose.addEventListener('click', function() { sidebar.classList.remove('open'); });
   // Theme
   var themeBtn = document.getElementById('themeBtn');
   var _curTheme = document.documentElement.getAttribute('data-theme');
