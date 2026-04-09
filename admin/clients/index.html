@@ -1303,7 +1303,7 @@ strong { font-weight: 600; color: var(--color-heading); }
         rptFilterBar.querySelectorAll('.filter-tab').forEach(function(t) { t.classList.remove('active'); });
         tab.classList.add('active');
         state.rptFilter = tab.dataset.filter;
-        renderReports();
+        renderReports(true);
       });
     }
           }).catch(function() {});
@@ -3908,11 +3908,12 @@ strong { font-weight: 600; color: var(--color-heading); }
     });
   }
 
-  function renderReports() {
+  function renderReports(filterOnly) {
     var cfg = state.reportConfig;
     var snaps = state.snapshots;
     var c = state.contact;
 
+    if (!filterOnly) {
     // ── STATUS OVERVIEW (stat cards) ──
     var gscVal = (cfg && cfg.gsc_property) || (c && c.gsc_property) || '';
     var gscOk = !!gscVal;
@@ -3930,6 +3931,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       '<div class="stat-mini"><div class="stat-label">Schedule</div><div class="stat-value" style="color:' + (isActive ? 'var(--color-success)' : 'var(--color-muted)') + ';">' + (isActive ? 'Active' : 'Inactive') + '</div><div class="stat-sub">1st of month</div></div>' +
       '<div class="stat-mini"><div class="stat-label">Published</div><div class="stat-value" style="color:var(--color-success);">' + publishedReports + '</div></div>' +
       '<div class="stat-mini"><div class="stat-label">Pending Review</div><div class="stat-value" style="color:' + (pendingReview > 0 ? 'var(--color-warning)' : 'var(--color-muted)') + ';">' + pendingReview + '</div></div>';
+    } // end !filterOnly
 
     // Update report filter counts
     var rptFilters = document.querySelectorAll('#rptFilterBar .filter-tab');
@@ -3945,6 +3947,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       } else if (countEl) { countEl.remove(); }
     });
 
+    if (!filterOnly) {
     // ── CONFIGURATION FORM ──
     var fHtml = '<div style="padding:.75rem 0;">';
     fHtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">';
@@ -4061,6 +4064,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 
     // ── KEYWORD TARGETS (shared form from tracked_keywords table) ──
     renderKeywordForm('rptKeywordForm');
+    } // end !filterOnly
 
     // ── REPORT HISTORY ──
     if (snaps.length === 0) {
