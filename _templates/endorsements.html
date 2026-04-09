@@ -145,6 +145,14 @@ select.form-input { cursor: pointer; }
       <h2>Submit an Endorsement</h2>
       <p class="intro">Share an endorsement you have received, whether from a colleague, a client review, a Psychology Today profile, or any other professional source.</p>
 
+      <!-- Clinician selector (shown for multi-provider practices) -->
+      <div class="form-group" id="clinicianGroup" style="display:none;">
+        <label>Who is this endorsement for? *</label>
+        <select class="form-input" id="clinicianSelect">
+          <option value="">Select clinician...</option>
+        </select>
+      </div>
+
       <div class="form-row">
         <div class="form-group">
           <label>Endorser Name *</label>
@@ -229,6 +237,7 @@ select.form-input { cursor: pointer; }
   }
 
   var contactId = null;
+  var bioMaterials = [];
 
   function sbHeaders() {
     return { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
@@ -248,13 +257,33 @@ select.form-input { cursor: pointer; }
       document.title = 'Endorsements - ' + (contact.practice_name || CLIENT_SLUG) + ' - Moonraker';
       document.getElementById('pageTitle').textContent = (contact.practice_name || contact.first_name || 'Your') + ' Endorsements';
 
-      // Load existing endorsements
-      return fetch(SB_URL + '/rest/v1/endorsements?contact_id=eq.' + contactId + '&order=created_at.desc', { headers: sbHeaders() })
+      // Load bio materials (for clinician selector) and existing endorsements
+      return Promise.all([
+        fetch(SB_URL + '/rest/v1/bio_materials?contact_id=eq.' + contactId + '&order=sort_order,is_primary.desc', { headers: sbHeaders() }).then(function(r) { return r.json(); }).catch(function() { return []; }),
+        fetch(SB_URL + '/rest/v1/endorsements?contact_id=eq.' + contactId + '&order=created_at.desc', { headers: sbHeaders() })
         .then(function(r) { return r.json(); })
-        .then(function(endorsements) {
+      ]).then(function(results) {
+          bioMaterials = results[0] || [];
+          var endorsements = results[1] || [];
+
+          // Show clinician selector if multiple providers
+          if (bioMaterials.length > 1) {
+            var grp = document.getElementById('clinicianGroup');
+            var sel = document.getElementById('clinicianSelect');
+            if (grp && sel) {
+              grp.style.display = 'block';
+              bioMaterials.forEach(function(bm) {
+                var opt = document.createElement('option');
+                opt.value = bm.id;
+                opt.textContent = bm.therapist_name + (bm.therapist_credentials ? ', ' + bm.therapist_credentials : '');
+                sel.appendChild(opt);
+              });
+            }
+          }
+
           document.getElementById('loadingState').style.display = 'none';
           document.getElementById('mainContent').style.display = 'block';
-          renderEndorsements(endorsements || []);
+          renderEndorsements(endorsements);
         });
     })
     .catch(function() {
@@ -281,6 +310,9 @@ select.form-input { cursor: pointer; }
       html += '<div class="submitted-name">' + esc(e.endorser_name || 'Anonymous');
       if (e.endorser_title) html += ' <span style="font-weight:400;color:var(--color-muted);">' + esc(e.endorser_title) + '</span>';
       html += '</div>';
+      // Show clinician name if multi-provider
+      var bm = e.bio_material_id ? bioMaterials.find(function(b) { return b.id === e.bio_material_id; }) : null;
+      if (bm) html += '<div class="submitted-meta" style="margin-top:0;">For: ' + esc(bm.therapist_name) + '</div>';
       html += '<div class="submitted-meta">';
       if (e.source_platform) html += (sourceLabels[e.source_platform] || e.source_platform);
       if (e.endorser_org) html += ' &middot; ' + esc(e.endorser_org);
@@ -303,9 +335,22 @@ select.form-input { cursor: pointer; }
       return;
     }
 
+    // Check clinician selection for multi-provider
+    var bioMaterialId = null;
+    if (bioMaterials.length > 1) {
+      bioMaterialId = document.getElementById('clinicianSelect').value;
+      if (!bioMaterialId) {
+        alert('Please select which clinician this endorsement is for.');
+        return;
+      }
+    } else if (bioMaterials.length === 1) {
+      bioMaterialId = bioMaterials[0].id;
+    }
+
     var data = {
       contact_id: contactId,
       client_slug: CLIENT_SLUG,
+      bio_material_id: bioMaterialId,
       endorser_name: name,
       endorser_title: document.getElementById('endorserTitle').value.trim() || null,
       endorser_org: document.getElementById('endorserOrg').value.trim() || null,
@@ -342,6 +387,7 @@ select.form-input { cursor: pointer; }
         document.getElementById('endorsementSource').value = '';
         document.getElementById('endorsementUrl').value = '';
         document.getElementById('endorsementContent').value = '';
+        if (document.getElementById('clinicianSelect')) document.getElementById('clinicianSelect').value = '';
 
         // Reload endorsements list
         fetch(SB_URL + '/rest/v1/endorsements?contact_id=eq.' + contactId + '&order=created_at.desc', { headers: sbHeaders() })
