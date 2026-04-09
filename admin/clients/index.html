@@ -85,7 +85,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 
 /* ---- TOP BAR ---- */
 .topbar { position: sticky; top: 0; z-index: 100; background: var(--color-surface); border-bottom: 1px solid var(--color-border); padding: 0 2rem; height: 56px; display: flex; align-items: center; gap: 1rem; }
-.dir-controls { position: sticky; top: 56px; z-index: 50; background: var(--color-bg); }
+.dir-controls { position: sticky; top: 56px; z-index: 50; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding-bottom: .5rem; }
 .search-box { flex: 1; max-width: 480px; position: relative; }
 .search-box input { width: 100%; padding: .45rem .75rem .45rem 2.25rem; border: 1px solid var(--color-border); border-radius: 8px; font-size: .82rem; font-family: inherit; color: var(--color-body); background: var(--color-bg); transition: border-color .2s, box-shadow .2s; }
 .search-box input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(0,212,126,.1); }
@@ -427,7 +427,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 .ob-step-link:hover .ob-label { color: var(--color-primary); }
 .ob-step .link-arrow { font-size: .75rem; color: var(--color-muted); transition: color .15s; }
 .ob-step:hover .link-arrow { color: var(--color-primary); }
-.del-phase-bar { display: flex; gap: .25rem; margin-bottom: .75rem; flex-wrap: wrap; }
+.del-phase-bar { display: flex; gap: .25rem; margin-bottom: .75rem; flex-wrap: wrap; padding: .75rem 0; border-bottom: 1px solid var(--color-border); }
 .del-phase-pill { padding: .3rem .65rem; border-radius: 6px; font-size: .72rem; font-weight: 500; border: 1px solid var(--color-border); background: transparent; color: var(--color-muted); cursor: pointer; font-family: inherit; transition: all .15s; }
 .del-phase-pill:hover { border-color: var(--color-primary); color: var(--color-heading); }
 .del-phase-pill.active { background: var(--color-primary-subtle); border-color: var(--color-primary); color: var(--color-primary); }
@@ -493,7 +493,14 @@ strong { font-weight: 600; color: var(--color-heading); }
 
 /* Rising Tide */
 .rt-platform-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: .75rem; padding: 1rem; }
-.rt-platform-card { border: 1px solid var(--color-border); border-radius: 10px; padding: 1rem; display: flex; flex-direction: column; gap: .65rem; }
+.rt-platform-card { border: 1px solid var(--color-border); border-radius: 10px; padding: 1rem; display: flex; flex-direction: column; gap: .65rem; transition: background .15s, border-color .15s; }
+.rt-platform-card.rt-st-live { background: rgba(0,212,126,.04); border-color: rgba(0,212,126,.25); }
+.rt-platform-card.rt-st-in_progress { background: rgba(59,130,246,.04); border-color: rgba(59,130,246,.25); }
+.rt-platform-card.rt-st-needs_update { background: rgba(245,158,11,.04); border-color: rgba(245,158,11,.25); }
+.rt-platform-card.rt-st-opted_out { background: rgba(107,114,128,.04); border-color: rgba(107,114,128,.2); opacity: .65; }
+.rt-url-row { display: flex; align-items: center; gap: .5rem; min-height: 1.6rem; }
+.rt-url-input { width: 100%; font-size: .78rem; padding: .3rem .5rem; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-surface); color: var(--color-heading); font-family: inherit; }
+.rt-url-input:focus { border-color: var(--color-primary); outline: none; }
 .rt-platform-header { display: flex; justify-content: space-between; align-items: center; }
 .rt-platform-name { font-weight: 600; font-size: .88rem; }
 .rt-status-badge { font-size: .68rem; padding: .15rem .5rem; border-radius: 4px; font-weight: 600; text-transform: capitalize; }
@@ -532,6 +539,20 @@ strong { font-weight: 600; color: var(--color-heading); }
 .filter-tab { padding: .55rem 1rem; font-size: .82rem; font-weight: 500; color: var(--color-muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; font-family: inherit; transition: all .15s; white-space: nowrap; flex-shrink: 0; }
 .filter-tab:hover { color: var(--color-heading); }
 .filter-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+.filter-tab.active[data-filter="active"] { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+.filter-tab.active[data-filter="onboarding"] { color: #3b82f6; border-bottom-color: #3b82f6; }
+.filter-tab.active[data-filter="onboarding"] .count { background: rgba(59,130,246,.12); }
+.filter-tab.active[data-filter="prospect"] { color: #d97706; border-bottom-color: #d97706; }
+.filter-tab.active[data-filter="prospect"] .count { background: rgba(245,158,11,.12); }
+.filter-tab.active[data-filter="lead"] { color: #6b7280; border-bottom-color: #6b7280; }
+.filter-tab.active[data-filter="lead"] .count { background: rgba(107,114,128,.12); }
+.filter-tab.active[data-filter="lost"] { color: #ef4444; border-bottom-color: #ef4444; }
+.filter-tab.active[data-filter="lost"] .count { background: rgba(239,68,68,.12); }
+.filter-tab.active[data-filter="internal_review"] { color: #d97706; border-bottom-color: #d97706; }
+.filter-tab.active[data-filter="internal_review"] .count { background: rgba(245,158,11,.12); }
+.filter-tab.active[data-filter="published"], .filter-tab.active[data-filter="sent"] { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+.filter-tab.active[data-filter="compiled"] { color: #3b82f6; border-bottom-color: #3b82f6; }
+.filter-tab.active[data-filter="compiled"] .count { background: rgba(59,130,246,.12); }
 .filter-tab .count { font-size: .7rem; padding: .05rem .4rem; border-radius: 4px; background: var(--color-bg); margin-left: .3rem; }
 .filter-tab.active .count { background: var(--color-primary-subtle); }
 
@@ -966,6 +987,15 @@ strong { font-weight: 600; color: var(--color-heading); }
         <!-- Status Overview -->
         <div class="stat-row" id="rptOverview"></div>
 
+        <!-- Report Status Filters -->
+        <div class="filter-bar" id="rptFilterBar" style="margin-bottom:1rem;">
+          <button class="filter-tab active" data-filter="all">All</button>
+          <button class="filter-tab" data-filter="compiled">Compiled</button>
+          <button class="filter-tab" data-filter="internal_review">Internal Review</button>
+          <button class="filter-tab" data-filter="published">Published</button>
+          <button class="filter-tab" data-filter="sent">Sent</button>
+        </div>
+
         <!-- Configuration -->
         <div class="card" style="margin-bottom:1rem;" id="rptConfigCard">
           <div class="card-header collapsible-header" style="display:flex;justify-content:space-between;align-items:center;" onclick="toggleReportSection('config')">
@@ -1259,6 +1289,19 @@ strong { font-weight: 600; color: var(--color-heading); }
               state.proposalFollowups[fu.proposal_id].push(fu);
             });
             renderProposals();
+
+    // Wire up report filters
+    var rptFilterBar = document.getElementById('rptFilterBar');
+    if (rptFilterBar) {
+      rptFilterBar.addEventListener('click', function(e) {
+        var tab = e.target.closest('.filter-tab');
+        if (!tab) return;
+        rptFilterBar.querySelectorAll('.filter-tab').forEach(function(t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        state.rptFilter = tab.dataset.filter;
+        renderReportHistory();
+      });
+    }
           }).catch(function() {});
       }
 
@@ -1654,7 +1697,7 @@ strong { font-weight: 600; color: var(--color-heading); }
   var OB_CANONICAL_ORDER = ['confirm_info','sign_agreement','book_intro_call','connect_accounts','practice_details','bio_materials','social_profiles','checkins_and_drive','performance_guarantee'];
 
   // ---- PROFILE TAB ----
-  var PLATFORM_LABELS = { youtube: 'YouTube', linkedin: 'LinkedIn', facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', pinterest: 'Pinterest', quora: 'Quora', x: 'X / Twitter', gbp: 'Google Business Profile' };
+  var PLATFORM_LABELS = { youtube: 'YouTube', linkedin: 'LinkedIn', facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', pinterest: 'Pinterest', quora: 'Quora', x: 'X / Twitter', gbp: 'GBP' };
   var PLATFORM_ICONS = {
     youtube: '<svg viewBox="0 0 24 24" width="20" height="20" fill="#FF0000"><path d="M23.5 6.2c-.3-1-1-1.8-2-2.1C19.6 3.6 12 3.6 12 3.6s-7.6 0-9.5.5c-1 .3-1.7 1.1-2 2.1C0 8.1 0 12 0 12s0 3.9.5 5.8c.3 1 1 1.8 2 2.1 1.9.5 9.5.5 9.5.5s7.6 0 9.5-.5c1-.3 1.7-1.1 2-2.1.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.5 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>',
     linkedin: '<svg viewBox="0 0 24 24" width="20" height="20" fill="#0A66C2"><path d="M20.4 20.5h-3.6v-5.6c0-1.3 0-3-1.8-3s-2.1 1.4-2.1 2.9v5.7H9.3V9h3.4v1.6h.1c.5-.9 1.6-1.8 3.3-1.8 3.5 0 4.2 2.3 4.2 5.4v6.3zM5.3 7.4c-1.1 0-2.1-.9-2.1-2.1s.9-2.1 2.1-2.1 2.1.9 2.1 2.1-.9 2.1-2.1 2.1zM7.1 20.5H3.5V9h3.6v11.5z"/></svg>',
@@ -1933,7 +1976,7 @@ strong { font-weight: 600; color: var(--color-heading); }
     platforms.forEach(function(p) {
       var label = PLATFORM_LABELS[p.platform] || p.platform;
       var hasAccess = ACCESS_PLATFORMS.indexOf(p.platform) !== -1;
-      h += '<div class="rt-platform-card">';
+      h += '<div class="rt-platform-card rt-st-' + p.status + '">';
       h += '<div class="rt-platform-header"><div style="display:flex;align-items:center;gap:.5rem;"><span style="flex-shrink:0;display:flex;">' + (PLATFORM_ICONS[p.platform] || '') + '</span><span class="rt-platform-name">' + esc(label) + '</span></div>';
       h += '<select class="rt-status-select" onchange="updatePlatformStatus(\'' + p.id + '\', this.value)">';
       ['not_created','in_progress','live','needs_update','opted_out'].forEach(function(s) {
@@ -1941,17 +1984,16 @@ strong { font-weight: 600; color: var(--color-heading); }
         h += '<option value="' + s + '"' + (p.status === s ? ' selected' : '') + '>' + sl.charAt(0).toUpperCase() + sl.slice(1) + '</option>';
       });
       h += '</select></div>';
+      h += '<div class="rt-url-row" id="rt-url-' + p.id + '">';
       if (p.profile_url) {
         var safeUrl = normalizeUrl(p.profile_url);
-        h += '<div style="display:flex;align-items:center;gap:.5rem;">';
         h += '<a href="' + esc(safeUrl) + '" target="_blank" class="rt-url" style="flex:1;">' + esc(p.profile_url.replace(/^https?:\/\//, '').slice(0, 45)) + '</a>';
         h += '<span class="rt-delete-url" onclick="clearPlatformUrl(\'' + p.id + '\')" title="Remove URL">&times;</span>';
-        h += '</div>';
       } else {
-        h += '<span style="font-size:.78rem;color:var(--color-muted);font-style:italic;">No URL set</span>';
+        h += '<input type="text" class="rt-url-input" placeholder="Enter profile URL..." onkeydown="if(event.key===\'Enter\')savePlatformUrlInline(\'' + p.id + '\',this.value)" onblur="savePlatformUrlInline(\'' + p.id + '\',this.value)">';
       }
+      h += '</div>';
       h += '<div class="rt-meta">';
-      h += '<span style="cursor:pointer;color:var(--color-primary);font-size:.75rem;" onclick="editPlatformUrl(\'' + p.id + '\')">Edit URL</span>';
       if (hasAccess) {
         h += '<button class="rt-access-toggle' + (p.admin_access ? ' granted' : '') + '" onclick="togglePlatformAccess(\'' + p.id + '\')">' + (p.admin_access ? '\u2713 Access Granted' : 'No Access') + '</button>';
       }
@@ -1993,6 +2035,20 @@ strong { font-weight: 600; color: var(--color-heading); }
     fetch('/api/action', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'update_record', table: 'social_platforms', filters: { id: id }, data: { profile_url: p.profile_url, status: p.status, updated_at: new Date().toISOString() } })
+    });
+    renderSocialPlatforms();
+  };
+
+  window.savePlatformUrlInline = function(id, rawUrl) {
+    var url = normalizeUrl(rawUrl);
+    if (!url) return;
+    var p = state.socialPlatforms.find(function(p) { return p.id === id; });
+    if (!p) return;
+    p.profile_url = url;
+    if (p.status === 'not_created') p.status = 'live';
+    fetch('/api/action', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_record', table: 'social_platforms', filters: { id: id }, data: { profile_url: url, status: p.status, updated_at: new Date().toISOString() } })
     });
     renderSocialPlatforms();
   };
@@ -3877,6 +3933,20 @@ strong { font-weight: 600; color: var(--color-heading); }
       '<div class="stat-mini"><div class="stat-label">Schedule</div><div class="stat-value" style="color:' + (isActive ? 'var(--color-success)' : 'var(--color-muted)') + ';">' + (isActive ? 'Active' : 'Inactive') + '</div><div class="stat-sub">1st of month</div></div>' +
       '<div class="stat-mini"><div class="stat-label">Published</div><div class="stat-value" style="color:var(--color-success);">' + publishedReports + '</div></div>' +
       '<div class="stat-mini"><div class="stat-label">Pending Review</div><div class="stat-value" style="color:' + (pendingReview > 0 ? 'var(--color-warning)' : 'var(--color-muted)') + ';">' + pendingReview + '</div></div>';
+
+    // Update report filter counts
+    var rptFilters = document.querySelectorAll('#rptFilterBar .filter-tab');
+    var rptCounts = { all: snaps.length, compiled: 0, internal_review: 0, published: 0, sent: 0 };
+    snaps.forEach(function(s) { if (rptCounts[s.report_status] !== undefined) rptCounts[s.report_status]++; });
+    rptFilters.forEach(function(tab) {
+      var f = tab.dataset.filter;
+      var cnt = rptCounts[f] || 0;
+      var countEl = tab.querySelector('.count');
+      if (cnt > 0 || f === 'all') {
+        if (!countEl) { countEl = document.createElement('span'); countEl.className = 'count'; tab.appendChild(countEl); }
+        countEl.textContent = cnt;
+      } else if (countEl) { countEl.remove(); }
+    });
 
     // ── CONFIGURATION FORM ──
     var fHtml = '<div style="padding:.75rem 0;">';
