@@ -58,16 +58,29 @@ module.exports = async function handler(req, res) {
 
       // Try to match against client's website domain
       var websiteUrl = (contact.website_url || '').replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '').toLowerCase();
-      var matched = null;
+      var matches = [];
 
       for (var i = 0; i < allSites.length; i++) {
         var siteUrl = allSites[i].siteUrl;
         var normalizedSite = siteUrl.replace(/^sc-domain:/, '').replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '').toLowerCase();
         if (normalizedSite === websiteUrl || websiteUrl.indexOf(normalizedSite) >= 0 || normalizedSite.indexOf(websiteUrl) >= 0) {
-          matched = siteUrl;
-          break;
+          matches.push(siteUrl);
         }
       }
+
+      // Rank by preference: sc-domain (broadest) > https://www. > https:// > http://
+      matches.sort(function(a, b) {
+        function rank(url) {
+          if (url.startsWith('sc-domain:')) return 0;
+          if (url.startsWith('https://www.')) return 1;
+          if (url.startsWith('https://')) return 2;
+          if (url.startsWith('http://www.')) return 3;
+          return 4;
+        }
+        return rank(a) - rank(b);
+      });
+
+      var matched = matches.length > 0 ? matches[0] : null;
 
       if (matched) {
         // Save to contact record
@@ -85,8 +98,9 @@ module.exports = async function handler(req, res) {
           service: 'gsc',
           found: true,
           property: matched,
+          alternatives: matches,
           saved: true,
-          message: 'Matched and saved GSC property: ' + matched,
+          message: 'Matched and saved GSC property: ' + matched + (matches.length > 1 ? ' (picked from ' + matches.length + ' matches)' : ''),
           all_sites: allSites.map(function(s) { return s.siteUrl; })
         });
       } else {
@@ -300,4 +314,5 @@ async function getGoogleAccessToken(saJson) {
     return { error: e.message || String(e) };
   }
 }
+
 
