@@ -137,6 +137,9 @@
     },
     "api/deploy-content-preview.js": {
       "maxDuration": 60
+    },
+    "api/deploy-endorsement-page.js": {
+      "maxDuration": 30
     }
   },
   "crons": [
