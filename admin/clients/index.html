@@ -4215,6 +4215,31 @@ strong { font-weight: 600; color: var(--color-heading); }
     }
   };
 
+  window.deployContentPreview = function(cpId) {
+    var cp = state.contentPages.find(function(p) { return p.id === cpId; });
+    if (!cp || !cp.generated_html) {
+      toast('No generated HTML to deploy', 'error');
+      return;
+    }
+    toast('Deploying preview page...', 'info');
+    fetch('/api/deploy-content-preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content_page_id: cpId })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        cp.status = 'client_review';
+        toast('Preview deployed! ' + res.full_url, 'success');
+        renderContent();
+      } else {
+        toast('Deploy failed: ' + (res.error || 'Unknown error'), 'error');
+      }
+    }).catch(function(err) {
+      toast('Deploy error: ' + err.message, 'error');
+    });
+  };
+
+
   window.analyzeDesignSpec = function() {
     var cssEl = document.getElementById('specCssInput');
     var contentEl = document.getElementById('specContentInput');
@@ -4449,7 +4474,7 @@ strong { font-weight: 600; color: var(--color-heading); }
           h += '<span id="gen-status-' + cp.id + '" style="font-size:.72rem;color:var(--color-muted);margin-left:.5rem;"></span>';
         }
         if (cp.status === 'review' && cp.generated_html) {
-          h += '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); toast(\'Preview deployment coming soon.\', \'info\')">Deploy Preview</button>';
+          h += '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); deployContentPreview(\'' + cp.id + '\')">Deploy Preview</button>';
         }
         if (cp.generated_html) {
           h += '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); copyGeneratedHtml(\'' + cp.id + '\')">Copy HTML</button>';
