@@ -131,6 +131,12 @@
     "api/generate-content-page.js": {
       "maxDuration": 120,
       "memory": 1024
+    },
+    "api/content-chat.js": {
+      "maxDuration": 120
+    },
+    "api/deploy-content-preview.js": {
+      "maxDuration": 60
     }
   },
   "crons": [
