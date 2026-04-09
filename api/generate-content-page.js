@@ -1,5 +1,5 @@
 // /api/generate-content-page.js
-// Generates production-ready HTML for a content page using Claude Sonnet 4.6.
+// Generates production-ready HTML for a content page using Claude Opus 4.6.
 // Uses NDJSON streaming to keep the connection alive during generation.
 // Pulls: design_specs, content_pages (RTPBA + schema), contacts, practice_details, bio_materials
 // Produces: Full HTML page with schema, FAQ accordion, CTA bands, crisis disclaimer
@@ -123,7 +123,7 @@ module.exports = async function handler(req, res) {
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
+          model: 'claude-opus-4-6',
           max_tokens: 16000,
           system: systemPrompt,
           messages: [{ role: 'user', content: userMessage }]
