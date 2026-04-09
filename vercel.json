@@ -127,6 +127,10 @@
     },
     "api/analyze-design-spec.js": {
       "maxDuration": 60
+    },
+    "api/generate-content-page.js": {
+      "maxDuration": 120,
+      "memory": 1024
     }
   },
   "crons": [
