@@ -345,7 +345,6 @@ a:hover { color: var(--color-primary-hover); }
       <table class="ea-table">
         <thead>
           <tr>
-            <th></th>
             <th>Contact</th>
             <th>Practice</th>
             <th>Status</th>
@@ -564,7 +563,6 @@ a:hover { color: var(--color-primary-hover); }
       }
 
       html += '<tr class="ea-row" onclick="window.location.href=\'/admin/clients?slug=' + esc(slug) + '&tab=audit\'" style="cursor:pointer;">';
-      html += '<td><span class="ea-expand-arrow">&#9654;</span></td>';
       html += '<td><strong style="font-size:.85rem;">' + esc((c.first_name || '') + ' ' + (c.last_name || '')) + '</strong></td>';
       html += '<td style="font-size:.84rem;">' + esc(c.practice_name || ea.brand_query || '') + '</td>';
       html += '<td>' + statusTag + '</td>';
