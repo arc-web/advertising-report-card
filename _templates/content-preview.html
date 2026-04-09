@@ -138,7 +138,7 @@
   window.__CLIENT_SLUG = CLIENT_SLUG;
 
   // Load content
-  fetch(SB + '/rest/v1/content_pages?id=eq.' + CONTENT_PAGE_ID + '&select=generated_html,status,page_name&limit=1', {
+  fetch(SB + '/rest/v1/content_pages?id=eq.' + CONTENT_PAGE_ID + '&select=generated_html,status,page_name,page_type,bio_material_id,contact_id&limit=1', {
     headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK }
   }).then(function(r) { return r.json(); }).then(function(data) {
     document.getElementById('loadingState').style.display = 'none';
@@ -162,6 +162,11 @@
       } catch(e) {
         iframe.style.height = '2000px';
       }
+
+      // Dynamic endorsement injection for bio pages
+      if (page.page_type === 'bio') {
+        injectEndorsements(page.contact_id, page.bio_material_id, iframe);
+      }
     };
 
     // Update approve button if already approved
@@ -175,6 +180,51 @@
     document.getElementById('errorState').style.display = 'block';
     document.getElementById('errorState').textContent = 'Something went wrong loading the preview. Please try refreshing.';
   });
+
+  // Dynamic endorsement injection for bio page previews
+  function injectEndorsements(contactId, bioMaterialId, iframe) {
+    var filter = 'contact_id=eq.' + contactId + '&status=eq.processed&order=sort_order,created_at.desc';
+    fetch(SB + '/rest/v1/endorsements?' + filter, {
+      headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK }
+    }).then(function(r) { return r.json(); }).then(function(endorsements) {
+      if (!endorsements || endorsements.length === 0) return;
+
+      // Filter to matching clinician
+      var filtered = endorsements;
+      if (bioMaterialId) {
+        filtered = endorsements.filter(function(e) {
+          return e.bio_material_id === bioMaterialId || !e.bio_material_id;
+        });
+      }
+      if (filtered.length === 0) return;
+
+      try {
+        var section = iframe.contentDocument.getElementById('endorsement-section');
+        if (!section) return;
+
+        var html = '';
+        filtered.forEach(function(e) {
+          html += '<div style="padding:1rem 0;border-bottom:1px solid rgba(0,0,0,.08);">';
+          html += '<p style="font-style:italic;margin-bottom:.5rem;">"' + esc(e.content) + '"</p>';
+          html += '<p style="font-weight:600;font-size:.9rem;">' + esc(e.endorser_name || 'Anonymous');
+          if (e.endorser_title) html += '<span style="font-weight:400;opacity:.7;">, ' + esc(e.endorser_title) + '</span>';
+          if (e.endorser_org) html += '<span style="font-weight:400;opacity:.7;"> at ' + esc(e.endorser_org) + '</span>';
+          html += '</p></div>';
+        });
+
+        // Replace section content but keep the container
+        section.innerHTML = '<h2 style="margin-bottom:1rem;">What Others Say</h2>' + html;
+
+        // Re-adjust iframe height
+        var h = iframe.contentDocument.body.scrollHeight;
+        iframe.style.height = Math.max(h + 40, 600) + 'px';
+      } catch(e) {
+        // Cross-origin or other iframe access error
+      }
+    }).catch(function() {});
+  }
+
+  function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
   // Approve
   window.approvePage = function() {
