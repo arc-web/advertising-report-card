@@ -1298,7 +1298,11 @@ strong { font-weight: 600; color: var(--color-heading); }
         fetch(SB + '/rest/v1/social_platforms?select=*&contact_id=eq.' + cid + '&order=platform', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
         fetch(SB + '/rest/v1/directory_listings?select=*&contact_id=eq.' + cid + '&order=directory', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
         fetch(SB + '/rest/v1/account_access?select=*&contact_id=eq.' + cid, { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/performance_guarantees?select=*&contact_id=eq.' + cid + '&limit=1', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; })
+        fetch(SB + '/rest/v1/performance_guarantees?select=*&contact_id=eq.' + cid + '&limit=1', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
+        fetch(SB + '/rest/v1/content_pages?select=*&contact_id=eq.' + cid + '&order=created_at.desc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
+        fetch(SB + '/rest/v1/design_specs?select=*&contact_id=eq.' + cid + '&limit=1', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
+        fetch(SB + '/rest/v1/neo_images?select=*&contact_id=eq.' + cid + '&order=created_at.desc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
+        fetch(SB + '/rest/v1/endorsements?select=*&contact_id=eq.' + cid + '&order=created_at.desc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; })
       ]);
     }).then(function(res) {
       if (!res) return; // Contact not found, already handled
@@ -1321,6 +1325,10 @@ strong { font-weight: 600; color: var(--color-heading); }
       state.directoryListings = res[15] || [];
       state.accountAccess = res[16] || [];
       state.guarantee = (res[17] && res[17][0]) || null;
+      state.contentPages = res[18] || [];
+      state.designSpec = (res[19] && res[19][0]) || null;
+      state.neoImages = res[20] || [];
+      state.endorsements = res[21] || [];
       state.proposalFollowups = {};
 
       // Derive CORE scores from entity_audits (replaces audit_scores table)
@@ -1638,6 +1646,9 @@ strong { font-weight: 600; color: var(--color-heading); }
     renderAudit();
     renderReports();
     renderBilling(c);
+    renderContent();
+    var contentCount = state.contentPages.filter(function(cp) { return cp.status !== 'delivered' && cp.status !== 'approved'; }).length;
+    setTabCount('content', contentCount);
   }
 
   function setTabCount(tab, count) {
@@ -5537,8 +5548,8 @@ strong { font-weight: 600; color: var(--color-heading); }
   var TAB_VISIBILITY = {
     lead:       ['overview', 'proposals', 'profile', 'audit'],
     prospect:   ['overview', 'proposals', 'profile', 'audit'],
-    onboarding: ['overview', 'proposals', 'onboarding', 'intro-call', 'profile', 'rising-tide', 'deliverables', 'audit', 'reports', 'billing'],
-    active:     ['overview', 'proposals', 'onboarding', 'intro-call', 'profile', 'rising-tide', 'deliverables', 'audit', 'reports', 'billing']
+    onboarding: ['overview', 'proposals', 'onboarding', 'intro-call', 'profile', 'rising-tide', 'deliverables', 'content', 'audit', 'reports', 'billing'],
+    active:     ['overview', 'proposals', 'onboarding', 'intro-call', 'profile', 'rising-tide', 'deliverables', 'content', 'audit', 'reports', 'billing']
   };
   var HISTORY_TABS = ['proposals', 'onboarding', 'intro-call'];
 
