@@ -7,17 +7,18 @@
 // 4. Deploys scorecard page from template to GitHub
 // 5. For active/onboarding clients, also deploys the 3-page audit suite
 
+var sb = require('./_lib/supabase');
+var gh = require('./_lib/github');
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   var anthropicKey = process.env.ANTHROPIC_API_KEY;
   var ghToken = process.env.GITHUB_PAT;
-  var sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  var sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ofmmwcjhdrhvxxkhcuww.supabase.co';
 
   if (!anthropicKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
   if (!ghToken) return res.status(500).json({ error: 'GITHUB_PAT not configured' });
-  if (!sbKey) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
+  if (!sb.isConfigured()) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
 
   var body = req.body;
   var auditId = body.audit_id;
@@ -40,9 +41,6 @@ module.exports = async function handler(req, res) {
   var REPO = 'Moonraker-AI/client-hq';
   var BRANCH = 'main';
 
-  function sbHeaders() {
-    return { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey, 'Content-Type': 'application/json' };
-  }
 
   try {
     // ============================================================
@@ -50,8 +48,8 @@ module.exports = async function handler(req, res) {
     // ============================================================
     send({ step: 'lookup', message: 'Looking up audit record...' });
 
-    var auditResp = await fetch(sbUrl + '/rest/v1/entity_audits?id=eq.' + auditId + '&select=*', {
-      headers: sbHeaders()
+    var auditResp = await fetch(sb.url() + '/rest/v1/entity_audits?id=eq.' + auditId + '&select=*', {
+      headers: sb.headers()
     });
     var audits = await auditResp.json();
     if (!audits || audits.length === 0) {
@@ -60,8 +58,8 @@ module.exports = async function handler(req, res) {
     }
     var audit = audits[0];
 
-    var contactResp = await fetch(sbUrl + '/rest/v1/contacts?id=eq.' + audit.contact_id + '&select=*', {
-      headers: sbHeaders()
+    var contactResp = await fetch(sb.url() + '/rest/v1/contacts?id=eq.' + audit.contact_id + '&select=*', {
+      headers: sb.headers()
     });
     var contacts = await contactResp.json();
     if (!contacts || contacts.length === 0) {
@@ -281,9 +279,9 @@ ${surgeData}`;
       status: 'complete'
     };
 
-    var updateResp = await fetch(sbUrl + '/rest/v1/entity_audits?id=eq.' + auditId, {
+    var updateResp = await fetch(sb.url() + '/rest/v1/entity_audits?id=eq.' + auditId, {
       method: 'PATCH',
-      headers: Object.assign({}, sbHeaders(), { 'Prefer': 'return=minimal' }),
+      headers: Object.assign({}, sb.headers(), { 'Prefer': 'return=minimal' }),
       body: JSON.stringify(updateBody)
     });
 
@@ -301,9 +299,9 @@ ${surgeData}`;
     send({ step: 'checklist', message: 'Creating ' + allTasks.length + ' structured task records...' });
 
     // Delete any existing checklist_items for this audit (re-processing support)
-    await fetch(sbUrl + '/rest/v1/checklist_items?audit_id=eq.' + auditId, {
+    await fetch(sb.url() + '/rest/v1/checklist_items?audit_id=eq.' + auditId, {
       method: 'DELETE',
-      headers: Object.assign({}, sbHeaders(), { 'Prefer': 'return=minimal' })
+      headers: Object.assign({}, sb.headers(), { 'Prefer': 'return=minimal' })
     });
 
     // Map severity to priority
@@ -353,9 +351,9 @@ ${surgeData}`;
 
     // Batch insert checklist_items
     if (checklistRows.length > 0) {
-      var insertResp = await fetch(sbUrl + '/rest/v1/checklist_items', {
+      var insertResp = await fetch(sb.url() + '/rest/v1/checklist_items', {
         method: 'POST',
-        headers: Object.assign({}, sbHeaders(), { 'Prefer': 'return=minimal' }),
+        headers: Object.assign({}, sb.headers(), { 'Prefer': 'return=minimal' }),
         body: JSON.stringify(checklistRows)
       });
 
