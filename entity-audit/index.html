@@ -172,9 +172,13 @@ section { padding: 5rem 0; }
 .form-wrap .form-subtitle { color: rgba(232,245,239,.6); text-align: center; font-size: 1rem; margin-bottom: 2rem; }
 .form-row { margin-bottom: 1rem; }
 .form-row label { display: block; font-size: .8125rem; font-weight: 600; color: rgba(232,245,239,.6); margin-bottom: .35rem; letter-spacing: .02em; }
-.form-row input { width: 100%; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: .75rem 1rem; font-family: 'Inter', sans-serif; font-size: .9375rem; color: #E8F5EF; transition: border-color .2s; }
+.form-row input, .form-row select { width: 100%; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: .75rem 1rem; font-family: 'Inter', sans-serif; font-size: .9375rem; color: #E8F5EF; transition: border-color .2s; }
+.form-row select { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23E8F5EF' d='M1.4 0L6 4.6 10.6 0 12 1.4l-6 6-6-6z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; padding-right: 2.5rem; cursor: pointer; }
+.form-row select option { background: #141C3A; color: #E8F5EF; }
 .form-row input::placeholder { color: rgba(232,245,239,.3); }
-.form-row input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(0,212,126,.15); }
+.form-row input:focus, .form-row select:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(0,212,126,.15); }
+.referral-sub { display: none; margin-top: .5rem; }
+.referral-sub.visible { display: block; }
 .form-row-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 @media (max-width: 480px) { .form-row-grid { grid-template-columns: 1fr; } }
 .form-btn { width: 100%; background: var(--color-primary); color: #fff; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1.0625rem; padding: .875rem; border-radius: 10px; border: none; cursor: pointer; transition: all .25s; margin-top: .5rem; }
@@ -440,7 +444,7 @@ section { padding: 5rem 0; }
       <h2>Frequently Asked Questions</h2>
     </div>
     <div class="faq-list">
-      <div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How long does the audit take?</div><div class="faq-a">Both free and premium audits are delivered within 48-72 hours. Our Surge platform runs a deep analysis across 17+ metrics and 8 AI engines, and each scorecard is reviewed by our team before delivery.</div></div>
+      <div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How long does the audit take?</div><div class="faq-a">Your audit begins processing as soon as you submit the form. Our Surge platform runs a deep analysis across 17+ metrics and 8 AI engines, and you will typically receive your scorecard via email within a few hours. Premium audits include a personalized Loom walkthrough that may add a bit of additional time.</div></div>
       <div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What is Surge?</div><div class="faq-a">Surge is our proprietary audit platform that analyzes your digital presence through the lens of AI search. It measures entity recognition, content authenticity, schema completeness, reputation signals, and more across Google, ChatGPT, Perplexity, Claude, Bing, and other AI platforms.</div></div>
       <div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Do I need technical skills to implement the recommendations?</div><div class="faq-a">The free audit includes step-by-step instructions with code snippets that you or your web developer can follow. The premium audit goes further by providing ready-to-deploy schema files you can upload directly to your site, plus a Loom walkthrough and strategy call to make sure you know exactly what to prioritize. If you want hands-on help, our full CORE Marketing System campaign handles everything for you.</div></div>
       <div class="faq-item"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What is the difference between the free and premium audit?</div><div class="faq-a">Both use the same Surge analysis and produce the same CORE scorecard. The premium audit adds three deliverables: ready-to-deploy schema files (brand.jsonld, FAQPage, AggregateRating, and more) you can upload directly to your site, a comprehensive personalized Loom walkthrough of your findings, and a 30-minute strategy call with our team to discuss priorities and next steps.</div></div>
@@ -456,7 +460,7 @@ section { padding: 5rem 0; }
   <div class="container">
     <div class="form-wrap">
       <h2>Get Your Free Entity Audit</h2>
-      <p class="form-subtitle">We will email you when your personalized scorecard is ready (48-72 hours).</p>
+      <p class="form-subtitle">We will email you when your personalized scorecard is ready.</p>
 
       <div id="intakeForm">
         <div class="form-row form-row-grid">
@@ -481,9 +485,49 @@ section { padding: 5rem 0; }
           <label for="email">Email</label>
           <input type="email" id="email" placeholder="jane@yourpractice.com" required>
         </div>
+        <div class="form-row form-row-grid">
+          <div>
+            <label for="city">City</label>
+            <input type="text" id="city" placeholder="Austin">
+          </div>
+          <div>
+            <label for="state">State / Province</label>
+            <input type="text" id="state" placeholder="TX">
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="gbpLink">Google Business Profile Link <span style="font-weight:400;opacity:.6;">(optional)</span></label>
+          <input type="url" id="gbpLink" placeholder="https://maps.google.com/..." >
+        </div>
         <div class="form-row">
           <label for="auditSource">How did you hear about us?</label>
-          <input type="text" id="auditSource" placeholder="Accelerator group, referral, etc. (optional)">
+          <select id="auditSource">
+            <option value="">Select an option</option>
+            <option value="google_search">Google Search</option>
+            <option value="ai_search">AI Search (ChatGPT, Claude, etc)</option>
+            <option value="email_newsletter">Email / Newsletter</option>
+            <option value="webinar">Webinar</option>
+            <option value="fb_group">FB Group</option>
+            <option value="referral">Referral</option>
+            <option value="other">Other</option>
+          </select>
+          <div class="referral-sub" id="referralSub">
+            <select id="referralName">
+              <option value="">Who referred you?</option>
+              <option value="Nicole McCance (McCance Method)">Nicole McCance (McCance Method)</option>
+              <option value="Anna Walker (Walker Strategy Co / Get Booked Out)">Anna Walker (Walker Strategy Co / Get Booked Out)</option>
+              <option value="Audrey Schoen (Balanced Private Practice)">Audrey Schoen (Balanced Private Practice)</option>
+              <option value="Danielle Swimm (Entrepreneurial Therapist)">Danielle Swimm (Entrepreneurial Therapist)</option>
+              <option value="Daniel Fava (Private Practice Elevation)">Daniel Fava (Private Practice Elevation)</option>
+              <option value="Kym Tolson (Traveling Therapist / Clinical AI Club)">Kym Tolson (Traveling Therapist / Clinical AI Club)</option>
+              <option value="Nancy Cowden (Prosperous Therapist)">Nancy Cowden (Prosperous Therapist)</option>
+              <option value="Brent Stutzman (TheraSaaS / Brand Your Practice)">Brent Stutzman (TheraSaaS / Brand Your Practice)</option>
+              <option value="Kerstin Anderson-Ridge (Private Practice Academy)">Kerstin Anderson-Ridge (Private Practice Academy)</option>
+              <option value="Rosanna Gilderthorp (Psychology Business School)">Rosanna Gilderthorp (Psychology Business School)</option>
+              <option value="Other">Someone else</option>
+            </select>
+            <input type="text" id="referralOther" placeholder="Who referred you?" style="display:none;margin-top:.5rem;">
+          </div>
         </div>
         <button class="form-btn" id="submitBtn" onclick="submitIntake()">Request Free Entity Audit &#8594;</button>
         <div class="form-error" id="formError"></div>
@@ -492,8 +536,8 @@ section { padding: 5rem 0; }
 
       <div class="form-success" id="formSuccess">
         <div class="success-icon">&#9989;</div>
-        <h3>You're All Set!</h3>
-        <p>We will run your entity audit and email you at <strong id="confirmEmail"></strong> when your personalized scorecard is ready. This usually takes 48-72 hours.</p>
+        <h3>Your Audit Is Underway</h3>
+        <p>We are generating your personalized entity audit now. You will receive an email at <strong id="confirmEmail"></strong> with your scorecard shortly.</p>
       </div>
     </div>
   </div>
@@ -503,9 +547,6 @@ section { padding: 5rem 0; }
 
 <script>
 (function() {
-  var SB_URL = 'https://ofmmwcjhdrhvxxkhcuww.supabase.co';
-  var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9mbW13Y2poZHJodnh4a2hjdXd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMjM1NTcsImV4cCI6MjA4OTg5OTU1N30.zMMHW0Fk9ixWjORngyxJTIoPOfx7GFsD4wBV4Foqqms';
-
   var PREMIUM_LINKS = {
     ach: 'https://buy.stripe.com/3cIdR87co3Z711Wfip5wI0V',
     cc:  'https://buy.stripe.com/7sY4gyaoAgLT9ys7PX5wI0W'
@@ -518,13 +559,63 @@ section { padding: 5rem 0; }
   var refCode = urlParams.get('ref') || urlParams.get('utm_source') || '';
   var refCampaign = urlParams.get('utm_campaign') || '';
   if (refCode) {
-    // Auto-fill and lock the source field
-    var srcField = document.getElementById('auditSource');
-    if (srcField) {
-      srcField.value = refCode + (refCampaign ? ' - ' + refCampaign : '');
-      srcField.readOnly = true;
-      srcField.style.opacity = '.7';
+    // Auto-select referral in dropdown and lock
+    var srcSelect = document.getElementById('auditSource');
+    if (srcSelect) {
+      srcSelect.value = 'referral';
+      srcSelect.disabled = true;
+      srcSelect.style.opacity = '.7';
+      // Show referral sub and try to match
+      var subWrap = document.getElementById('referralSub');
+      subWrap.classList.add('visible');
+      var refSelect = document.getElementById('referralName');
+      var matched = false;
+      for (var i = 0; i < refSelect.options.length; i++) {
+        if (refSelect.options[i].value.toLowerCase().indexOf(refCode.toLowerCase()) !== -1) {
+          refSelect.selectedIndex = i;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        refSelect.value = 'Other';
+        var otherInput = document.getElementById('referralOther');
+        otherInput.style.display = 'block';
+        otherInput.value = refCode + (refCampaign ? ' - ' + refCampaign : '');
+        otherInput.readOnly = true;
+        otherInput.style.opacity = '.7';
+      }
+      refSelect.disabled = true;
+      refSelect.style.opacity = '.7';
     }
+  }
+
+  // -- Referral sub-dropdown toggle --
+  var srcEl = document.getElementById('auditSource');
+  if (srcEl) {
+    srcEl.addEventListener('change', function() {
+      var sub = document.getElementById('referralSub');
+      if (this.value === 'referral') {
+        sub.classList.add('visible');
+      } else {
+        sub.classList.remove('visible');
+        document.getElementById('referralName').value = '';
+        document.getElementById('referralOther').style.display = 'none';
+        document.getElementById('referralOther').value = '';
+      }
+    });
+  }
+  var refNameEl = document.getElementById('referralName');
+  if (refNameEl) {
+    refNameEl.addEventListener('change', function() {
+      var otherInput = document.getElementById('referralOther');
+      if (this.value === 'Other') {
+        otherInput.style.display = 'block';
+      } else {
+        otherInput.style.display = 'none';
+        otherInput.value = '';
+      }
+    });
   }
 
   // -- Sample scorecard rendering --
@@ -587,7 +678,21 @@ section { padding: 5rem 0; }
     var practiceName = document.getElementById('practiceName').value.trim();
     var websiteUrl = document.getElementById('websiteUrl').value.trim();
     var email = document.getElementById('email').value.trim();
-    var source = document.getElementById('auditSource').value.trim();
+    var city = document.getElementById('city').value.trim();
+    var state = document.getElementById('state').value.trim();
+    var gbpLink = document.getElementById('gbpLink').value.trim();
+    var source = document.getElementById('auditSource').value || 'landing_page';
+
+    // Build referral name from sub-dropdown
+    var referralName = '';
+    if (source === 'referral') {
+      var refSel = document.getElementById('referralName').value;
+      if (refSel === 'Other') {
+        referralName = document.getElementById('referralOther').value.trim() || 'Other';
+      } else {
+        referralName = refSel;
+      }
+    }
 
     // Validation
     if (!firstName || !lastName || !websiteUrl || !email) {
@@ -608,95 +713,29 @@ section { padding: 5rem 0; }
     btn.textContent = 'Submitting...';
     hideError();
 
-    var slug = slugify(firstName + ' ' + lastName);
-    var brandQuery = practiceName || firstName + ' ' + lastName;
-
-    // Check if we already have this person before creating
-    fetch(SB_URL + '/rest/v1/contacts?slug=eq.' + slug + '&select=id&limit=1', {
-      headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + SB_ANON }
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(existing) {
-      if (existing && existing.length > 0) {
-        showError('It looks like we already have your information on file. If you have not received your scorecard yet, please contact support@moonraker.ai and we will follow up.');
-        btn.disabled = false;
-        btn.textContent = 'Request Free Entity Audit \u2192';
-        return;
-      }
-      createLeadAndAudit(slug, firstName, lastName, practiceName, websiteUrl, email, brandQuery, sourceVal, btn);
-    })
-    .catch(function() {
-      createLeadAndAudit(slug, firstName, lastName, practiceName, websiteUrl, email, brandQuery, sourceVal, btn);
-    });
-  };
-
-  function createLeadAndAudit(slug, firstName, lastName, practiceName, websiteUrl, email, brandQuery, sourceVal, btn) {
-
-    // Determine source value
-    var sourceVal = 'landing_page';
-    if (refCode) {
-      sourceVal = 'referral';
-    } else if (source) {
-      var sl = source.toLowerCase();
-      if (sl.indexOf('accelerator') !== -1 || sl.indexOf('group') !== -1) sourceVal = 'accelerator_group';
-      else if (sl.indexOf('referral') !== -1 || sl.indexOf('refer') !== -1) sourceVal = 'referral';
-      else sourceVal = 'organic';
-    }
-
-    // Step 1: Create contact
-    var contactPayload = {
-      first_name: firstName,
-      last_name: lastName,
-      practice_name: practiceName || null,
-      website_url: websiteUrl,
-      email: email,
-      slug: slug,
-      status: 'lead',
-      source: sourceVal,
-      audit_tier: 'free',
-      referral_code: refCode || null
-    };
-
-    fetch(SB_URL + '/rest/v1/contacts', {
+    fetch('/api/submit-entity-audit', {
       method: 'POST',
-      headers: {
-        'apikey': SB_ANON,
-        'Authorization': 'Bearer ' + SB_ANON,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify(contactPayload)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        first_name: firstName,
+        last_name: lastName,
+        practice_name: practiceName,
+        website_url: websiteUrl,
+        email: email,
+        city: city,
+        state: state,
+        gbp_link: gbpLink,
+        source: source,
+        referral_name: referralName
+      })
     })
     .then(function(r) {
-      if (!r.ok) return r.json().then(function(err) { throw new Error(err.message || 'Failed to create contact'); });
-      return r.json();
-    })
-    .then(function(contacts) {
-      var contact = contacts[0];
-
-      // Step 2: Create entity_audits row
-      var auditPayload = {
-        contact_id: contact.id,
-        audit_tier: 'free',
-        brand_query: brandQuery,
-        homepage_url: websiteUrl,
-        status: 'pending'
-      };
-
-      return fetch(SB_URL + '/rest/v1/entity_audits', {
-        method: 'POST',
-        headers: {
-          'apikey': SB_ANON,
-          'Authorization': 'Bearer ' + SB_ANON,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify(auditPayload)
+      return r.json().then(function(data) {
+        if (!r.ok) throw new Error(data.message || data.error || 'Something went wrong.');
+        return data;
       });
     })
-    .then(function(r) {
-      if (!r.ok) return r.json().then(function(err) { throw new Error(err.message || 'Failed to create audit'); });
-      // Success
+    .then(function(data) {
       document.getElementById('intakeForm').style.display = 'none';
       document.getElementById('formSuccess').style.display = 'block';
       document.getElementById('confirmEmail').textContent = email;
@@ -704,14 +743,12 @@ section { padding: 5rem 0; }
     .catch(function(err) {
       console.error('Submit error:', err);
       var msg = err.message || 'Something went wrong. Please try again.';
-      if (msg.indexOf('duplicate') !== -1 || msg.indexOf('unique') !== -1) {
-        msg = 'It looks like we already have a record for this practice. Please contact support@moonraker.ai for help.';
-      }
       showError(msg);
       btn.disabled = false;
       btn.textContent = 'Request Free Entity Audit \u2192';
     });
-  }
+  };
+
 
   function showError(msg) {
     var el = document.getElementById('formError');
@@ -749,3 +786,4 @@ section { padding: 5rem 0; }
 </script>
 </body>
 </html>
+
