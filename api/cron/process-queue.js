@@ -3,6 +3,7 @@
 // Picks ONE pending item where scheduled_for <= now, compiles it
 
 var sb = require('../_lib/supabase');
+var monitor = require('../_lib/monitor');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') {
