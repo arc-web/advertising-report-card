@@ -1,0 +1,142 @@
+// /api/setup-audit-schedule.js
+// Called when a client transitions to active (or manually from admin).
+// Handles the "adopt or pull fresh" baseline logic and sets next_audit_due.
+//
+// POST { contact_id }
+//
+// Logic:
+// 1. Check for existing "initial" audit within the last 30 days
+// 2. If found: promote audit_period to "baseline", set next_audit_due = 3 months out
+// 3. If not found: create new baseline entity_audit row, trigger agent, set next_audit_due
+//
+// Idempotent: skips if next_audit_due is already set.
+
+var sb = require('./_lib/supabase');
+
+module.exports = async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (!sb.isConfigured()) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
+
+  var contactId = (req.body || {}).contact_id;
+  if (!contactId) return res.status(400).json({ error: 'contact_id required' });
+
+  try {
+    var contact = await sb.one('contacts?id=eq.' + contactId + '&select=*&limit=1');
+    if (!contact) return res.status(404).json({ error: 'Contact not found' });
+
+    // Idempotent guard: skip if already scheduled
+    if (contact.next_audit_due) {
+      return res.status(200).json({
+        message: 'Audit schedule already set.',
+        next_audit_due: contact.next_audit_due,
+        action: 'skipped'
+      });
+    }
+
+    var threeMothsOut = new Date();
+    threeMothsOut.setMonth(threeMothsOut.getMonth() + 3);
+    var nextDue = threeMothsOut.toISOString().split('T')[0];
+
+    // Check for recent initial audit (within 30 days)
+    var thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    var cutoff = thirtyDaysAgo.toISOString().split('T')[0];
+
+    var recentAudits = await sb.query(
+      'entity_audits?contact_id=eq.' + contactId +
+      '&audit_period=eq.initial&audit_date=gte.' + cutoff +
+      '&status=in.(complete,delivered)' +
+      '&select=id,audit_date,cres_score,status' +
+      '&order=audit_date.desc&limit=1'
+    );
+
+    var action;
+    var auditId;
+
+    if (recentAudits && recentAudits.length > 0) {
+      // Adopt: promote initial audit to baseline
+      var adopted = recentAudits[0];
+      await sb.mutate('entity_audits?id=eq.' + adopted.id, 'PATCH', {
+        audit_period: 'baseline'
+      }, 'return=minimal');
+
+      auditId = adopted.id;
+      action = 'adopted';
+
+    } else {
+      // Pull fresh: create new baseline audit and trigger agent
+      var brandQuery = contact.practice_name || (contact.first_name + ' ' + contact.last_name);
+      var geoTarget = '';
+      if (contact.city || contact.state_province) {
+        geoTarget = (contact.city || '') + (contact.city && contact.state_province ? ', ' : '') + (contact.state_province || '');
+      }
+
+      var auditRows = await sb.mutate('entity_audits', 'POST', {
+        contact_id: contactId,
+        client_slug: contact.slug,
+        audit_tier: 'none',
+        brand_query: brandQuery,
+        homepage_url: contact.website_url,
+        status: 'pending',
+        audit_period: 'baseline',
+        audit_scope: 'homepage',
+        geo_target: geoTarget || null
+      });
+
+      var audit = auditRows[0];
+      auditId = audit.id;
+      action = 'created';
+
+      // Trigger agent
+      var AGENT_URL = process.env.AGENT_SERVICE_URL;
+      var AGENT_KEY = process.env.AGENT_API_KEY;
+
+      if (AGENT_URL && AGENT_KEY) {
+        try {
+          var agentResp = await fetch(AGENT_URL + '/tasks/surge-audit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AGENT_KEY },
+            body: JSON.stringify({
+              audit_id: audit.id,
+              practice_name: brandQuery,
+              website_url: contact.website_url,
+              city: contact.city || '',
+              state: contact.state_province || '',
+              geo_target: geoTarget,
+              client_slug: contact.slug
+            })
+          });
+
+          if (agentResp.ok) {
+            var agentResult = await agentResp.json();
+            await sb.mutate('entity_audits?id=eq.' + audit.id, 'PATCH', {
+              status: 'agent_running',
+              agent_task_id: agentResult.task_id
+            }, 'return=minimal');
+          }
+        } catch (agentErr) {
+          console.error('Agent trigger failed for baseline audit:', agentErr.message);
+        }
+      }
+    }
+
+    // Set next_audit_due on the contact
+    await sb.mutate('contacts?id=eq.' + contactId, 'PATCH', {
+      next_audit_due: nextDue
+    }, 'return=minimal');
+
+    return res.status(200).json({
+      success: true,
+      action: action,
+      audit_id: auditId,
+      next_audit_due: nextDue,
+      message: action === 'adopted'
+        ? 'Recent initial audit promoted to baseline. Next quarterly audit scheduled for ' + nextDue + '.'
+        : 'New baseline audit created and agent triggered. Next quarterly audit scheduled for ' + nextDue + '.'
+    });
+
+  } catch (err) {
+    console.error('setup-audit-schedule error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+};
