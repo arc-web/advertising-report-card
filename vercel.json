@@ -122,6 +122,9 @@
     "api/trigger-agent.js": {
       "maxDuration": 30
     },
+    "api/submit-entity-audit.js": {
+      "maxDuration": 30
+    },
     "api/poll-agent.js": {
       "maxDuration": 15
     },
