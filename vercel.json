@@ -140,6 +140,12 @@
     },
     "api/deploy-endorsement-page.js": {
       "maxDuration": 30
+    },
+    "api/trigger-content-audit.js": {
+      "maxDuration": 30
+    },
+    "api/ingest-surge-content.js": {
+      "maxDuration": 60
     }
   },
   "crons": [
