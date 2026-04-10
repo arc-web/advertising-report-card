@@ -18,12 +18,12 @@
  *   - Corresponding deliverables for each (surge_page, target_page, etc.)
  */
 
+var sb = require('./_lib/supabase');
+
 module.exports = async function(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  var sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  var sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ofmmwcjhdrhvxxkhcuww.supabase.co';
-  if (!sbKey) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
+  if (!sb.isConfigured()) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
 
   var contactId = req.body && req.body.contact_id;
   if (!contactId) return res.status(400).json({ error: 'contact_id required' });
@@ -34,12 +34,12 @@ module.exports = async function(req, res) {
   try {
     // 1. Fetch all needed data in parallel
     var results = await Promise.all([
-      fetch(sbUrl + '/rest/v1/contacts?id=eq.' + contactId + '&limit=1', { headers: headers }).then(r => r.json()),
-      fetch(sbUrl + '/rest/v1/tracked_keywords?contact_id=eq.' + contactId + '&active=eq.true&order=priority,keyword', { headers: headers }).then(r => r.json()),
-      fetch(sbUrl + '/rest/v1/bio_materials?contact_id=eq.' + contactId + '&order=sort_order,is_primary.desc', { headers: headers }).then(r => r.json()),
-      fetch(sbUrl + '/rest/v1/content_pages?contact_id=eq.' + contactId, { headers: headers }).then(r => r.json()),
-      fetch(sbUrl + '/rest/v1/deliverables?contact_id=eq.' + contactId, { headers: headers }).then(r => r.json()),
-      fetch(sbUrl + '/rest/v1/entity_audits?contact_id=eq.' + contactId + '&order=created_at.desc&limit=1', { headers: headers }).then(r => r.json())
+      fetch(sb.url() + '/rest/v1/contacts?id=eq.' + contactId + '&limit=1', { headers: headers }).then(r => r.json()),
+      fetch(sb.url() + '/rest/v1/tracked_keywords?contact_id=eq.' + contactId + '&active=eq.true&order=priority,keyword', { headers: headers }).then(r => r.json()),
+      fetch(sb.url() + '/rest/v1/bio_materials?contact_id=eq.' + contactId + '&order=sort_order,is_primary.desc', { headers: headers }).then(r => r.json()),
+      fetch(sb.url() + '/rest/v1/content_pages?contact_id=eq.' + contactId, { headers: headers }).then(r => r.json()),
+      fetch(sb.url() + '/rest/v1/deliverables?contact_id=eq.' + contactId, { headers: headers }).then(r => r.json()),
+      fetch(sb.url() + '/rest/v1/entity_audits?contact_id=eq.' + contactId + '&order=created_at.desc&limit=1', { headers: headers }).then(r => r.json())
     ]);
 
     var contact = results[0] && results[0][0];
@@ -75,7 +75,7 @@ module.exports = async function(req, res) {
 
     // Helper: create a content_page and return it
     async function createPage(data) {
-      var resp = await fetch(sbUrl + '/rest/v1/content_pages', {
+      var resp = await fetch(sb.url() + '/rest/v1/content_pages', {
         method: 'POST', headers: writeHeaders, body: JSON.stringify(data)
       });
       var result = await resp.json();
@@ -89,7 +89,7 @@ module.exports = async function(req, res) {
 
     // Helper: create a deliverable linked to a content_page
     async function createDel(data) {
-      var resp = await fetch(sbUrl + '/rest/v1/deliverables', {
+      var resp = await fetch(sb.url() + '/rest/v1/deliverables', {
         method: 'POST', headers: writeHeaders, body: JSON.stringify(data)
       });
       var result = await resp.json();
@@ -100,7 +100,7 @@ module.exports = async function(req, res) {
 
     // Helper: link an existing deliverable to a content_page
     async function linkDel(delId, cpId) {
-      await fetch(sbUrl + '/rest/v1/deliverables?id=eq.' + delId, {
+      await fetch(sb.url() + '/rest/v1/deliverables?id=eq.' + delId, {
         method: 'PATCH',
         headers: Object.assign({}, writeHeaders, { 'Prefer': 'return=minimal' }),
         body: JSON.stringify({ content_page_id: cpId })
