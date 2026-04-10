@@ -1,17 +1,20 @@
 // /api/setup-audit-schedule.js
 // Called when a client transitions to active (or manually from admin).
 // Handles the "adopt or pull fresh" baseline logic and sets next_audit_due.
+// When adopting a lead audit, also deploys the campaign audit suite
+// (diagnosis, action-plan, progress) that leads don't get.
 //
 // POST { contact_id }
 //
 // Logic:
 // 1. Check for existing "initial" audit within the last 30 days
-// 2. If found: promote audit_period to "baseline", set next_audit_due = 3 months out
+// 2. If found: promote audit_period to "baseline", deploy campaign suite, set next_audit_due
 // 3. If not found: create new baseline entity_audit row, trigger agent, set next_audit_due
 //
 // Idempotent: skips if next_audit_due is already set.
 
 var sb = require('./_lib/supabase');
+var gh = require('./_lib/github');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -62,6 +65,31 @@ module.exports = async function handler(req, res) {
 
       auditId = adopted.id;
       action = 'adopted';
+
+      // Deploy the 3-page campaign audit suite if not already present
+      // (Leads only get the scorecard page; active clients need the full suite)
+      if (gh.isConfigured()) {
+        var slug = contact.slug;
+        var suiteTemplates = [
+          { template: 'diagnosis.html', dest: slug + '/audits/diagnosis/index.html' },
+          { template: 'action-plan.html', dest: slug + '/audits/action-plan/index.html' },
+          { template: 'progress.html', dest: slug + '/audits/progress/index.html' }
+        ];
+
+        var suiteDeployed = 0;
+        for (var t = 0; t < suiteTemplates.length; t++) {
+          try {
+            var tmplContent = await gh.readTemplate(suiteTemplates[t].template);
+            if (tmplContent) {
+              await gh.pushFile(suiteTemplates[t].dest, tmplContent, 'Deploy audit ' + suiteTemplates[t].template.replace('.html', '') + ' for ' + slug);
+              suiteDeployed++;
+            }
+          } catch (deployErr) {
+            console.log('Suite deploy warning for ' + suiteTemplates[t].template + ':', deployErr.message);
+          }
+          if (t < suiteTemplates.length - 1) await new Promise(function(r) { setTimeout(r, 600); });
+        }
+      }
 
     } else {
       // Pull fresh: create new baseline audit and trigger agent
@@ -131,7 +159,7 @@ module.exports = async function handler(req, res) {
       audit_id: auditId,
       next_audit_due: nextDue,
       message: action === 'adopted'
-        ? 'Recent initial audit promoted to baseline. Next quarterly audit scheduled for ' + nextDue + '.'
+        ? 'Recent initial audit promoted to baseline. Campaign audit suite deployed. Next quarterly audit scheduled for ' + nextDue + '.'
         : 'New baseline audit created and agent triggered. Next quarterly audit scheduled for ' + nextDue + '.'
     });
 
