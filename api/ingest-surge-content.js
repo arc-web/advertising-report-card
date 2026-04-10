@@ -15,7 +15,6 @@
 
 var email = require('./_lib/email-template');
 var sb = require('./_lib/supabase');
-var sb = require('./_lib/supabase');
 
 module.exports = async function(req, res) {
   if (req.method !== 'POST') {
@@ -49,7 +48,7 @@ module.exports = async function(req, res) {
     // 1. Fetch current content page
     var cpResp = await fetch(
       sb.url() + '/rest/v1/content_pages?id=eq.' + body.content_page_id + '&limit=1',
-      { headers: { 'apikey': sb.key(), 'Authorization': 'Bearer ' + SUPABASE_KEY } }
+      { headers: sb.headers() }
     );
     var pages = await cpResp.json();
     if (!pages || !pages[0]) {
