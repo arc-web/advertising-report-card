@@ -4,15 +4,15 @@
 // Pulls: design_specs, content_pages (RTPBA + schema), contacts, practice_details, bio_materials
 // Produces: Full HTML page with schema, FAQ accordion, CTA bands, crisis disclaimer
 
+var sb = require('./_lib/supabase');
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   var anthropicKey = process.env.ANTHROPIC_API_KEY;
-  var sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  var sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ofmmwcjhdrhvxxkhcuww.supabase.co';
 
   if (!anthropicKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
-  if (!sbKey) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
+  if (!sb.isConfigured()) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
 
   var body = req.body;
   var contentPageId = body.content_page_id;
@@ -30,13 +30,13 @@ module.exports = async function handler(req, res) {
     if (typeof res.flush === 'function') res.flush();
   }
 
-  var headers = { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey };
+  var headers = sb.headers();
 
   try {
     send({ step: 'loading', message: 'Loading content page data...' });
 
     // 1. Fetch the content page
-    var cpRes = await fetch(sbUrl + '/rest/v1/content_pages?id=eq.' + contentPageId + '&limit=1', { headers: headers });
+    var cpRes = await fetch(sb.url() + '/rest/v1/content_pages?id=eq.' + contentPageId + '&limit=1', { headers: headers });
     var cpArr = await cpRes.json();
     var cp = cpArr && cpArr[0];
     if (!cp) { send({ step: 'error', message: 'Content page not found' }); return res.end(); }
@@ -48,12 +48,12 @@ module.exports = async function handler(req, res) {
     send({ step: 'loading', message: 'Loading design spec and client data...' });
 
     var results = await Promise.all([
-      fetch(sbUrl + '/rest/v1/design_specs?contact_id=eq.' + contactId + '&limit=1', { headers: headers }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-      fetch(sbUrl + '/rest/v1/contacts?id=eq.' + contactId + '&limit=1', { headers: headers }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-      fetch(sbUrl + '/rest/v1/practice_details?contact_id=eq.' + contactId + '&limit=1', { headers: headers }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-      fetch(sbUrl + '/rest/v1/bio_materials?contact_id=eq.' + contactId + '&order=sort_order,is_primary.desc', { headers: headers }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-      fetch(sbUrl + '/rest/v1/entity_audits?contact_id=eq.' + contactId + '&order=created_at.desc&limit=1', { headers: headers }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-      fetch(sbUrl + '/rest/v1/endorsements?contact_id=eq.' + contactId + '&status=eq.processed&order=sort_order,created_at.desc', { headers: headers }).then(function(r) { return r.json(); }).catch(function() { return []; })
+      fetch(sb.url() + '/rest/v1/design_specs?contact_id=eq.' + contactId + '&limit=1', { headers: headers }).then(function(r) { return r.json(); }).catch(function() { return []; }),
+      fetch(sb.url() + '/rest/v1/contacts?id=eq.' + contactId + '&limit=1', { headers: headers }).then(function(r) { return r.json(); }).catch(function() { return []; }),
+      fetch(sb.url() + '/rest/v1/practice_details?contact_id=eq.' + contactId + '&limit=1', { headers: headers }).then(function(r) { return r.json(); }).catch(function() { return []; }),
+      fetch(sb.url() + '/rest/v1/bio_materials?contact_id=eq.' + contactId + '&order=sort_order,is_primary.desc', { headers: headers }).then(function(r) { return r.json(); }).catch(function() { return []; }),
+      fetch(sb.url() + '/rest/v1/entity_audits?contact_id=eq.' + contactId + '&order=created_at.desc&limit=1', { headers: headers }).then(function(r) { return r.json(); }).catch(function() { return []; }),
+      fetch(sb.url() + '/rest/v1/endorsements?contact_id=eq.' + contactId + '&status=eq.processed&order=sort_order,created_at.desc', { headers: headers }).then(function(r) { return r.json(); }).catch(function() { return []; })
     ]);
 
     var spec = results[0] && results[0][0];
@@ -96,7 +96,7 @@ module.exports = async function handler(req, res) {
     send({ step: 'loaded', message: 'Data loaded. Starting generation...', page_type: cp.page_type, platform: platform, has_spec: !!spec, has_rtpba: !!rtpba });
 
     // Update status to generating
-    await fetch(sbUrl + '/rest/v1/content_pages?id=eq.' + contentPageId, {
+    await fetch(sb.url() + '/rest/v1/content_pages?id=eq.' + contentPageId, {
       method: 'PATCH',
       headers: Object.assign({}, headers, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
       body: JSON.stringify({ status: 'generating' })
@@ -139,7 +139,7 @@ module.exports = async function handler(req, res) {
       var errText = await claudeResp.text();
       send({ step: 'error', message: 'Claude API error: ' + claudeResp.status, detail: errText.substring(0, 500) });
       // Revert status
-      await fetch(sbUrl + '/rest/v1/content_pages?id=eq.' + contentPageId, {
+      await fetch(sb.url() + '/rest/v1/content_pages?id=eq.' + contentPageId, {
         method: 'PATCH',
         headers: Object.assign({}, headers, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
         body: JSON.stringify({ status: 'audit_loaded' })
@@ -160,7 +160,7 @@ module.exports = async function handler(req, res) {
 
     if (!html || html.length < 200) {
       send({ step: 'error', message: 'Generated HTML is too short or empty. Check response.', raw_preview: responseText.substring(0, 500) });
-      await fetch(sbUrl + '/rest/v1/content_pages?id=eq.' + contentPageId, {
+      await fetch(sb.url() + '/rest/v1/content_pages?id=eq.' + contentPageId, {
         method: 'PATCH',
         headers: Object.assign({}, headers, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
         body: JSON.stringify({ status: 'audit_loaded', generation_notes: 'Generation produced insufficient output. Raw length: ' + responseText.length })
@@ -191,14 +191,14 @@ module.exports = async function handler(req, res) {
       stale: false
     };
 
-    await fetch(sbUrl + '/rest/v1/content_pages?id=eq.' + contentPageId, {
+    await fetch(sb.url() + '/rest/v1/content_pages?id=eq.' + contentPageId, {
       method: 'PATCH',
       headers: Object.assign({}, headers, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
       body: JSON.stringify(updateData)
     });
 
     // 9. Create initial version record
-    await fetch(sbUrl + '/rest/v1/content_page_versions', {
+    await fetch(sb.url() + '/rest/v1/content_page_versions', {
       method: 'POST',
       headers: Object.assign({}, headers, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
       body: JSON.stringify({
