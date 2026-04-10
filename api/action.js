@@ -1,16 +1,10 @@
 // /api/action.js - Execute confirmed AI actions against Supabase
 
+var sb = require('./_lib/supabase');
+
 module.exports = async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  var serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  var supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ofmmwcjhdrhvxxkhcuww.supabase.co';
-
-  if (!serviceKey) {
-    return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (!sb.isConfigured()) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
 
   try {
     var body = req.body;
@@ -19,22 +13,13 @@ module.exports = async function handler(req, res) {
     var filters = body.filters;
     var data = body.data;
 
-    if (!action || !table) {
-      return res.status(400).json({ error: 'action and table required' });
-    }
+    if (!action || !table) return res.status(400).json({ error: 'action and table required' });
 
-    var allowed = ['contacts','practice_details','onboarding_steps','deliverables','checklist_items','audit_scores','report_snapshots','report_highlights','report_configs','bio_materials','social_profiles','signed_agreements','activity_log','settings','entity_audits','account_access','payments','scheduled_touchpoints','intro_call_steps','tracked_keywords','report_queue','performance_guarantees','proposals','proposal_followups','audit_followups','workspace_credentials','social_platforms','directory_listings','content_pages','content_page_versions','content_chat_messages','design_specs','neo_images','endorsements'];
-    if (allowed.indexOf(table) === -1) {
-      return res.status(400).json({ error: 'Table not allowed: ' + table });
-    }
+    var allowed = ['contacts','practice_details','onboarding_steps','deliverables','checklist_items','report_snapshots','report_highlights','report_configs','bio_materials','signed_agreements','activity_log','settings','entity_audits','account_access','payments','scheduled_touchpoints','intro_call_steps','tracked_keywords','report_queue','performance_guarantees','proposals','proposal_followups','audit_followups','workspace_credentials','social_platforms','directory_listings','content_pages','content_page_versions','content_chat_messages','design_specs','neo_images','endorsements'];
+    if (allowed.indexOf(table) === -1) return res.status(400).json({ error: 'Table not allowed: ' + table });
 
-    var baseUrl = supabaseUrl + '/rest/v1/' + table;
-    var headers = {
-      'apikey': serviceKey,
-      'Authorization': 'Bearer ' + serviceKey,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
-    };
+    var baseUrl = sb.url() + '/rest/v1/' + table;
+    var headers = sb.headers('return=representation');
 
     if (action === 'read_records') {
       var select = body.select || '*';
@@ -91,6 +76,3 @@ function buildFilter(filters) {
   }
   return parts.join('&');
 }
-
-
-
