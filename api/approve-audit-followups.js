@@ -4,31 +4,18 @@
 //
 // POST { audit_id }
 
+var sb = require('./_lib/supabase');
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
-  var sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  var sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ofmmwcjhdrhvxxkhcuww.supabase.co';
-
-  if (!sbKey) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
+  if (!sb.isConfigured()) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
 
   var auditId = (req.body || {}).audit_id;
   if (!auditId) return res.status(400).json({ error: 'audit_id required' });
 
-  function sbHeaders(prefer) {
-    var h = { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey, 'Content-Type': 'application/json' };
-    if (prefer) h['Prefer'] = prefer;
-    return h;
-  }
-
   try {
     // Load draft followups
-    var resp = await fetch(
-      sbUrl + '/rest/v1/audit_followups?audit_id=eq.' + auditId + '&status=eq.draft&order=sequence_number.asc',
-      { headers: sbHeaders() }
-    );
-    var drafts = await resp.json();
-
+    var drafts = await sb.query('audit_followups?audit_id=eq.' + auditId + '&status=eq.draft&order=sequence_number.asc');
     if (!drafts || drafts.length === 0) {
       return res.status(400).json({ error: 'No draft follow-ups to approve' });
     }
@@ -43,15 +30,11 @@ module.exports = async function handler(req, res) {
       sendDate.setDate(sendDate.getDate() + fu.day_offset);
       sendDate.setUTCHours(14, 0, 0, 0); // 10am ET
 
-      await fetch(sbUrl + '/rest/v1/audit_followups?id=eq.' + fu.id, {
-        method: 'PATCH',
-        headers: sbHeaders('return=minimal'),
-        body: JSON.stringify({
-          status: 'pending',
-          scheduled_for: sendDate.toISOString(),
-          updated_at: new Date().toISOString()
-        })
-      });
+      await sb.mutate('audit_followups?id=eq.' + fu.id, 'PATCH', {
+        status: 'pending',
+        scheduled_for: sendDate.toISOString(),
+        updated_at: new Date().toISOString()
+      }, 'return=minimal');
       scheduled++;
     }
 
