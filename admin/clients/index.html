@@ -4241,7 +4241,68 @@ strong { font-weight: 600; color: var(--color-heading); }
   };
 
 
-  window.deployEndorsementPage = function() {
+  window.dep
+
+  window.triggerContentAudit = function(cpId) {
+    var cp = state.contentPages.find(function(p) { return p.id === cpId; });
+    if (!cp) return;
+    if (!cp.target_keyword && !cp.page_name) {
+      toast('Set a target keyword before running an automated audit.', 'error');
+      return;
+    }
+    toast('Triggering Surge audit for "' + (cp.target_keyword || cp.page_name) + '"...', 'info');
+    fetch('/api/trigger-content-audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content_page_id: cpId })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        cp.agent_task_id = res.task_id;
+        toast('Audit triggered. Agent is running.', 'success');
+        // Start polling
+        pollContentAudit(cpId, res.task_id);
+      } else {
+        toast('Trigger failed: ' + (res.error || 'Unknown'), 'error');
+      }
+    }).catch(function(err) {
+      toast('Trigger error: ' + err.message, 'error');
+    });
+  };
+
+  window.pollContentAudit = function(cpId, taskId) {
+    var pollInterval = setInterval(function() {
+      fetch('/api/poll-agent?task_id=' + taskId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var statusEl = document.getElementById('audit-status-' + cpId);
+          if (statusEl) statusEl.textContent = data.message || data.status || '';
+
+          if (data.status === 'completed' || data.status === 'failed') {
+            clearInterval(pollInterval);
+            if (data.status === 'completed') {
+              toast('Surge audit complete! Refreshing...', 'success');
+              // Reload the content page data
+              fetch(SB + '/rest/v1/content_pages?id=eq.' + cpId + '&limit=1', {
+                headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK }
+              }).then(function(r) { return r.json(); }).then(function(arr) {
+                if (arr && arr[0]) {
+                  var idx = state.contentPages.findIndex(function(p) { return p.id === cpId; });
+                  if (idx !== -1) state.contentPages[idx] = arr[0];
+                  renderContent();
+                }
+              });
+            } else {
+              toast('Audit failed: ' + (data.message || ''), 'error');
+              if (statusEl) statusEl.textContent = 'Failed: ' + (data.message || '');
+            }
+          }
+        }).catch(function() {
+          // Silently retry
+        });
+    }, 15000); // Poll every 15s
+  };
+
+loyEndorsementPage = function() {
     if (!state.contact) return;
     toast('Deploying endorsement form...', 'info');
     fetch('/api/deploy-endorsement-page', {
@@ -4485,9 +4546,16 @@ strong { font-weight: 600; color: var(--color-heading); }
           h += '<div style="margin-bottom:.5rem;padding:.5rem;background:rgba(245,158,11,.08);border-radius:6px;font-size:.78rem;color:#D97706;">' + esc(cp.generation_notes) + '</div>';
         }
         if (cp.status === 'pending_audit') {
-          h += '<label style="font-size:.72rem;font-weight:600;color:var(--color-muted);display:block;margin-bottom:.25rem;margin-top:.5rem;">Paste Surge Data</label>';
+          h += '<div style="display:flex;gap:.5rem;align-items:center;margin-top:.5rem;margin-bottom:.5rem;">';
+          h += '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); triggerContentAudit(\'' + cp.id + '\')" style="font-size:.75rem;">&#9889; Run Automated Audit</button>';
+          h += '<span id="audit-status-' + cp.id + '" style="font-size:.72rem;color:var(--color-muted);"></span>';
+          h += '</div>';
+          if (cp.agent_task_id) {
+            h += '<div style="font-size:.72rem;color:var(--color-muted);margin-bottom:.5rem;">Agent task: ' + esc(cp.agent_task_id) + '</div>';
+          }
+          h += '<label style="font-size:.72rem;font-weight:600;color:var(--color-muted);display:block;margin-bottom:.25rem;">Or paste Surge data manually</label>';
           h += '<textarea class="paste-surge-area" id="surge-paste-' + cp.id + '" placeholder="Paste the full Surge audit output here..." onclick="event.stopPropagation()"></textarea>';
-          h += '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); pasteSurgeData(\'' + cp.id + '\')" style="font-size:.75rem;">Load Surge Data</button>';
+          h += '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); pasteSurgeData(\'' + cp.id + '\')" style="font-size:.75rem;">Load Surge Data</button>';
         }
         h += '<div class="cp-actions" style="margin-top:.75rem;">';
         if (cp.status === 'audit_loaded') {
