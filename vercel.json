@@ -146,6 +146,9 @@
     },
     "api/ingest-surge-content.js": {
       "maxDuration": 60
+    },
+    "api/seed-content-pages.js": {
+      "maxDuration": 60
     }
   },
   "crons": [
