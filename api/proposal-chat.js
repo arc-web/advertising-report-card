@@ -7,6 +7,8 @@
 //
 // ENV VARS: ANTHROPIC_API_KEY, SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_URL
 
+var sb = require('./_lib/supabase');
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -89,15 +91,13 @@ module.exports = async function handler(req, res) {
 
 // ─── Fetch proposal + contact data from Supabase ───────────────
 async function fetchProposalData(slug) {
-  var sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  var sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ofmmwcjhdrhvxxkhcuww.supabase.co';
-  if (!sbKey) return null;
+  if (!sb.isConfigured()) return null;
 
   try {
     // Look up contact by slug, then get their latest proposal
     var cResp = await fetch(
-      sbUrl + '/rest/v1/contacts?slug=eq.' + encodeURIComponent(slug) + '&select=id,first_name,last_name,credentials,practice_name,email,website_url,city,state_province&limit=1',
-      { headers: { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey } }
+      sb.url() + '/rest/v1/contacts?slug=eq.' + encodeURIComponent(slug) + '&select=id,first_name,last_name,credentials,practice_name,email,website_url,city,state_province&limit=1',
+      { headers: sb.headers() }
     );
     var contacts = await cResp.json();
     if (!contacts || contacts.length === 0) return null;
@@ -105,8 +105,8 @@ async function fetchProposalData(slug) {
 
     // Get the latest proposal for this contact
     var pResp = await fetch(
-      sbUrl + '/rest/v1/proposals?contact_id=eq.' + contact.id + '&status=in.(ready,sent,viewed)&order=created_at.desc&select=campaign_lengths,custom_pricing,billing_options,proposal_content&limit=1',
-      { headers: { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey } }
+      sb.url() + '/rest/v1/proposals?contact_id=eq.' + contact.id + '&status=in.(ready,sent,viewed)&order=created_at.desc&select=campaign_lengths,custom_pricing,billing_options,proposal_content&limit=1',
+      { headers: sb.headers() }
     );
     var proposals = await pResp.json();
     if (!proposals || proposals.length === 0) return null;
