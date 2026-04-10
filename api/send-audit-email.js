@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
 
   try {
     // Load audit + contact
-    var audit = await sb.one('entity_audits?id=eq.' + auditId + '&select=*,contacts(id,slug,first_name,last_name,practice_name,email,city,state_province)&limit=1');
+    var audit = await sb.one('entity_audits?id=eq.' + auditId + '&select=*,contacts!contact_id(id,slug,first_name,last_name,practice_name,email,city,state_province)&limit=1');
     if (!audit) return res.status(404).json({ error: 'Audit not found' });
 
     var contact = audit.contacts;
