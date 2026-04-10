@@ -238,7 +238,7 @@ Rules for actions:
 
 ## Supabase Schema
 
-- contacts: id, slug, status (lead/prospect/onboarding/active), lost (boolean), lost_reason, lost_at, follow_up_date, follow_up_notes, first_name, last_name, email, phone, practice_name, website_url, campaign_start, campaign_end, plan_type, credentials, city, state_province, country, gsc_property, ga4_property, gbp_url, gbp_place_id, stripe_customer_id, drive_folder_url, youtube_url, linkedin_url, facebook_url, instagram_url, tiktok_url, pinterest_url, quora_url, x_url, notes
+- contacts: id, slug, status (lead/prospect/onboarding/active), lost (boolean), lost_reason, lost_at, follow_up_date, follow_up_notes, first_name, last_name, email, phone, practice_name, website_url, campaign_start, campaign_end, plan_type, credentials, city, state_province, country, gsc_property, ga4_property, gbp_url, gbp_place_id, stripe_customer_id, drive_folder_url, notes (DEPRECATED social URL columns still exist but social_platforms table is the source of truth)
 - practice_details: id, contact_id, practice_type, num_therapists, specialties[], modalities[], populations[], issues_treated, licensed_states[], insurance_or_private_pay, differentiators, campaign_goals[], campaign_objectives, target_keywords[], offers_consultation, ideal_client
 - onboarding_steps: id, contact_id, step_key, status (pending/in_progress/complete), sort_order
 - intro_call_steps: id, contact_id, step_key, label, status (pending/in_progress/complete/not_applicable), sort_order -- tracks intro call sub-tasks (e.g. intro_call_complete, keyword review, access walkthrough)
@@ -579,7 +579,7 @@ The detail view has 6 tabs: Overview, Onboarding, Audit, Deliverables, Reports, 
 - gsc_property, ga4_property: Analytics connections
 - stripe_customer_id: Links to Stripe dashboard
 - drive_folder_url: Google Drive shared folder
-- Social URLs: youtube_url, linkedin_url, facebook_url, instagram_url, tiktok_url, pinterest_url, quora_url, x_url
+- Social URLs: USE social_platforms table (contacts social URL columns are deprecated, kept for backward compatibility)
 
 ### Campaign Timeline
 - 12 Months: $20,000 (includes performance guarantee)
