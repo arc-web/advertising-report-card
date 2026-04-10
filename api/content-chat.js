@@ -10,6 +10,8 @@
 // The client-side chatbot parses the full response and, if it contains an HTML update,
 // sends a follow-up POST to /api/action to save it.
 
+var sb = require('./_lib/supabase');
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -97,15 +99,13 @@ module.exports = async function handler(req, res) {
 
 // ─── Fetch page + contact + spec from Supabase ────────────────
 async function fetchPageContext(contentPageId) {
-  var sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  var sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ofmmwcjhdrhvxxkhcuww.supabase.co';
-  if (!sbKey) return { page: null, contact: null, spec: null };
-  var headers = { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey };
+  if (!sb.isConfigured()) return { page: null, contact: null, spec: null };
+  var headers = sb.headers();
 
   try {
     // Get content page
     var cpResp = await fetch(
-      sbUrl + '/rest/v1/content_pages?id=eq.' + contentPageId + '&limit=1',
+      sb.url() + '/rest/v1/content_pages?id=eq.' + contentPageId + '&limit=1',
       { headers: headers }
     );
     var pages = await cpResp.json();
@@ -114,9 +114,9 @@ async function fetchPageContext(contentPageId) {
 
     // Get contact and design spec in parallel
     var results = await Promise.all([
-      fetch(sbUrl + '/rest/v1/contacts?id=eq.' + page.contact_id + '&limit=1', { headers: headers }).then(function(r) { return r.json(); }),
-      fetch(sbUrl + '/rest/v1/design_specs?contact_id=eq.' + page.contact_id + '&limit=1', { headers: headers }).then(function(r) { return r.json(); }),
-      fetch(sbUrl + '/rest/v1/practice_details?contact_id=eq.' + page.contact_id + '&limit=1', { headers: headers }).then(function(r) { return r.json(); })
+      fetch(sb.url() + '/rest/v1/contacts?id=eq.' + page.contact_id + '&limit=1', { headers: headers }).then(function(r) { return r.json(); }),
+      fetch(sb.url() + '/rest/v1/design_specs?contact_id=eq.' + page.contact_id + '&limit=1', { headers: headers }).then(function(r) { return r.json(); }),
+      fetch(sb.url() + '/rest/v1/practice_details?contact_id=eq.' + page.contact_id + '&limit=1', { headers: headers }).then(function(r) { return r.json(); })
     ]);
 
     return {
