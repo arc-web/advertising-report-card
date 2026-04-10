@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
   try {
     // Load audit + contact
     var auditResp = await fetch(
-      sb.url() + '/rest/v1/entity_audits?id=eq.' + auditId + '&select=*,contacts(id,slug,first_name,last_name,practice_name,email,city,state_province)&limit=1',
+      sb.url() + '/rest/v1/entity_audits?id=eq.' + auditId + '&select=*,contacts!contact_id(id,slug,first_name,last_name,practice_name,email,city,state_province)&limit=1',
       { headers: sb.headers() }
     );
     var audits = await auditResp.json();
