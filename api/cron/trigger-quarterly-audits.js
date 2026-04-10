@@ -19,6 +19,7 @@ module.exports = async function handler(req, res) {
     var today = new Date().toISOString().split('T')[0];
     var dueClients = await sb.query(
       'contacts?status=eq.active&next_audit_due=lte.' + today +
+      '&quarterly_audits_enabled=eq.true' +
       '&select=id,slug,first_name,last_name,practice_name,website_url,email,city,state_province,next_audit_due' +
       '&order=next_audit_due.asc&limit=20'
     );
