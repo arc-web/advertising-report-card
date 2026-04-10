@@ -14,6 +14,7 @@
  */
 
 var email = require('./_lib/email-template');
+var sb = require('./_lib/supabase');
 
 module.exports = async function(req, res) {
   if (req.method !== 'POST') {
@@ -27,8 +28,6 @@ module.exports = async function(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  var SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ofmmwcjhdrhvxxkhcuww.supabase.co';
-  var SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
   var RESEND_KEY = process.env.RESEND_API_KEY;
 
   var body = req.body;
@@ -40,16 +39,16 @@ module.exports = async function(req, res) {
   }
 
   var sbHeaders = {
-    'apikey': SUPABASE_KEY,
-    'Authorization': 'Bearer ' + SUPABASE_KEY,
+    'apikey': sb.key(),
+    'Authorization': 'Bearer ' + sb.key(),
     'Content-Type': 'application/json'
   };
 
   try {
     // 1. Fetch current content page
     var cpResp = await fetch(
-      SUPABASE_URL + '/rest/v1/content_pages?id=eq.' + body.content_page_id + '&limit=1',
-      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } }
+      sb.url() + '/rest/v1/content_pages?id=eq.' + body.content_page_id + '&limit=1',
+      { headers: { 'apikey': sb.key(), 'Authorization': 'Bearer ' + SUPABASE_KEY } }
     );
     var pages = await cpResp.json();
     if (!pages || !pages[0]) {
@@ -78,7 +77,7 @@ module.exports = async function(req, res) {
     };
 
     var updateResp = await fetch(
-      SUPABASE_URL + '/rest/v1/content_pages?id=eq.' + body.content_page_id,
+      sb.url() + '/rest/v1/content_pages?id=eq.' + body.content_page_id,
       {
         method: 'PATCH',
         headers: Object.assign({}, sbHeaders, { 'Prefer': 'return=representation' }),
