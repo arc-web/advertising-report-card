@@ -1,6 +1,7 @@
 // /api/action.js - Execute confirmed AI actions against Supabase
 
 var sb = require('./_lib/supabase');
+var crypt = require('./_lib/crypto');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -18,6 +19,7 @@ module.exports = async function handler(req, res) {
     var allowed = ['contacts','practice_details','onboarding_steps','deliverables','checklist_items','report_snapshots','report_highlights','report_configs','bio_materials','signed_agreements','activity_log','settings','entity_audits','account_access','payments','scheduled_touchpoints','intro_call_steps','tracked_keywords','report_queue','performance_guarantees','proposals','proposal_followups','audit_followups','workspace_credentials','social_platforms','directory_listings','content_pages','content_page_versions','content_chat_messages','design_specs','neo_images','endorsements'];
     if (allowed.indexOf(table) === -1) return res.status(400).json({ error: 'Table not allowed: ' + table });
 
+    var isCredentials = (table === 'workspace_credentials');
     var baseUrl = sb.url() + '/rest/v1/' + table;
     var headers = sb.headers('return=representation');
 
@@ -28,23 +30,31 @@ module.exports = async function handler(req, res) {
       var r0 = await fetch(url0, { method: 'GET', headers: headers });
       var result0 = await r0.json();
       if (!r0.ok) return res.status(r0.status).json({ error: 'Supabase error', detail: result0 });
+      // Auto-decrypt credential fields on read
+      if (isCredentials) result0 = crypt.decryptFields(result0, crypt.SENSITIVE_FIELDS);
       return res.status(200).json({ success: true, action: 'read', data: result0, count: Array.isArray(result0) ? result0.length : 0 });
     }
 
     if (action === 'create_record') {
       if (!data) return res.status(400).json({ error: 'data required' });
+      // Auto-encrypt credential fields on write
+      if (isCredentials) data = crypt.encryptFields(data, crypt.SENSITIVE_FIELDS);
       var r = await fetch(baseUrl, { method: 'POST', headers: headers, body: JSON.stringify(data) });
       var result = await r.json();
       if (!r.ok) return res.status(r.status).json({ error: 'Supabase error', detail: result });
+      if (isCredentials) result = crypt.decryptFields(result, crypt.SENSITIVE_FIELDS);
       return res.status(201).json({ success: true, action: 'created', data: result });
     }
 
     if (action === 'update_record' || action === 'bulk_update') {
       if (!filters || !data) return res.status(400).json({ error: 'filters and data required' });
+      // Auto-encrypt credential fields on write
+      if (isCredentials) data = crypt.encryptFields(data, crypt.SENSITIVE_FIELDS);
       var fp = buildFilter(filters);
       var r2 = await fetch(baseUrl + '?' + fp, { method: 'PATCH', headers: headers, body: JSON.stringify(data) });
       var result2 = await r2.json();
       if (!r2.ok) return res.status(r2.status).json({ error: 'Supabase error', detail: result2 });
+      if (isCredentials) result2 = crypt.decryptFields(result2, crypt.SENSITIVE_FIELDS);
       return res.status(200).json({ success: true, action: action === 'bulk_update' ? 'bulk_updated' : 'updated', count: Array.isArray(result2) ? result2.length : 1, data: result2 });
     }
 
