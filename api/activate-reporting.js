@@ -25,12 +25,7 @@ module.exports = async function handler(req, res) {
   var clientSlug = (req.body && req.body.client_slug) || (req.query && req.query.client_slug);
   if (!clientSlug) return res.status(400).json({ error: 'client_slug required' });
 
-  var headers = {
-    'apikey': sbKey,
-    'Authorization': 'Bearer ' + sbKey,
-    'Content-Type': 'application/json',
-    'Prefer': 'return=representation'
-  };
+  var headers = sb.headers('return=representation');
 
   try {
     // ─── 1. Load report config ────────────────────────────────────
