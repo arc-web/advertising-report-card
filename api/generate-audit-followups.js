@@ -7,11 +7,16 @@
 
 var email = require('./_lib/email-template');
 var sb = require('./_lib/supabase');
+var auth = require('./_lib/auth');
 
 var FOOTER_NOTE = 'Questions? Reply to this email or <a href="' + email.CALENDAR_URL + '" style="font-family:Inter,sans-serif;color:#00D47E;text-decoration:none;font-weight:500;">book a call with Scott</a>.';
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Require authenticated admin
+  var user = await auth.requireAdmin(req, res);
+  if (!user) return;
 
 
   if (!sb.isConfigured()) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
