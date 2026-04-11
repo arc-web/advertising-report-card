@@ -4,9 +4,14 @@
 // Simply reads _templates/endorsements.html and pushes to /{slug}/endorsements/index.html
 
 var gh = require('./_lib/github');
+var auth = require('./_lib/auth');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Require authenticated admin
+  var user = await auth.requireAdmin(req, res);
+  if (!user) return;
   if (!gh.isConfigured()) return res.status(500).json({ error: 'GITHUB_PAT not configured' });
 
   var slug = req.body && req.body.slug;
