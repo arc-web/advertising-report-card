@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<script>try{var st=localStorage.getItem('moonraker-theme');if(st){document.documentElement.setAttribute('data-theme',st)}}catch(e){}</script>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="/assets/logo.png">
+<title>Sign In - Moonraker Client HQ</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+:root, [data-theme="light"] {
+  --color-primary: #00D47E;
+  --color-primary-hover: #00b86c;
+  --color-primary-light: #B4EEE0;
+  --color-primary-subtle: #DDF8F2;
+  --color-bg: #F7FDFB;
+  --color-surface: #FFFFFF;
+  --color-border: #E2E8F0;
+  --color-heading: #1E2A5E;
+  --color-body: #333F70;
+  --color-muted: #6B7599;
+  --color-danger: #EF4444;
+}
+[data-theme="dark"] {
+  --color-primary: #00D47E;
+  --color-primary-hover: #00f598;
+  --color-primary-light: #1A4A38;
+  --color-primary-subtle: #0D2E22;
+  --color-bg: #080F0B;
+  --color-surface: #0E1A14;
+  --color-border: #1E3530;
+  --color-heading: #E8F5EF;
+  --color-body: #C8D8D0;
+  --color-muted: #5A7A6E;
+  --color-danger: #FF6B6B;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 17px; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 400; color: var(--color-body); background: var(--color-bg);
+  line-height: 1.6; -webkit-font-smoothing: antialiased;
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+}
+h1, h2 { font-family: 'Outfit', sans-serif; font-weight: 700; color: var(--color-heading); line-height: 1.2; }
+
+.login-container {
+  width: 100%; max-width: 400px; padding: 1.5rem;
+}
+.login-card {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: 14px; padding: 2.5rem 2rem; box-shadow: 0 4px 24px rgba(0,0,0,.06);
+}
+.login-logo {
+  display: flex; align-items: center; justify-content: center; gap: .65rem;
+  margin-bottom: 2rem;
+}
+.login-logo img {
+  height: 38px; padding: 6px; background: var(--color-primary-subtle);
+  border: 1px solid rgba(0,212,126,.15); border-radius: 8px;
+}
+.login-logo span {
+  font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1.15rem;
+  color: var(--color-heading);
+}
+.login-title {
+  font-size: 1.3rem; text-align: center; margin-bottom: .35rem;
+}
+.login-subtitle {
+  font-size: .82rem; color: var(--color-muted); text-align: center;
+  margin-bottom: 1.75rem;
+}
+
+.form-group { margin-bottom: 1.15rem; }
+.form-label {
+  display: block; font-size: .78rem; font-weight: 600; color: var(--color-heading);
+  margin-bottom: .35rem;
+}
+.form-input {
+  width: 100%; padding: .55rem .85rem; border: 1px solid var(--color-border);
+  border-radius: 8px; font-size: .88rem; font-family: inherit;
+  color: var(--color-body); background: var(--color-bg);
+  transition: border-color .2s, box-shadow .2s;
+}
+.form-input:focus {
+  outline: none; border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(0,212,126,.12);
+}
+.form-input::placeholder { color: var(--color-muted); }
+
+.btn-login {
+  width: 100%; padding: .65rem; border: none; border-radius: 8px;
+  background: var(--color-primary); color: #fff; font-size: .88rem;
+  font-weight: 600; font-family: inherit; cursor: pointer;
+  transition: background .2s, transform .1s; margin-top: .5rem;
+}
+.btn-login:hover { background: var(--color-primary-hover); }
+.btn-login:active { transform: scale(.98); }
+.btn-login:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+.error-msg {
+  display: none; padding: .6rem .85rem; border-radius: 8px;
+  background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2);
+  color: var(--color-danger); font-size: .8rem; margin-bottom: 1rem;
+  text-align: center;
+}
+.error-msg.visible { display: block; }
+
+.theme-toggle {
+  position: fixed; top: 1rem; right: 1rem; background: var(--color-surface);
+  border: 1px solid var(--color-border); border-radius: 8px; width: 36px;
+  height: 36px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 1rem; color: var(--color-muted); transition: all .2s;
+}
+.theme-toggle:hover { color: var(--color-heading); border-color: var(--color-primary); }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+  <span id="themeIcon">&#9789;</span>
+</button>
+
+<div class="login-container">
+  <div class="login-card">
+    <div class="login-logo">
+      <img src="/assets/logo.png" alt="Moonraker">
+      <span>Client HQ</span>
+    </div>
+    <h1 class="login-title">Sign in</h1>
+    <p class="login-subtitle">Enter your credentials to access the admin dashboard.</p>
+
+    <div id="errorMsg" class="error-msg"></div>
+
+    <div class="form-group">
+      <label class="form-label" for="email">Email</label>
+      <input class="form-input" id="email" type="email" placeholder="you@moonraker.ai" autocomplete="email" autofocus>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="password">Password</label>
+      <input class="form-input" id="password" type="password" placeholder="Enter your password" autocomplete="current-password">
+    </div>
+
+    <button class="btn-login" id="loginBtn" onclick="handleLogin()">Sign in</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+var SB_URL = 'https://ofmmwcjhdrhvxxkhcuww.supabase.co';
+var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9mbW13Y2poZHJodnh4a2hjdXd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMjM1NTcsImV4cCI6MjA4OTg5OTU1N30.zMMHW0Fk9ixWjORngyxJTIoPOfx7GFsD4wBV4Foqqms';
+
+var supabase = window.supabase.createClient(SB_URL, SB_ANON);
+
+// If already logged in, redirect
+supabase.auth.getSession().then(function(result) {
+  if (result.data.session) {
+    // Verify they're actually an admin before redirecting
+    checkAdminAndRedirect(result.data.session);
+  }
+});
+
+async function checkAdminAndRedirect(session) {
+  try {
+    var resp = await fetch(SB_URL + '/rest/v1/admin_profiles?id=eq.' + session.user.id + '&select=id&limit=1', {
+      headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + session.access_token }
+    });
+    var rows = await resp.json();
+    if (Array.isArray(rows) && rows.length > 0) {
+      window.location.href = '/admin';
+    }
+  } catch (e) {
+    // Not an admin, stay on login
+  }
+}
+
+async function handleLogin() {
+  var email = document.getElementById('email').value.trim();
+  var password = document.getElementById('password').value;
+  var btn = document.getElementById('loginBtn');
+  var errEl = document.getElementById('errorMsg');
+
+  errEl.className = 'error-msg';
+  errEl.textContent = '';
+
+  if (!email || !password) {
+    errEl.textContent = 'Please enter your email and password.';
+    errEl.className = 'error-msg visible';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Signing in...';
+
+  try {
+    var result = await supabase.auth.signInWithPassword({ email: email, password: password });
+
+    if (result.error) {
+      errEl.textContent = result.error.message === 'Invalid login credentials'
+        ? 'Invalid email or password. Please try again.'
+        : result.error.message;
+      errEl.className = 'error-msg visible';
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+      return;
+    }
+
+    // Verify they're in admin_profiles
+    var session = result.data.session;
+    var resp = await fetch(SB_URL + '/rest/v1/admin_profiles?id=eq.' + session.user.id + '&select=id,role&limit=1', {
+      headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + session.access_token }
+    });
+    var profiles = await resp.json();
+
+    if (!Array.isArray(profiles) || profiles.length === 0) {
+      // Valid Supabase user but not an admin
+      await supabase.auth.signOut();
+      errEl.textContent = 'Your account does not have admin access.';
+      errEl.className = 'error-msg visible';
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+      return;
+    }
+
+    // Success: redirect to admin
+    window.location.href = '/admin';
+
+  } catch (e) {
+    errEl.textContent = 'Something went wrong. Please try again.';
+    errEl.className = 'error-msg visible';
+    btn.disabled = false;
+    btn.textContent = 'Sign in';
+  }
+}
+
+// Enter key submits
+document.getElementById('password').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') handleLogin();
+});
+document.getElementById('email').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('password').focus();
+});
+
+// Theme toggle
+function toggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme');
+  var next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('moonraker-theme', next);
+  updateThemeIcon();
+}
+function updateThemeIcon() {
+  var theme = document.documentElement.getAttribute('data-theme');
+  document.getElementById('themeIcon').innerHTML = theme === 'dark' ? '&#9788;' : '&#9789;';
+}
+updateThemeIcon();
+</script>
+</body>
+</html>
