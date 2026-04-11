@@ -1,6 +1,7 @@
 // /api/digest.js - Team Digest email sender via Resend
 var email = require('./_lib/email-template');
 var sb = require('./_lib/supabase');
+var auth = require('./_lib/auth');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
