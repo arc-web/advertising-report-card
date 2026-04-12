@@ -211,8 +211,64 @@ async function requireAdmin(req, res) {
   };
 }
 
+// ── Dual auth: admin JWT OR server-to-server key ──────────────────
+//
+// Use on routes called from both the admin UI and from internal
+// server-to-server callers (crons, stripe webhook, agent service).
+// Accepts: admin JWT, CRON_SECRET, or AGENT_API_KEY as Bearer token.
+
+async function requireAdminOrInternal(req, res) {
+  var token = extractToken(req);
+
+  if (!token) {
+    res.status(401).json({ error: 'Authentication required' });
+    return null;
+  }
+
+  // Check CRON_SECRET (used by cron jobs and stripe webhook for internal calls)
+  var cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && token === cronSecret) {
+    return { id: 'system', email: 'system@internal', role: 'internal', name: 'System' };
+  }
+
+  // Check AGENT_API_KEY (used by agent service callbacks)
+  var agentKey = process.env.AGENT_API_KEY;
+  if (agentKey && token === agentKey) {
+    return { id: 'agent', email: 'agent@internal', role: 'agent', name: 'Agent Service' };
+  }
+
+  // Fall back to admin JWT verification
+  var payload = await verifyJwt(token);
+  if (!payload || !payload.sub) {
+    res.status(401).json({ error: 'Invalid or expired token' });
+    return null;
+  }
+
+  var profile = await getAdminProfile(payload.sub);
+  if (!profile) {
+    res.status(403).json({ error: 'Not authorized. Admin access required.' });
+    return null;
+  }
+
+  // Update last_login_at (fire-and-forget)
+  sb.mutate(
+    'admin_profiles?id=eq.' + payload.sub,
+    'PATCH',
+    { last_login_at: new Date().toISOString() },
+    'return=minimal'
+  ).catch(function() {});
+
+  return {
+    id: profile.id,
+    email: profile.email,
+    role: profile.role,
+    name: profile.display_name
+  };
+}
+
 module.exports = {
   verifyJwt: verifyJwt,
   extractToken: extractToken,
-  requireAdmin: requireAdmin
+  requireAdmin: requireAdmin,
+  requireAdminOrInternal: requireAdminOrInternal
 };
