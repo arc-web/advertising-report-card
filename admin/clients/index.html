@@ -2923,51 +2923,65 @@ strong { font-weight: 600; color: var(--color-heading); }
       var sentCount = afus.filter(function(f) { return f.status === 'sent'; }).length;
       var cancelledCount = afus.filter(function(f) { return f.status === 'cancelled'; }).length;
 
-      h += '<div class="card" style="margin-top:1rem;"><div class="card-header"><h3>Follow-up Sequence</h3></div>';
+      h += '<div class="card" style="margin-top:1rem;"><div class="card-header" style="display:flex;align-items:center;justify-content:space-between;"><h3>Follow-up Sequence</h3>';
+      if (afus.length > 0) {
+        h += '<button onclick="window._previewAuditFollowups()" style="padding:.3rem .65rem;font-size:.72rem;font-weight:500;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-heading);border-radius:6px;cursor:pointer;">Preview All &#8599;</button>';
+      }
+      h += '</div>';
       h += '<div style="padding:1rem 1.25rem;">';
 
       if (afus.length === 0) {
         h += '<p style="font-size:.84rem;color:var(--color-muted);margin:0 0 .75rem;">Generate a 3-email follow-up sequence personalized from the CORE scores. Emails are sent over 2 weeks and auto-cancel if the lead becomes a prospect.</p>';
         h += '<button id="afuGenBtn" onclick="window._genAuditFollowups()" style="padding:.45rem 1rem;font-size:.82rem;font-weight:600;border:none;background:var(--color-primary);color:#fff;border-radius:6px;cursor:pointer;">&#128337; Generate Follow-ups</button>';
-      } else if (draftCount > 0) {
-        // Show draft previews
-        afus.filter(function(f) { return f.status === 'draft'; }).forEach(function(f, idx) {
-          h += '<div style="padding:.75rem;background:var(--color-bg);border-radius:8px;margin-bottom:.5rem;border:1px solid var(--color-border);">';
-          h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem;">';
-          h += '<span style="font-size:.78rem;font-weight:600;color:var(--color-heading);">Email ' + f.sequence_number + ' &middot; Day ' + f.day_offset + '</span>';
-          h += '<span class="prop-status-tag st-draft" style="font-size:.65rem;">Draft</span>';
-          h += '</div>';
-          h += '<div style="font-size:.82rem;color:var(--color-body);font-weight:500;">' + esc(f.subject) + '</div>';
-          h += '</div>';
-        });
-        h += '<div style="display:flex;gap:.5rem;margin-top:.75rem;">';
-        h += '<button onclick="window._approveAuditFollowups()" style="padding:.45rem 1rem;font-size:.82rem;font-weight:600;border:none;background:var(--color-primary);color:#fff;border-radius:6px;cursor:pointer;">Approve &amp; Schedule</button>';
-        h += '<button onclick="window._deleteAuditFollowups()" style="padding:.45rem 1rem;font-size:.82rem;font-weight:600;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-heading);border-radius:6px;cursor:pointer;">Discard</button>';
-        h += '</div>';
-      } else if (pendingCount > 0) {
-        var nextAfu = afus.filter(function(f) { return f.status === 'pending'; }).sort(function(a,b) { return new Date(a.scheduled_for) - new Date(b.scheduled_for); })[0];
+      } else {
+        // Render each followup as an expandable row
         afus.forEach(function(f) {
-          var stIcon = f.status === 'sent' ? '&#9989;' : f.status === 'pending' ? '&#128337;' : '&#10060;';
-          var stLabel = f.status === 'sent' ? 'Sent' : f.status === 'pending' ? 'Scheduled' : f.status;
-          var dateStr = f.status === 'sent' && f.sent_at ? new Date(f.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : f.scheduled_for ? new Date(f.scheduled_for).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-          h += '<div style="display:flex;align-items:center;gap:.5rem;padding:.4rem 0;font-size:.82rem;">';
-          h += '<span>' + stIcon + '</span>';
-          h += '<span style="color:var(--color-heading);font-weight:500;">Email ' + f.sequence_number + '</span>';
-          h += '<span style="color:var(--color-muted);">' + esc(f.subject) + '</span>';
-          h += '<span style="margin-left:auto;font-size:.75rem;color:var(--color-muted);">' + stLabel + (dateStr ? ' ' + dateStr : '') + '</span>';
+          var stClass = f.status === 'sent' ? 'st-sent' : f.status === 'pending' ? 'st-pending' : f.status === 'cancelled' ? 'st-cancelled' : 'st-draft';
+          var stLabel = f.status === 'sent' ? 'Sent' : f.status === 'pending' ? 'Scheduled' : f.status === 'cancelled' ? 'Cancelled' : 'Draft';
+          var dateStr = '';
+          if (f.status === 'sent' && f.sent_at) dateStr = new Date(f.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          else if (f.scheduled_for) dateStr = new Date(f.scheduled_for).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          else dateStr = 'Day ' + f.day_offset;
+
+          h += '<div style="background:var(--color-bg);border-radius:8px;margin-bottom:.5rem;border:1px solid var(--color-border);overflow:hidden;">';
+          // Clickable header row
+          h += '<div onclick="window._toggleAfuPreview(\'' + f.id + '\')" style="display:flex;align-items:center;gap:.5rem;padding:.75rem 1rem;cursor:pointer;transition:background .15s;" onmouseover="this.style.background=\'var(--sidebar-hover)\'" onmouseout="this.style.background=\'transparent\'">';
+          h += '<span style="font-size:.78rem;font-weight:600;color:var(--color-heading);white-space:nowrap;">Email ' + f.sequence_number + '</span>';
+          h += '<span style="font-size:.68rem;padding:.1rem .4rem;border-radius:4px;font-weight:500;" class="prop-status-tag ' + stClass + '">' + stLabel + '</span>';
+          h += '<span style="font-size:.8rem;color:var(--color-body);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(f.subject) + '</span>';
+          h += '<span style="font-size:.72rem;color:var(--color-muted);white-space:nowrap;">' + dateStr + '</span>';
+          h += '<span id="afuChevron_' + f.id + '" style="font-size:.7rem;color:var(--color-muted);transition:transform .2s;">&#9660;</span>';
+          h += '</div>';
+          // Expandable preview panel
+          h += '<div id="afuPreview_' + f.id + '" style="display:none;border-top:1px solid var(--color-border);">';
+          h += '<div style="padding:.75rem 1rem;background:var(--color-surface);font-size:.75rem;color:var(--color-muted);display:flex;flex-wrap:wrap;gap:.35rem .75rem;">';
+          h += '<span><strong style="color:var(--color-heading);">From:</strong> Moonraker Audits &lt;audits@clients.moonraker.ai&gt;</span>';
+          h += '<span><strong style="color:var(--color-heading);">Reply-to:</strong> scott@moonraker.ai</span>';
+          h += '<span><strong style="color:var(--color-heading);">Subject:</strong> ' + esc(f.subject) + '</span>';
+          h += '</div>';
+          var escaped = (f.body_html || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+          h += '<iframe srcdoc="' + escaped + '" style="width:100%;min-height:400px;border:none;display:block;" onload="this.style.height=this.contentDocument.body.scrollHeight+20+\'px\'"></iframe>';
+          h += '</div>';
           h += '</div>';
         });
-        h += '<div style="margin-top:.75rem;">';
-        h += '<span class="epill" style="color:var(--color-info);border-color:rgba(59,130,246,.2);">&#128231; ' + sentCount + '/' + afus.length + ' sent</span>';
-        h += '<button onclick="window._cancelAuditFollowups()" style="margin-left:.5rem;padding:.3rem .65rem;font-size:.75rem;font-weight:500;border:1px solid rgba(239,68,68,.2);background:transparent;color:var(--color-danger);border-radius:6px;cursor:pointer;" title="Cancel remaining">&#10005; Cancel</button>';
+
+        // Action buttons
+        h += '<div style="display:flex;gap:.5rem;align-items:center;margin-top:.75rem;flex-wrap:wrap;">';
+        if (draftCount > 0) {
+          h += '<button onclick="window._approveAuditFollowups()" style="padding:.45rem 1rem;font-size:.82rem;font-weight:600;border:none;background:var(--color-primary);color:#fff;border-radius:6px;cursor:pointer;">Approve &amp; Schedule</button>';
+          h += '<button onclick="window._deleteAuditFollowups()" style="padding:.45rem 1rem;font-size:.82rem;font-weight:600;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-heading);border-radius:6px;cursor:pointer;">Discard</button>';
+        } else if (pendingCount > 0) {
+          h += '<span class="epill" style="color:var(--color-info);border-color:rgba(59,130,246,.2);">&#128231; ' + sentCount + '/' + afus.length + ' sent</span>';
+          h += '<button onclick="window._cancelAuditFollowups()" style="padding:.3rem .65rem;font-size:.75rem;font-weight:500;border:1px solid rgba(239,68,68,.2);background:transparent;color:var(--color-danger);border-radius:6px;cursor:pointer;" title="Cancel remaining">&#10005; Cancel</button>';
+        } else if (sentCount === afus.length && sentCount > 0) {
+          h += '<span class="epill" style="color:var(--color-success);border-color:rgba(0,212,126,.2);">&#9989; Sequence complete (' + sentCount + '/' + afus.length + ')</span>';
+        } else if (cancelledCount > 0) {
+          var cReason = afus.find(function(f) { return f.cancel_reason; });
+          var cLabel = cReason && cReason.cancel_reason === 'converted_to_prospect' ? 'Converted to prospect' : cReason && cReason.cancel_reason === 'lost' ? 'Lost' : 'Cancelled';
+          h += '<span class="epill" style="color:var(--color-muted);border-color:rgba(107,117,153,.2);">' + cLabel + ' (' + sentCount + '/' + afus.length + ' sent)</span>';
+          h += '<button onclick="window._genAuditFollowups()" style="margin-left:.5rem;padding:.3rem .65rem;font-size:.75rem;font-weight:500;border:1px solid var(--color-border);background:transparent;color:var(--color-heading);border-radius:6px;cursor:pointer;">Regenerate</button>';
+        }
         h += '</div>';
-      } else if (sentCount === afus.length && sentCount > 0) {
-        h += '<span class="epill" style="color:var(--color-success);border-color:rgba(0,212,126,.2);">&#9989; Sequence complete (' + sentCount + '/' + afus.length + ')</span>';
-      } else if (cancelledCount > 0) {
-        var cReason = afus.find(function(f) { return f.cancel_reason; });
-        var cLabel = cReason && cReason.cancel_reason === 'converted_to_prospect' ? 'Converted to prospect' : cReason && cReason.cancel_reason === 'lost' ? 'Lost' : 'Cancelled';
-        h += '<span class="epill" style="color:var(--color-muted);border-color:rgba(107,117,153,.2);">' + cLabel + ' (' + sentCount + '/' + afus.length + ' sent)</span>';
-        h += '<button onclick="window._genAuditFollowups()" style="margin-left:.5rem;padding:.3rem .65rem;font-size:.75rem;font-weight:500;border:1px solid var(--color-border);background:transparent;color:var(--color-heading);border-radius:6px;cursor:pointer;">Regenerate</button>';
       }
       h += '</div></div>';
     }
@@ -3408,21 +3422,8 @@ strong { font-weight: 600; color: var(--color-heading); }
         renderEntityAudit();
         toast('Audit email sent to ' + c.email, 'success');
 
-        // Auto-generate follow-up sequence in background
-        if (!state.auditFollowups || state.auditFollowups.length === 0) {
-          setTimeout(function() {
-            fetch('/api/generate-audit-followups', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ audit_id: ea.id })
-            }).then(function(r) { return r.json(); }).then(function(genRes) {
-              if (genRes.ok) {
-                state.auditFollowups = genRes.followups || [];
-                renderEntityAudit();
-                toast('Follow-up sequence generated. Review and approve below.', 'success');
-              }
-            }).catch(function() { /* silent - admin can generate manually */ });
-          }, 500);
-        }
+        // Reload to pick up auto-scheduled follow-ups from server
+        setTimeout(function() { loadDetailData(); }, 500);
       } else {
         if (btn) { btn.disabled = false; btn.textContent = '\u2709 Send to Client'; }
         toast('Send failed: ' + (res.error || 'Unknown error'), 'error');
@@ -3460,6 +3461,35 @@ strong { font-weight: 600; color: var(--color-heading); }
   };
 
   // ── Audit Follow-up Functions ──
+
+  window._toggleAfuPreview = function(id) {
+    var panel = document.getElementById('afuPreview_' + id);
+    var chevron = document.getElementById('afuChevron_' + id);
+    if (!panel) return;
+    var isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : 'block';
+    if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+  };
+
+  window._previewAuditFollowups = function() {
+    var afus = state.auditFollowups || [];
+    if (afus.length === 0) { toast('No follow-ups found', 'error'); return; }
+    var w = window.open('', '_blank');
+    w.document.write('<html><head><title>Audit Follow-up Sequence</title>');
+    w.document.write('<style>body{margin:0;padding:2rem;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1E2A5E;}.email-card{background:#fff;border-radius:12px;border:1px solid #e2e8f0;margin-bottom:2rem;overflow:hidden;}.email-header{padding:1rem 1.5rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;}.email-meta{font-size:.85rem;color:#6B7599;}.email-meta strong{color:#1E2A5E;}.email-num{font-size:.75rem;font-weight:600;padding:.25rem .75rem;border-radius:99px;display:inline-block;}.status-draft{background:rgba(245,158,11,.1);color:#F59E0B;}.status-pending{background:rgba(59,130,246,.08);color:#3B82F6;}.status-sent{background:rgba(0,212,126,.1);color:#00D47E;}.status-cancelled{background:rgba(107,117,153,.1);color:#6B7599;}.status-failed{background:rgba(239,68,68,.1);color:#EF4444;}</style></head><body>');
+    w.document.write('<h1 style="font-size:1.3rem;margin:0 0 .25rem;">Audit Follow-up Sequence (' + afus.length + ' emails)</h1>');
+    w.document.write('<p style="color:#6B7599;font-size:.85rem;margin-bottom:1.5rem;">From: audits@clients.moonraker.ai &middot; Reply-to: scott@moonraker.ai</p>');
+    afus.forEach(function(fu) {
+      var statusLabel = fu.status.charAt(0).toUpperCase() + fu.status.slice(1);
+      var schedStr = fu.scheduled_for ? new Date(fu.scheduled_for).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'Day ' + fu.day_offset;
+      if (fu.sent_at) schedStr = 'Sent ' + new Date(fu.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      w.document.write('<div class="email-card"><div class="email-header"><div><span class="email-num status-' + fu.status + '">Email ' + fu.sequence_number + ' &middot; ' + statusLabel + '</span><span class="email-meta" style="margin-left:.75rem;">' + schedStr + '</span></div><div class="email-meta"><strong>Subject:</strong> ' + (fu.subject || '(no subject)') + '</div></div>');
+      var escaped = (fu.body_html || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+      w.document.write('<div style="padding:0;"><iframe srcdoc="' + escaped + '" style="width:100%;min-height:500px;border:none;" onload="this.style.height=this.contentDocument.body.scrollHeight+20+\'px\'"></iframe></div></div>');
+    });
+    w.document.write('</body></html>');
+    w.document.close();
+  };
 
   window._genAuditFollowups = function() {
     var ea = state.entityAudit;
@@ -6781,6 +6811,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
