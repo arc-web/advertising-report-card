@@ -7,10 +7,15 @@
  * GET ?task_id=xxx
  */
 
+var auth = require('./_lib/auth');
 module.exports = async function(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Require authenticated admin
+  var user = await auth.requireAdmin(req, res);
+  if (!user) return;
 
   var AGENT_URL = process.env.AGENT_SERVICE_URL;
   var AGENT_KEY = process.env.AGENT_API_KEY;
