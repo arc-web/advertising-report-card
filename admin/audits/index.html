@@ -487,12 +487,6 @@ a:hover { color: var(--color-primary-hover); }
     var complete = a.filter(function(x) { return x.status === 'complete'; }).length;
     var delivered = a.filter(function(x) { return x.status === 'delivered'; }).length;
 
-    // Task totals across all audits
-    var allTasks = [];
-    Object.values(state.tasksBySlug || {}).forEach(function(arr) { allTasks = allTasks.concat(arr); });
-    var taskComplete = allTasks.filter(function(t) { return t.status === 'complete'; }).length;
-    var taskPct = allTasks.length > 0 ? Math.round(taskComplete / allTasks.length * 100) : 0;
-
     // Processing sub-text: break down by component
     var procSub = '';
     if (processing > 0 || errored > 0) {
@@ -503,14 +497,15 @@ a:hover { color: var(--color-primary-hover); }
       procSub = '<div class="stat-sub">' + parts.join(', ') + '</div>';
     }
 
+    var finished = complete + delivered;
+
     document.getElementById('statGrid').innerHTML =
-      '<div class="stat-card"><div class="stat-label">Total Audits</div><div class="stat-value">' + a.length + '</div><div class="stat-sub">' + free + ' free, ' + premium + ' premium</div></div>' +
+      '<div class="stat-card"><div class="stat-label">Needs Audit</div><div class="stat-value" style="color:var(--color-danger);">' + state.needsAudit.length + '</div><div class="stat-sub">Active clients</div></div>' +
       '<div class="stat-card"><div class="stat-label">Queued</div><div class="stat-value" style="color:var(--color-muted);">' + queued + '</div><div class="stat-sub">Awaiting agent</div></div>' +
       '<div class="stat-card"><div class="stat-label">Processing</div><div class="stat-value" style="color:var(--color-info);">' + processing + '</div>' + procSub + '</div>' +
-      '<div class="stat-card"><div class="stat-label">Ready to Send</div><div class="stat-value" style="color:var(--color-warning);">' + complete + '</div></div>' +
-      '<div class="stat-card"><div class="stat-label">Delivered</div><div class="stat-value" style="color:var(--color-success);">' + delivered + '</div></div>' +
-      '<div class="stat-card"><div class="stat-label">Campaign Tasks</div><div class="stat-value">' + allTasks.length + '</div><div class="stat-sub">' + taskPct + '% complete</div></div>' +
-      '<div class="stat-card"><div class="stat-label">Needs Audit</div><div class="stat-value" style="color:var(--color-danger);">' + state.needsAudit.length + '</div><div class="stat-sub">Active clients</div></div>';
+      '<div class="stat-card"><div class="stat-label">Ready to Send</div><div class="stat-value" style="color:var(--color-warning);">' + complete + '</div><div class="stat-sub">Awaiting review</div></div>' +
+      '<div class="stat-card"><div class="stat-label">Delivered</div><div class="stat-value" style="color:var(--color-success);">' + delivered + '</div><div class="stat-sub">Sent to clients</div></div>' +
+      '<div class="stat-card"><div class="stat-label">Total Audits</div><div class="stat-value">' + a.length + '</div><div class="stat-sub">' + finished + ' of ' + a.length + ' finished</div></div>';
   }
 
   function renderTable() {
