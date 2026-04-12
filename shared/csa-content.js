@@ -182,13 +182,14 @@ window.renderCSA = function(contactParam) {
     document.getElementById('sigEmail').value = contact.email || '';
     document.getElementById('sigDate').value = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
-    // Enable sign button when consent is checked
-    document.getElementById('sigConsent').addEventListener('change', function() {
+    // Enable sign button when consent + name + signature are all provided
+    // validateSignFields is a global so the canvas code can call it too
+    window.validateSignFields = function() {
       var name = document.getElementById('sigName').value.trim();
-      document.getElementById('signBtn').disabled = !(this.checked && name.length > 1);
-    });
-    document.getElementById('sigName').addEventListener('input', function() {
       var consent = document.getElementById('sigConsent').checked;
-      document.getElementById('signBtn').disabled = !(consent && this.value.trim().length > 1);
-    });
+      var hasSig = typeof sigHasDrawn !== 'undefined' ? sigHasDrawn : false;
+      document.getElementById('signBtn').disabled = !(consent && name.length > 1 && hasSig);
+    };
+    document.getElementById('sigConsent').addEventListener('change', validateSignFields);
+    document.getElementById('sigName').addEventListener('input', validateSignFields);
   }
