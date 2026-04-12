@@ -23,6 +23,10 @@ var gh = require('./_lib/github');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  // Require authenticated admin
+  var user = await auth.requireAdmin(req, res);
+  if (!user) return;
+
 
   var anthropicKey = process.env.ANTHROPIC_API_KEY;
   var ghToken = process.env.GITHUB_PAT;
