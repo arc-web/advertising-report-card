@@ -30,7 +30,20 @@ module.exports = async function handler(req, res) {
   var auditId = body.audit_id;
   var surgeData = body.surge_data;
 
-  if (!auditId || !surgeData) return res.status(400).json({ error: 'audit_id and surge_data required' });
+  if (!auditId) return res.status(400).json({ error: 'audit_id required' });
+
+  // Recovery path: if surge_data not in request body, try reading from the
+  // surge_raw_data column (saved by the agent before callback attempt)
+  if (!surgeData) {
+    try {
+      var auditRow = await sb.one('entity_audits?id=eq.' + auditId + '&select=surge_raw_data&limit=1');
+      if (auditRow && auditRow.surge_raw_data) {
+        surgeData = auditRow.surge_raw_data;
+      }
+    } catch (e) { /* ignore, will fail below */ }
+  }
+
+  if (!surgeData) return res.status(400).json({ error: 'surge_data required (not in request body or surge_raw_data column)' });
 
   // Switch to streaming mode: NDJSON (newline-delimited JSON)
   res.setHeader('Content-Type', 'application/x-ndjson');
@@ -677,6 +690,7 @@ ${surgeData}`;
     return res.end();
   }
 };
+
 
 
 
