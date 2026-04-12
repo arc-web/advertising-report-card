@@ -14,8 +14,8 @@ var auth = require('./_lib/auth');
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Require authenticated admin
-  var user = await auth.requireAdmin(req, res);
+  // Require authenticated admin or internal server-to-server key
+  var user = await auth.requireAdminOrInternal(req, res);
   if (!user) return;
   if (!sb.isConfigured()) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
 
