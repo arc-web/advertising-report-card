@@ -2878,9 +2878,23 @@ strong { font-weight: 600; color: var(--color-heading); }
     // Lead-specific: send to client
     if (isLeadOrProspect && (ea.status === 'complete' || ea.status === 'delivered')) {
       h += '<button onclick="sendEntityAuditEmail()" id="eaSendBtn" style="padding:.5rem 1rem;border:1px solid var(--color-border);color:var(--color-body);border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;background:none;font-family:Outfit,sans-serif;">&#9993; Send to Client</button>';
+      if (ea.status === 'complete') {
+        h += '<button id="eaPreviewToggle" onclick="window._toggleAuditEmailPreview()" style="padding:.5rem 1rem;border:1px solid var(--color-border);color:var(--color-body);border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;background:none;font-family:Outfit,sans-serif;">Preview Email &#9660;</button>';
+      }
     }
     h += '<button onclick="deleteEntityAudit()" style="padding:.5rem 1rem;border:1px solid var(--color-danger);color:var(--color-danger);background:rgba(239,68,68,.04);border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:Outfit,sans-serif;margin-left:auto;">Delete Audit</button>';
     h += '</div>';
+
+    // Expandable audit delivery email preview
+    if (isLeadOrProspect && ea.status === 'complete') {
+      h += '<div id="eaEmailPreview" style="max-height:0;overflow:hidden;transition:max-height .3s ease;">';
+      h += '<div class="card" style="margin-bottom:0;margin-top:.75rem;overflow:hidden;">';
+      h += '<div id="eaEmailMeta" style="padding:.75rem 1rem;font-size:.75rem;color:var(--color-muted);display:flex;flex-wrap:wrap;gap:.35rem .75rem;border-bottom:1px solid var(--color-border);background:var(--color-bg);">';
+      h += '<span style="color:var(--color-muted);">Loading preview...</span>';
+      h += '</div>';
+      h += '<div id="eaEmailBody" style="min-height:200px;background:#fff;border-radius:0 0 12px 12px;"></div>';
+      h += '</div></div>';
+    }
 
     // ── CORE Scores (if available) ──
     var hasPromotedScores = ea.score_credibility != null || ea.score_optimization != null;
@@ -3400,6 +3414,62 @@ strong { font-weight: 600; color: var(--color-heading); }
       startAgentPoll(ea.agent_task_id);
     }
   }
+
+  window._toggleAuditEmailPreview = async function() {
+    var panel = document.getElementById('eaEmailPreview');
+    var toggleBtn = document.getElementById('eaPreviewToggle');
+    if (!panel) return;
+    var isOpen = panel.getAttribute('data-open') === '1';
+
+    if (isOpen) {
+      panel.style.maxHeight = panel.scrollHeight + 'px';
+      requestAnimationFrame(function() { panel.style.maxHeight = '0'; });
+      panel.setAttribute('data-open', '0');
+      if (toggleBtn) toggleBtn.innerHTML = 'Preview Email &#9660;';
+      return;
+    }
+
+    panel.setAttribute('data-open', '1');
+    if (toggleBtn) toggleBtn.innerHTML = 'Hide Preview &#9650;';
+
+    if (!panel.getAttribute('data-loaded')) {
+      var ea = state.entityAudit;
+      if (!ea) return;
+      try {
+        var resp = await fetch('/api/send-audit-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ audit_id: ea.id, preview_only: true }) });
+        var data = await resp.json();
+        if (data.ok) {
+          document.getElementById('eaEmailMeta').innerHTML =
+            '<span><strong style="color:var(--color-heading);">From:</strong> ' + esc(data.from) + '</span>' +
+            '<span><strong style="color:var(--color-heading);">To:</strong> ' + esc(data.to) + '</span>' +
+            '<span><strong style="color:var(--color-heading);">CC:</strong> ' + esc(data.cc) + '</span>' +
+            '<span><strong style="color:var(--color-heading);">Subject:</strong> ' + esc(data.subject) + '</span>';
+          var iframe = document.createElement('iframe');
+          iframe.style.cssText = 'width:100%;min-height:500px;border:none;display:block;';
+          iframe.onload = function() { iframe.style.height = iframe.contentDocument.body.scrollHeight + 20 + 'px'; };
+          document.getElementById('eaEmailBody').innerHTML = '';
+          document.getElementById('eaEmailBody').appendChild(iframe);
+          iframe.contentDocument.open();
+          iframe.contentDocument.write(data.body_html);
+          iframe.contentDocument.close();
+          panel.setAttribute('data-loaded', '1');
+        } else {
+          document.getElementById('eaEmailMeta').innerHTML = '<span style="color:var(--color-danger);">Error: ' + esc(data.error || 'Unknown') + '</span>';
+        }
+      } catch(e) {
+        document.getElementById('eaEmailMeta').innerHTML = '<span style="color:var(--color-danger);">Error: ' + esc(e.message) + '</span>';
+      }
+    }
+
+    requestAnimationFrame(function() {
+      panel.style.maxHeight = panel.scrollHeight + 'px';
+      var onEnd = function() {
+        if (panel.getAttribute('data-open') === '1') panel.style.maxHeight = 'none';
+        panel.removeEventListener('transitionend', onEnd);
+      };
+      panel.addEventListener('transitionend', onEnd);
+    });
+  };
 
   window.sendEntityAuditEmail = function() {
     var ea = state.entityAudit;
@@ -7000,6 +7070,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
