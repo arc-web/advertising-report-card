@@ -198,15 +198,18 @@ a:hover { color: var(--color-primary-hover); }
 .sub-tab { padding: .55rem 1rem; font-size: .82rem; font-weight: 500; color: var(--color-muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; font-family: inherit; transition: all .15s; white-space: nowrap; flex-shrink: 0; }
 .sub-tab:hover { color: var(--color-heading); }
 .sub-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-.sub-tab.active[data-filter="lead"] { color: #6b7280; border-bottom-color: #6b7280; }
-.sub-tab.active[data-filter="lead"] .tab-count { background: rgba(107,114,128,.12); }
-.sub-tab.active[data-filter="active"] { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-.sub-tab.active[data-filter="in_progress"] { color: var(--color-info); border-bottom-color: var(--color-info); }
-.sub-tab.active[data-filter="in_progress"] .tab-count { background: rgba(59,130,246,.12); }
+.sub-tab.active[data-filter="needs_audit"] { color: var(--color-danger); border-bottom-color: var(--color-danger); }
+.sub-tab.active[data-filter="needs_audit"] .tab-count { background: rgba(239,68,68,.12); }
+.sub-tab.active[data-filter="queued"] { color: var(--color-muted); border-bottom-color: var(--color-muted); }
+.sub-tab.active[data-filter="queued"] .tab-count { background: rgba(107,114,128,.12); }
+.sub-tab.active[data-filter="processing"] { color: var(--color-info); border-bottom-color: var(--color-info); }
+.sub-tab.active[data-filter="processing"] .tab-count { background: rgba(59,130,246,.12); }
+.sub-tab.active[data-filter="ready_to_send"] { color: var(--color-warning); border-bottom-color: var(--color-warning); }
+.sub-tab.active[data-filter="ready_to_send"] .tab-count { background: rgba(245,158,11,.12); }
+.sub-tab.active[data-filter="delivered"] { color: var(--color-success); border-bottom-color: var(--color-success); }
+.sub-tab.active[data-filter="delivered"] .tab-count { background: rgba(0,212,126,.12); }
 .sub-tab.active[data-filter="errors"] { color: var(--color-danger); border-bottom-color: var(--color-danger); }
 .sub-tab.active[data-filter="errors"] .tab-count { background: rgba(239,68,68,.12); }
-.sub-tab.active[data-filter="needs_audit"] { color: #d97706; border-bottom-color: #d97706; }
-.sub-tab.active[data-filter="needs_audit"] .tab-count { background: rgba(245,158,11,.12); }
 .sub-tab .tab-count { font-size: .7rem; padding: .05rem .4rem; border-radius: 4px; background: var(--color-bg); margin-left: .3rem; }
 .sub-tab.active .tab-count { background: var(--color-primary-subtle); }
 .tab-content { display: none; }
@@ -345,11 +348,12 @@ a:hover { color: var(--color-primary-hover); }
 
     <div class="sub-tabs" id="filterTabs">
       <button class="sub-tab active" data-filter="all">All<span class="tab-count" id="countAll"></span></button>
-      <button class="sub-tab" data-filter="lead">Leads<span class="tab-count" id="countLead"></span></button>
-      <button class="sub-tab" data-filter="active">Active<span class="tab-count" id="countActive"></span></button>
-      <button class="sub-tab" data-filter="in_progress">In Progress<span class="tab-count" id="countInProgress"></span></button>
-      <button class="sub-tab" data-filter="errors">Errors<span class="tab-count" id="countErrors"></span></button>
       <button class="sub-tab" data-filter="needs_audit">Needs Audit<span class="tab-count" id="countNeedsAudit"></span></button>
+      <button class="sub-tab" data-filter="queued">Queued<span class="tab-count" id="countQueued"></span></button>
+      <button class="sub-tab" data-filter="processing">Processing<span class="tab-count" id="countProcessing"></span></button>
+      <button class="sub-tab" data-filter="ready_to_send">Ready to Send<span class="tab-count" id="countReadyToSend"></span></button>
+      <button class="sub-tab" data-filter="delivered">Delivered<span class="tab-count" id="countDelivered"></span></button>
+      <button class="sub-tab" data-filter="errors">Errors<span class="tab-count" id="countErrors"></span></button>
     </div>
 
     <div id="loadingState" style="text-align:center;padding:4rem;">
@@ -449,30 +453,29 @@ a:hover { color: var(--color-primary-hover); }
   function getFilteredAudits() {
     var f = state.currentFilter;
     if (f === 'all') return state.audits;
-    if (f === 'in_progress') return state.audits.filter(function(a) { return a.status === 'queued' || a.status === 'agent_running' || a.status === 'pending'; });
-    if (f === 'errors') return state.audits.filter(function(a) { return a.status === 'agent_error'; });
     if (f === 'needs_audit') return []; // special case, rendered separately
-    return state.audits.filter(function(a) {
-      var c = state.contactMap[a.contact_id];
-      if (!c) return false;
-      if (f === 'lead') return c.status === 'lead' || c.status === 'prospect';
-      if (f === 'active') return c.status === 'active' || c.status === 'onboarding';
-      return true;
-    });
+    if (f === 'queued') return state.audits.filter(function(a) { return a.status === 'queued'; });
+    if (f === 'processing') return state.audits.filter(function(a) { return a.status === 'agent_running' || a.status === 'pending'; });
+    if (f === 'ready_to_send') return state.audits.filter(function(a) { return a.status === 'complete'; });
+    if (f === 'delivered') return state.audits.filter(function(a) { return a.status === 'delivered'; });
+    if (f === 'errors') return state.audits.filter(function(a) { return a.status === 'agent_error'; });
+    return state.audits;
   }
 
   function updateFilterCounts() {
     var a = state.audits;
-    var leads = a.filter(function(x) { var c = state.contactMap[x.contact_id]; return c && (c.status === 'lead' || c.status === 'prospect'); }).length;
-    var active = a.filter(function(x) { var c = state.contactMap[x.contact_id]; return c && (c.status === 'active' || c.status === 'onboarding'); }).length;
-    var inProgress = a.filter(function(x) { return x.status === 'queued' || x.status === 'agent_running' || x.status === 'pending'; }).length;
+    var queued = a.filter(function(x) { return x.status === 'queued'; }).length;
+    var processing = a.filter(function(x) { return x.status === 'agent_running' || x.status === 'pending'; }).length;
+    var readyToSend = a.filter(function(x) { return x.status === 'complete'; }).length;
+    var delivered = a.filter(function(x) { return x.status === 'delivered'; }).length;
     var errors = a.filter(function(x) { return x.status === 'agent_error'; }).length;
     document.getElementById('countAll').textContent = a.length ? ' ' + a.length : '';
-    document.getElementById('countLead').textContent = leads ? ' ' + leads : '';
-    document.getElementById('countActive').textContent = active ? ' ' + active : '';
-    document.getElementById('countInProgress').textContent = inProgress ? ' ' + inProgress : '';
-    document.getElementById('countErrors').textContent = errors ? ' ' + errors : '';
     document.getElementById('countNeedsAudit').textContent = state.needsAudit.length ? ' ' + state.needsAudit.length : '';
+    document.getElementById('countQueued').textContent = queued ? ' ' + queued : '';
+    document.getElementById('countProcessing').textContent = processing ? ' ' + processing : '';
+    document.getElementById('countReadyToSend').textContent = readyToSend ? ' ' + readyToSend : '';
+    document.getElementById('countDelivered').textContent = delivered ? ' ' + delivered : '';
+    document.getElementById('countErrors').textContent = errors ? ' ' + errors : '';
   }
 
   function renderStats() {
@@ -981,6 +984,7 @@ a:hover { color: var(--color-primary-hover); }
 <div class="toast" id="toast"></div>
 </body>
 </html>
+
 
 
 
