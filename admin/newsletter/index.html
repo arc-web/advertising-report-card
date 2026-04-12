@@ -65,6 +65,8 @@ strong { font-weight: 600; color: var(--color-heading); }
 .sidebar-header { padding: 1.25rem 19px .75rem 19px; display: flex; align-items: center; gap: .65rem; }
 .sidebar-header img { height: 34px; padding: 5px; background: var(--color-primary-subtle); border: 1px solid rgba(0,212,126,.15); border-radius: 8px; }
 .sidebar-header span { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1.05rem; color: var(--color-heading); }
+.sidebar-header { white-space: nowrap; }
+.sidebar-header span { transition: color .15s; }
 .sidebar-close { display: none; margin-left: auto; background: none; border: none; color: var(--color-muted); font-size: 1.3rem; cursor: pointer; padding: .25rem; line-height: 1; }
 .sidebar-close:hover { color: var(--color-heading); }
 .sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 2px; }
@@ -95,6 +97,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 .sidebar.collapsed:hover .sidebar-nav .nav-label { color: inherit; }
 .sidebar.collapsed:hover .nav-section { color: var(--color-muted); }
 
+.main { transition: margin-left .2s ease; }
 .sidebar.collapsed ~ .main { margin-left: 56px; }
 .sidebar.collapsed .collapse-btn .nav-icon svg { transform: rotate(180deg); }
 .footer-item { display: flex; align-items: center; gap: .65rem; padding: .55rem 19px; border-radius: 8px; font-size: .82rem; font-weight: 500; color: var(--color-muted); text-decoration: none; transition: all .15s; border: none; background: none; cursor: pointer; width: 100%; text-align: left; font-family: inherit; }
