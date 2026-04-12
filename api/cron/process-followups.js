@@ -12,14 +12,13 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Auth
+  // Auth: require CRON_SECRET (hard-fail if not configured)
   var cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    var auth = req.headers['authorization'];
-    var querySecret = req.query && req.query.secret;
-    if (auth !== 'Bearer ' + cronSecret && querySecret !== cronSecret) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+  if (!cronSecret) return res.status(500).json({ error: 'CRON_SECRET not configured' });
+  var authHeader = req.headers['authorization'] || '';
+  var querySecret = (req.query && req.query.secret) || '';
+  if (authHeader !== 'Bearer ' + cronSecret && querySecret !== cronSecret) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   var sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
