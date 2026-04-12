@@ -178,6 +178,8 @@ textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.6; }
   .edition-stats { display: none; }
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="/shared/admin-auth.js"></script>
 </head>
 <body>
 <div class="layout">
@@ -392,8 +394,8 @@ textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.6; }
 
 <script>
 // ---- Config ----
-var SB_URL = 'https://ofmmwcjhdrhvxxkhcuww.supabase.co/rest/v1';
-var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9mbW13Y2poZHJodnh4a2hjdXd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMjM1NTcsImV4cCI6MjA4OTg5OTU1N30.zMMHW0Fk9ixWjORngyxJTIoPOfx7GFsD4wBV4Foqqms';
+var SB_URL = (window.adminAuth ? window.adminAuth.SB_URL : 'https://ofmmwcjhdrhvxxkhcuww.supabase.co') + '/rest/v1';
+var SB_KEY = window.adminAuth ? window.adminAuth.SB_ANON : '';
 var API_BASE = '/api';
 
 // ---- State ----
