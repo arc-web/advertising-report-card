@@ -480,7 +480,9 @@ a:hover { color: var(--color-primary-hover); }
     var free = a.filter(function(x) { return x.audit_tier === 'free'; }).length;
     var premium = a.filter(function(x) { return x.audit_tier === 'premium'; }).length;
     var queued = a.filter(function(x) { return x.status === 'queued'; }).length;
-    var processing = a.filter(function(x) { return x.status === 'agent_running' || x.status === 'pending'; }).length;
+    var agentRunning = a.filter(function(x) { return x.status === 'agent_running'; }).length;
+    var pending = a.filter(function(x) { return x.status === 'pending'; }).length;
+    var processing = agentRunning + pending;
     var errored = a.filter(function(x) { return x.status === 'agent_error'; }).length;
     var complete = a.filter(function(x) { return x.status === 'complete'; }).length;
     var delivered = a.filter(function(x) { return x.status === 'delivered'; }).length;
@@ -491,11 +493,12 @@ a:hover { color: var(--color-primary-hover); }
     var taskComplete = allTasks.filter(function(t) { return t.status === 'complete'; }).length;
     var taskPct = allTasks.length > 0 ? Math.round(taskComplete / allTasks.length * 100) : 0;
 
-    // Processing sub-text
+    // Processing sub-text: break down by component
     var procSub = '';
     if (processing > 0 || errored > 0) {
       var parts = [];
-      if (processing > 0) parts.push(processing + ' running');
+      if (agentRunning > 0) parts.push(agentRunning + ' running');
+      if (pending > 0) parts.push(pending + ' pending');
       if (errored > 0) parts.push(errored + ' error' + (errored !== 1 ? 's' : ''));
       procSub = '<div class="stat-sub">' + parts.join(', ') + '</div>';
     }
