@@ -2946,7 +2946,11 @@ strong { font-weight: 600; color: var(--color-heading); }
       if (ea.variance_score != null) {
         h += '<span style="font-size:.75rem;color:var(--color-muted);">Variance: ' + ea.variance_score + '/100</span>';
       }
-      h += '<span class="tag tag-' + (ea.audit_tier === 'premium' ? 'active' : 'prospect') + '" style="font-size:.7rem;">' + (ea.audit_tier === 'premium' ? 'Premium' : 'Free') + '</span>';
+      if (isLeadOrProspect) {
+        h += '<span class="tag tag-' + (ea.audit_tier === 'premium' ? 'active' : 'prospect') + '" style="font-size:.7rem;">' + (ea.audit_tier === 'premium' ? 'Premium' : 'Free') + '</span>';
+      } else if (isActiveCampaign) {
+        h += '<span class="tag tag-active" style="font-size:.7rem;">Quarterly</span>';
+      }
       h += '</div></div>';
       h += '<div class="score-grid">';
       pillars.forEach(function(p) {
@@ -3628,13 +3632,13 @@ strong { font-weight: 600; color: var(--color-heading); }
     chain.then(function() {
       return fetch('/api/generate-audit-followups', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audit_id: ea.id })
+        body: JSON.stringify({ audit_id: ea.id, auto_approve: true })
       }).then(function(r) { return r.json(); });
     }).then(function(res) {
       if (res.ok) {
         state.auditFollowups = res.followups || [];
         renderEntityAudit();
-        toast('Follow-up sequence generated', 'success');
+        toast('Follow-up sequence generated and scheduled', 'success');
       } else {
         toast('Failed: ' + (res.error || 'Unknown'), 'error');
         if (btn) { btn.disabled = false; btn.textContent = '\u{1f557} Generate Follow-ups'; }
@@ -7102,6 +7106,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
