@@ -2177,15 +2177,17 @@ strong { font-weight: 600; color: var(--color-heading); }
     h += '<div class="ws-field"><span class="ws-label">Backup Phone</span>' + inp('backup_phone', ws.backup_phone, 'Recovery phone') + '</div>';
     h += '<div class="ws-field"><span class="ws-label">2FA Enabled</span><select id="ws_two_fa" style="width:100%;padding:.4rem .6rem;border:1px solid var(--color-border);border-radius:6px;font-size:.84rem;background:var(--color-surface);color:var(--color-heading);font-family:inherit;"><option value="false"' + (!ws.two_fa_enabled ? ' selected' : '') + '>No</option><option value="true"' + (ws.two_fa_enabled ? ' selected' : '') + '>Yes</option></select></div>';
     h += '<div class="ws-field"><span class="ws-label">App Password</span>' + inp('app_password', ws.app_password, '16-char app password') + '</div>';
-    h += '<div class="ws-field ws-full-width"><span class="ws-label">Backup Codes</span><textarea id="ws_backup_codes" rows="5" placeholder="Paste backup codes in any format" style="width:100%;padding:.5rem .6rem;border:1px solid var(--color-border);border-radius:6px;font-size:.82rem;font-family:monospace;background:var(--color-surface);color:var(--color-heading);resize:vertical;line-height:1.6;">' + esc((ws.authenticator_backup_codes || []).join('\n')) + '</textarea></div>';
-    h += '<div class="ws-field ws-full-width"><span class="ws-label">2FA QR Code</span>';
-    h += '<div class="ws-qr-paste" id="wsQrPasteZone" tabindex="0">';
+    h += '<div class="ws-field ws-full-width"><div style="display:flex;gap:1.5rem;align-items:flex-start;flex-wrap:wrap;">';
+    h += '<div style="flex:1;min-width:200px;"><span class="ws-label">Backup Codes</span><textarea id="ws_backup_codes" rows="5" placeholder="Paste backup codes in any format" style="width:100%;padding:.5rem .6rem;border:1px solid var(--color-border);border-radius:6px;font-size:.82rem;font-family:monospace;background:var(--color-surface);color:var(--color-heading);resize:vertical;line-height:1.6;margin-top:.25rem;">' + esc((ws.authenticator_backup_codes || []).join('\n')) + '</textarea></div>';
+    h += '<div style="flex:0 0 auto;"><span class="ws-label">2FA QR Code</span>';
+    h += '<div class="ws-qr-paste" id="wsQrPasteZone" tabindex="0" style="margin-top:.25rem;">';
     if (ws.qr_code_image) {
       h += '<img src="' + ws.qr_code_image + '" alt="QR Code"><div class="paste-hint">Paste or drop a new image to replace</div>';
     } else {
       h += '<svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="color:var(--color-muted);"><path d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828L18 9.828a4 4 0 00-5.656-5.656L5.757 10.757a6 6 0 008.486 8.486L20.5 13"/></svg>';
       h += '<div class="paste-hint">Paste (Ctrl+V) or drop a QR code screenshot</div>';
     }
+    h += '</div></div>';
     h += '</div></div>';
     h += '</div>';
     el.innerHTML = h;
