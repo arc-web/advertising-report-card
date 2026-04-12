@@ -2035,7 +2035,15 @@ strong { font-weight: 600; color: var(--color-heading); }
     h += '<div class="ws-field"><span class="ws-label">2FA Enabled</span><span class="ws-value">' + (ws.two_fa_enabled ? '<span style="color:var(--color-success);">Yes</span>' : '<span style="color:var(--color-danger);">No</span>') + '</span></div>';
     h += '<div class="ws-field"><span class="ws-label">App Password</span><span class="ws-value">' + maskVal('app_password', ws.app_password) + '</span></div>';
     if (ws.authenticator_backup_codes && ws.authenticator_backup_codes.length > 0) {
-      h += '<div class="ws-field ws-full-width"><span class="ws-label">Backup Codes</span><span class="ws-value ws-masked" onclick="revealWsField(\'backup_codes\')" title="Click to reveal">' + (wsRevealedFields['backup_codes'] ? ws.authenticator_backup_codes.join(', ') : '\u2022\u2022\u2022\u2022 (' + ws.authenticator_backup_codes.length + ' codes)') + '</span></div>';
+      var codesHtml = '';
+      if (wsRevealedFields['backup_codes']) {
+        codesHtml = '<div style="display:grid;grid-template-columns:repeat(2,auto);gap:.25rem .75rem;justify-content:start;font-family:monospace;font-size:.82rem;">';
+        ws.authenticator_backup_codes.forEach(function(c) { codesHtml += '<span>' + esc(c) + '</span>'; });
+        codesHtml += '</div>';
+      } else {
+        codesHtml = '\u2022\u2022\u2022\u2022 (' + ws.authenticator_backup_codes.length + ' codes)';
+      }
+      h += '<div class="ws-field ws-full-width"><span class="ws-label">Backup Codes</span><span class="ws-value ws-masked" onclick="revealWsField(\'backup_codes\')" title="Click to reveal">' + codesHtml + '</span></div>';
     }
     if (ws.qr_code_image) {
       h += '<div class="ws-field ws-full-width"><span class="ws-label">2FA QR Code</span><span class="ws-value"><img src="' + ws.qr_code_image + '" class="ws-qr-thumb" onclick="showQrFullsize()" alt="2FA QR Code"></span></div>';
@@ -2149,7 +2157,7 @@ strong { font-weight: 600; color: var(--color-heading); }
     h += '<div class="ws-field"><span class="ws-label">Backup Phone</span>' + inp('backup_phone', ws.backup_phone, 'Recovery phone') + '</div>';
     h += '<div class="ws-field"><span class="ws-label">2FA Enabled</span><select id="ws_two_fa" style="width:100%;padding:.4rem .6rem;border:1px solid var(--color-border);border-radius:6px;font-size:.84rem;background:var(--color-surface);color:var(--color-heading);font-family:inherit;"><option value="false"' + (!ws.two_fa_enabled ? ' selected' : '') + '>No</option><option value="true"' + (ws.two_fa_enabled ? ' selected' : '') + '>Yes</option></select></div>';
     h += '<div class="ws-field"><span class="ws-label">App Password</span>' + inp('app_password', ws.app_password, '16-char app password') + '</div>';
-    h += '<div class="ws-field ws-full-width"><span class="ws-label">Backup Codes (comma-separated)</span>' + inp('backup_codes', (ws.authenticator_backup_codes || []).join(', '), '1234 5678, 9012 3456, ...') + '</div>';
+    h += '<div class="ws-field ws-full-width"><span class="ws-label">Backup Codes</span><textarea id="ws_backup_codes" rows="5" placeholder="Paste backup codes in any format" style="width:100%;padding:.5rem .6rem;border:1px solid var(--color-border);border-radius:6px;font-size:.82rem;font-family:monospace;background:var(--color-surface);color:var(--color-heading);resize:vertical;line-height:1.6;">' + esc((ws.authenticator_backup_codes || []).join('\n')) + '</textarea></div>';
     h += '<div class="ws-field ws-full-width"><span class="ws-label">2FA QR Code</span>';
     h += '<div class="ws-qr-paste" id="wsQrPasteZone" tabindex="0">';
     if (ws.qr_code_image) {
@@ -2170,7 +2178,31 @@ strong { font-weight: 600; color: var(--color-heading); }
     var ws = state.workspace;
     if (!ws) return;
     var codesRaw = document.getElementById('ws_backup_codes').value.trim();
-    var codes = codesRaw ? codesRaw.split(',').map(function(c) { return c.trim(); }).filter(Boolean) : [];
+    var codes = [];
+    if (codesRaw) {
+      // Split by newlines or commas first
+      var lines = codesRaw.split(/[\n,]+/).map(function(l) { return l.trim(); }).filter(Boolean);
+      lines.forEach(function(line) {
+        // Extract all digit groups from each line
+        var digits = line.match(/\d+/g);
+        if (!digits) return;
+        // Pair consecutive 4-digit groups into "XXXX XXXX" codes
+        var i = 0;
+        while (i < digits.length) {
+          if (digits[i].length === 4 && i + 1 < digits.length && digits[i + 1].length === 4) {
+            codes.push(digits[i] + ' ' + digits[i + 1]);
+            i += 2;
+          } else if (digits[i].length === 8) {
+            codes.push(digits[i].substring(0, 4) + ' ' + digits[i].substring(4));
+            i++;
+          } else {
+            // Keep as-is for non-standard formats
+            codes.push(digits[i]);
+            i++;
+          }
+        }
+      });
+    }
     var data = {
       gmail_address: document.getElementById('ws_gmail_address').value.trim() || null,
       gmail_password: document.getElementById('ws_gmail_password').value.trim() || null,
@@ -7070,6 +7102,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
 
