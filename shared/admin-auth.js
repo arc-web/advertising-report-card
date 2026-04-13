@@ -7,8 +7,12 @@
 // 3. Async verifies the session + admin profile in background
 // 4. Redirects to /admin/login if no session or not an admin
 //
-// This means page scripts can call fetch('/api/...') immediately on load
-// and the auth header will already be present.
+// Multi-tab safety:
+// - Uses Web Locks API (via Supabase `lock` option) so only one tab refreshes
+//   the token at a time. Other tabs pick up the new token from localStorage.
+// - Synchronous gate only redirects if there is NO stored session at all.
+//   If an access token is expired but a refresh token exists, the async path
+//   handles the refresh (avoids premature redirect on tab switch).
 //
 // Usage:
 //   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -20,22 +24,30 @@
   var STORAGE_KEY = 'sb-ofmmwcjhdrhvxxkhcuww-auth-token';
 
   // ── Step 1: Synchronous token read from localStorage ───────────
+  // Only redirect if there is NO stored session at all (no refresh token).
+  // If the access token is expired but a session exists, let the async
+  // init() handle the refresh instead of bailing immediately.
   var _accessToken = null;
+  var _hasStoredSession = false;
   try {
     var stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       var parsed = JSON.parse(stored);
-      // Check expiry (with 60s buffer)
+      _hasStoredSession = !!(parsed.refresh_token);
+      // Use the access token if it's still valid (60s buffer)
       if (parsed.expires_at && parsed.expires_at > Math.floor(Date.now() / 1000) + 60) {
+        _accessToken = parsed.access_token;
+      } else if (_hasStoredSession) {
+        // Token expired but refresh token exists. Use the expired token
+        // temporarily for the fetch interceptor; async init will refresh it.
         _accessToken = parsed.access_token;
       }
     }
   } catch (e) {}
 
-  // If no valid token, redirect immediately (no flash of content)
-  if (!_accessToken) {
+  // Only redirect if there is truly nothing to work with
+  if (!_hasStoredSession) {
     window.location.href = '/admin/login';
-    // Stop script execution by throwing (prevents page scripts from running)
     document.documentElement.style.display = 'none';
   }
 
@@ -97,7 +109,11 @@
 
   async function init() {
     try {
-      _client = window.supabase.createClient(SB_URL, SB_ANON);
+      _client = window.supabase.createClient(SB_URL, SB_ANON, {
+        auth: {
+          lock: 'moonraker-admin-auth'
+        }
+      });
 
       var result = await _client.auth.getSession();
       if (!result.data.session) { goLogin(); return; }
@@ -129,7 +145,7 @@
 
       resolveReady();
 
-      // Listen for token refresh
+      // Listen for token refresh and sync across tabs
       _client.auth.onAuthStateChange(function(event, session) {
         if (event === 'SIGNED_OUT') { goLogin(); }
         else if (event === 'TOKEN_REFRESHED' && session) {
