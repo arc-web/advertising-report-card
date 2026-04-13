@@ -180,6 +180,14 @@
     },
     "api/newsletter-webhook.js": {
       "maxDuration": 10
+    },
+    "api/newsletter-research.js": {
+      "maxDuration": 300,
+      "memory": 1024
+    },
+    "api/newsletter-generate.js": {
+      "maxDuration": 300,
+      "memory": 1024
     }
   },
   "crons": [
@@ -205,3 +213,4 @@
     }
   ]
 }
+
