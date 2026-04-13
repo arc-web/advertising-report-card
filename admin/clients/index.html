@@ -1387,60 +1387,29 @@ strong { font-weight: 600; color: var(--color-heading); }
       }
 
       var cid = state.contact.id;
+      state.tabLoaded = {};
+      state.tabCounts = null;
+      state.proposalFollowups = {};
+      state.auditFollowups = [];
 
-      // Step 2: Load all related data using the contact ID
+      // Step 2: Lightweight load — overview essentials + tab badge counts
       return Promise.all([
         fetch(SB + '/rest/v1/practice_details?select=*&contact_id=eq.' + cid, { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/onboarding_steps?select=*&order=sort_order&contact_id=eq.' + cid, { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/checklist_items?select=*&client_slug=eq.' + slug + '&order=sort_order', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }),
-        fetch(SB + '/rest/v1/entity_audits?select=*&contact_id=eq.' + cid + '&order=created_at.desc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/deliverables?select=*&order=created_at.desc&contact_id=eq.' + cid, { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/report_configs?select=*&client_slug=eq.' + slug + '&limit=1', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/report_snapshots?select=*&client_slug=eq.' + slug + '&order=report_month.desc&limit=20', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/signed_agreements?select=*&contact_id=eq.' + cid + '&limit=1', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/intro_call_steps?select=*&order=sort_order&contact_id=eq.' + cid, { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/proposals?select=*&contact_id=eq.' + cid + '&order=created_at.desc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/entity_audits?select=*&contact_id=eq.' + cid + '&order=created_at.desc&limit=1', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/tracked_keywords?select=id,keyword&client_slug=eq.' + slug + '&active=eq.true', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/bio_materials?select=*&contact_id=eq.' + cid + '&order=sort_order,is_primary.desc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'read_records', table: 'workspace_credentials', filters: { contact_id: cid }, limit: 1 }) }).then(function(r) { return r.json(); }).then(function(d) { return d.data || []; }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/social_platforms?select=*&contact_id=eq.' + cid + '&order=platform', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/directory_listings?select=*&contact_id=eq.' + cid + '&order=directory', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/account_access?select=*&contact_id=eq.' + cid, { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
+        fetch(SB + '/rest/v1/rpc/get_tab_counts', { method: 'POST', headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_contact_id: cid, p_slug: slug }) }).then(function(r) { return r.json(); }).catch(function() { return {}; }),
+        fetch(SB + '/rest/v1/entity_audits?select=id,contact_id,client_slug,status,audit_tier,audit_date,audit_period,audit_scope,score_credibility,score_optimization,score_reputation,score_engagement,scores,variance_score,variance_label,cres_score,total_tasks,tasks_p1,tasks_p2,tasks_p3,tasks_moonraker,tasks_client,tasks_collaboration,cited_google_ai,cited_chatgpt,cited_claude,cited_perplexity,cited_bing,cited_youtube,cited_reddit,cited_meta,agent_task_id,geo_target,gbp_share_link,variance_from_previous,brand_query,homepage_url,loom_url,sent_at,sent_to,email_subject,stripe_payment_id,created_at,updated_at&contact_id=eq.' + cid + '&order=created_at.desc&limit=1', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
         fetch(SB + '/rest/v1/performance_guarantees?select=*&contact_id=eq.' + cid + '&limit=1', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/content_pages?select=*&contact_id=eq.' + cid + '&order=created_at.desc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/design_specs?select=*&contact_id=eq.' + cid + '&limit=1', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/neo_images?select=*&contact_id=eq.' + cid + '&order=created_at.desc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; }),
-        fetch(SB + '/rest/v1/endorsements?select=*&contact_id=eq.' + cid + '&order=created_at.desc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; })
+        fetch(SB + '/rest/v1/bio_materials?select=*&contact_id=eq.' + cid + '&order=sort_order,is_primary.desc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).catch(function() { return []; })
       ]);
     }).then(function(res) {
       if (!res) return; // Contact not found, already handled
 
       state.practice = (res[0] && res[0][0]) || null;
-      state.onboarding = res[1] || [];
-      state.tasks = res[2] || [];
-      state.allAudits = res[3] || []; // All entity_audits for this contact
-      state.deliverables = res[4] || [];
-      state.reportConfig = (res[5] && res[5][0]) || null;
-      state.snapshots = res[6] || [];
-      state.signed = (res[7] && res[7][0]) || null;
-      state.introCall = res[8] || [];
-      state.proposals = res[9] || [];
-      state.entityAudit = (state.allAudits.length > 0) ? state.allAudits[0] : ((res[10] && res[10][0]) || null);
-      state.trackedKeywords = res[11] || [];
-      state.bioMaterials = res[12] || [];
-      state.workspace = (res[13] && res[13][0]) || null;
-      state.socialPlatforms = res[14] || [];
-      state.directoryListings = res[15] || [];
-      state.accountAccess = res[16] || [];
-      state.guarantee = (res[17] && res[17][0]) || null;
-      state.contentPages = res[18] || [];
-      state.designSpec = (res[19] && res[19][0]) || null;
-      state.neoImages = res[20] || [];
-      state.endorsements = res[21] || [];
-      state.proposalFollowups = {};
+      state.tabCounts = res[1] || {};
+      state.entityAudit = (res[2] && res[2][0]) || null;
+      state.guarantee = (res[3] && res[3][0]) || null;
+      state.bioMaterials = res[4] || [];
 
-      // Derive CORE scores from entity_audits (replaces audit_scores table)
+      // Derive CORE scores from latest entity audit
       if (state.entityAudit) {
         state.scores = {
           score_credibility: state.entityAudit.score_credibility,
@@ -1455,42 +1424,42 @@ strong { font-weight: 600; color: var(--color-heading); }
         state.scores = null;
       }
 
-      // Load followups for proposals (async, re-renders proposals tab when done)
-      if (state.proposals.length > 0) {
-        var pids = state.proposals.map(function(p) { return p.id; }).join(',');
-        fetch(SB + '/rest/v1/proposal_followups?proposal_id=in.(' + pids + ')&order=sequence_number.asc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } })
-          .then(function(r) { return r.json(); })
-          .then(function(fus) {
-            (fus || []).forEach(function(fu) {
-              if (!state.proposalFollowups[fu.proposal_id]) state.proposalFollowups[fu.proposal_id] = [];
-              state.proposalFollowups[fu.proposal_id].push(fu);
-            });
-            renderProposals();
+      // Initialize empty arrays for lazy-loaded tabs
+      state.onboarding = [];
+      state.tasks = [];
+      state.allAudits = [];
+      state.deliverables = [];
+      state.reportConfig = null;
+      state.snapshots = [];
+      state.signed = null;
+      state.introCall = [];
+      state.proposals = [];
+      state.trackedKeywords = [];
+      state.workspace = null;
+      state.socialPlatforms = [];
+      state.directoryListings = [];
+      state.accountAccess = [];
+      state.contentPages = [];
+      state.designSpec = null;
+      state.neoImages = [];
+      state.endorsements = [];
 
-    // Wire up report filters
-    var rptFilterBar = document.getElementById('rptFilterBar');
-    if (rptFilterBar) {
-      rptFilterBar.addEventListener('click', function(e) {
-        var tab = e.target.closest('.filter-tab');
-        if (!tab) return;
-        rptFilterBar.querySelectorAll('.filter-tab').forEach(function(t) { t.classList.remove('active'); });
-        tab.classList.add('active');
-        state.rptFilter = tab.dataset.filter;
-        renderReports(true);
-      });
-    }
-          }).catch(function() {});
-      }
+      // Mark overview as loaded (data already fetched above)
+      state.tabLoaded['overview'] = true;
+      state.tabLoaded['billing'] = true; // uses contact data only
 
-      // Load audit followups (async, re-renders audit tab when done)
-      state.auditFollowups = [];
-      if (state.entityAudit) {
-        fetch(SB + '/rest/v1/audit_followups?audit_id=eq.' + state.entityAudit.id + '&order=sequence_number.asc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } })
-          .then(function(r) { return r.json(); })
-          .then(function(afus) {
-            state.auditFollowups = afus || [];
-            renderEntityAudit();
-          }).catch(function() {});
+      // Wire up report filters (must be before any renderReports call)
+      var rptFilterBar = document.getElementById('rptFilterBar');
+      if (rptFilterBar && !rptFilterBar._wired) {
+        rptFilterBar._wired = true;
+        rptFilterBar.addEventListener('click', function(e) {
+          var tab = e.target.closest('.filter-tab');
+          if (!tab) return;
+          rptFilterBar.querySelectorAll('.filter-tab').forEach(function(t) { t.classList.remove('active'); });
+          tab.classList.add('active');
+          state.rptFilter = tab.dataset.filter;
+          renderReports(true);
+        });
       }
 
       document.getElementById('loadingState').style.display = 'none';
@@ -1505,19 +1474,21 @@ strong { font-weight: 600; color: var(--color-heading); }
       renderDetail();
       refreshTime();
 
-      // Wire up chat panel context with full client data
+      // Load active tab data (overview is already loaded, others load on demand)
+      var activeTab = document.querySelector('#tabBar .tab-btn.active');
+      var activeTabName = activeTab ? activeTab.dataset.tab : 'overview';
+      if (activeTabName !== 'overview' && activeTabName !== 'billing') {
+        ensureTabData(activeTabName);
+      }
+
+      // Wire up chat panel context (lightweight — full data loads lazily)
       if (window.MoonrakerChat) {
         window.MoonrakerChat.setContext({
           clientSlug: slug,
           clientData: {
             contact: state.contact,
             practice: state.practice,
-            onboarding: state.onboarding,
-            tasks: state.tasks.map(function(t) { return { id: t.id, title: t.title, status: t.status, owner: t.owner, priority: t.priority, category: t.category }; }),
-            scores: state.scores,
-            deliverables: state.deliverables.map(function(d) { return { id: d.id, deliverable_type: d.deliverable_type, title: d.title, status: d.status, contact_id: d.contact_id }; }),
-            snapshots: state.snapshots.map(function(s) { return { report_month: s.report_month, report_status: s.report_status, campaign_month: s.campaign_month, gsc_clicks: s.gsc_clicks, gsc_impressions: s.gsc_impressions }; }),
-            proposals: state.proposals.map(function(p) { return { id: p.id, status: p.status, campaign_lengths: p.campaign_lengths, created_at: p.created_at, sent_at: p.sent_at, view_count: p.view_count }; })
+            scores: state.scores
           }
         });
       }
@@ -1729,35 +1700,216 @@ strong { font-weight: 600; color: var(--color-heading); }
     }).join('');
     document.getElementById('quickLinks').innerHTML = qlHtml;
 
-    // Tab counts — show outstanding (incomplete) items
-    var obCount = state.onboarding.filter(function(s) { return s.status !== 'complete'; }).length;
-    var icCount = state.introCall.filter(function(s) { return s.status !== 'complete' && s.status !== 'not_applicable'; }).length;
-    var taskCount = state.tasks.filter(function(t) { return t.status !== 'complete'; }).length;
-    var delCount = state.deliverables.filter(function(d) { return d.status !== 'delivered' && d.status !== 'active'; }).length;
-    var rptCount = state.snapshots.length;
-    var propCount = state.proposals.filter(function(p) { return p.status === 'draft' || p.status === 'review' || p.status === 'ready'; }).length;
-    setTabCount('proposals', propCount);
-    setTabCount('onboarding', obCount);
-    setTabCount('intro-call', icCount);
-    setTabCount('audit', taskCount);
-    setTabCount('deliverables', delCount);
-    setTabCount('reports', rptCount);
+    // Tab counts from lightweight RPC (no need to load full row data)
+    var tc = state.tabCounts || {};
+    setTabCount('proposals', tc.proposals_pending || 0);
+    setTabCount('onboarding', tc.onboarding_pending || 0);
+    setTabCount('intro-call', tc.introcall_pending || 0);
+    setTabCount('audit', tc.audit_pending || 0);
+    setTabCount('deliverables', tc.deliverables_pending || 0);
+    setTabCount('reports', tc.reports_count || 0);
+    setTabCount('content', tc.content_count || 0);
 
     renderOverview(c, p);
     updateTabVisibility();
-    renderProfile();
-    renderRisingTide();
-    renderProposals();
-    renderOnboarding();
-    renderIntroCall();
-    renderDeliverables();
-    renderAudit();
-    renderReports();
     renderBilling(c);
-    renderContent();
-    var contentCount = state.contentPages.filter(function(cp) { return cp.status !== 'delivered' && cp.status !== 'approved'; }).length;
-    setTabCount('content', contentCount);
   }
+
+  // ============================================================
+  // LAZY TAB LOADING
+  // ============================================================
+  function ensureTabData(tabName) {
+    if (state.tabLoaded[tabName]) {
+      renderTab(tabName);
+      return Promise.resolve();
+    }
+    var cid = state.contact.id;
+    var s = slug;
+    var h = { 'apikey': SK, 'Authorization': 'Bearer ' + SK };
+    var sb = function(path) { return fetch(SB + '/rest/v1/' + path, { headers: h }).then(function(r) { return r.json(); }).catch(function() { return []; }); };
+
+    // Show loading indicator in the tab panel
+    var panel = document.getElementById('tab-' + tabName);
+    if (panel && !state.tabLoaded[tabName]) {
+      var existing = panel.querySelector('.tab-loading');
+      if (!existing) {
+        var loader = document.createElement('div');
+        loader.className = 'tab-loading';
+        loader.style.cssText = 'text-align:center;padding:2rem;color:var(--color-muted);font-size:.85rem;';
+        loader.textContent = 'Loading...';
+        panel.insertBefore(loader, panel.firstChild);
+      }
+    }
+
+    var queries;
+    switch(tabName) {
+      case 'proposals':
+        queries = [
+          sb('proposals?select=*&contact_id=eq.' + cid + '&order=created_at.desc')
+        ];
+        return Promise.all(queries).then(function(res) {
+          state.proposals = res[0] || [];
+          state.tabLoaded['proposals'] = true;
+          // Async load followups
+          if (state.proposals.length > 0) {
+            var pids = state.proposals.map(function(p) { return p.id; }).join(',');
+            sb('proposal_followups?proposal_id=in.(' + pids + ')&order=sequence_number.asc').then(function(fus) {
+              (fus || []).forEach(function(fu) {
+                if (!state.proposalFollowups[fu.proposal_id]) state.proposalFollowups[fu.proposal_id] = [];
+                state.proposalFollowups[fu.proposal_id].push(fu);
+              });
+              renderProposals();
+            });
+          }
+          renderTab(tabName);
+        });
+
+      case 'onboarding':
+        queries = [
+          sb('onboarding_steps?select=*&order=sort_order&contact_id=eq.' + cid),
+          sb('signed_agreements?select=*&contact_id=eq.' + cid + '&limit=1'),
+          sb('account_access?select=*&contact_id=eq.' + cid)
+        ];
+        return Promise.all(queries).then(function(res) {
+          state.onboarding = res[0] || [];
+          state.signed = (res[1] && res[1][0]) || null;
+          state.accountAccess = res[2] || [];
+          state.tabLoaded['onboarding'] = true;
+          renderTab(tabName);
+        });
+
+      case 'intro-call':
+        return sb('intro_call_steps?select=*&order=sort_order&contact_id=eq.' + cid).then(function(res) {
+          state.introCall = res || [];
+          state.tabLoaded['intro-call'] = true;
+          renderTab(tabName);
+        });
+
+      case 'profile':
+        queries = [
+          fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'read_records', table: 'workspace_credentials', filters: { contact_id: cid }, limit: 1 }) }).then(function(r) { return r.json(); }).then(function(d) { return d.data || []; }).catch(function() { return []; })
+        ];
+        return Promise.all(queries).then(function(res) {
+          state.workspace = (res[0] && res[0][0]) || null;
+          state.tabLoaded['profile'] = true;
+          renderTab(tabName);
+        });
+
+      case 'rising-tide':
+        queries = [
+          sb('social_platforms?select=*&contact_id=eq.' + cid + '&order=platform'),
+          sb('directory_listings?select=*&contact_id=eq.' + cid + '&order=directory')
+        ];
+        return Promise.all(queries).then(function(res) {
+          state.socialPlatforms = res[0] || [];
+          state.directoryListings = res[1] || [];
+          state.tabLoaded['rising-tide'] = true;
+          renderTab(tabName);
+        });
+
+      case 'deliverables':
+        queries = [
+          sb('deliverables?select=*&order=created_at.desc&contact_id=eq.' + cid),
+          sb('tracked_keywords?select=id,keyword&client_slug=eq.' + s + '&active=eq.true')
+        ];
+        return Promise.all(queries).then(function(res) {
+          state.deliverables = res[0] || [];
+          state.trackedKeywords = res[1] || [];
+          state.tabLoaded['deliverables'] = true;
+          renderTab(tabName);
+        });
+
+      case 'content':
+        queries = [
+          sb('content_pages?select=*&contact_id=eq.' + cid + '&order=created_at.desc'),
+          sb('design_specs?select=*&contact_id=eq.' + cid + '&limit=1'),
+          sb('neo_images?select=*&contact_id=eq.' + cid + '&order=created_at.desc'),
+          sb('endorsements?select=*&contact_id=eq.' + cid + '&order=created_at.desc')
+        ];
+        return Promise.all(queries).then(function(res) {
+          state.contentPages = res[0] || [];
+          state.designSpec = (res[1] && res[1][0]) || null;
+          state.neoImages = res[2] || [];
+          state.endorsements = res[3] || [];
+          state.tabLoaded['content'] = true;
+          renderTab(tabName);
+        });
+
+      case 'audit':
+        queries = [
+          sb('entity_audits?select=id,contact_id,client_slug,status,audit_tier,audit_date,audit_period,audit_scope,score_credibility,score_optimization,score_reputation,score_engagement,scores,variance_score,variance_label,cres_score,total_tasks,tasks_p1,tasks_p2,tasks_p3,tasks_moonraker,tasks_client,tasks_collaboration,cited_google_ai,cited_chatgpt,cited_claude,cited_perplexity,cited_bing,cited_youtube,cited_reddit,cited_meta,agent_task_id,geo_target,gbp_share_link,variance_from_previous,brand_query,homepage_url,loom_url,sent_at,sent_to,email_subject,stripe_payment_id,created_at,updated_at&contact_id=eq.' + cid + '&order=created_at.desc'),
+          sb('checklist_items?select=*&client_slug=eq.' + s + '&order=sort_order')
+        ];
+        return Promise.all(queries).then(function(res) {
+          state.allAudits = res[0] || [];
+          state.tasks = res[1] || [];
+          if (state.allAudits.length > 0) state.entityAudit = state.allAudits[0];
+          state.tabLoaded['audit'] = true;
+          // Async load audit followups
+          if (state.entityAudit) {
+            sb('audit_followups?audit_id=eq.' + state.entityAudit.id + '&order=sequence_number.asc').then(function(afus) {
+              state.auditFollowups = afus || [];
+              renderEntityAudit();
+            });
+          }
+          renderTab(tabName);
+        });
+
+      case 'reports':
+        queries = [
+          sb('report_configs?select=*&client_slug=eq.' + s + '&limit=1'),
+          sb('report_snapshots?select=id,client_slug,report_month,report_status,campaign_month,gsc_clicks,gsc_impressions,gsc_ctr,gsc_position,gsc_detail,ga4_sessions,ga4_users,ga4_new_users,ga4_engagement_rate,ga4_avg_session_duration,ga4_detail,gbp_detail,lf_data,ai_visibility,notes,created_at,updated_at&client_slug=eq.' + s + '&order=report_month.desc&limit=20')
+        ];
+        return Promise.all(queries).then(function(res) {
+          state.reportConfig = (res[0] && res[0][0]) || null;
+          state.snapshots = res[1] || [];
+          state.tabLoaded['reports'] = true;
+          renderTab(tabName);
+        });
+
+      default:
+        state.tabLoaded[tabName] = true;
+        return Promise.resolve();
+    }
+  }
+
+  function renderTab(tabName) {
+    // Remove loading indicator
+    var panel = document.getElementById('tab-' + tabName);
+    if (panel) {
+      var loader = panel.querySelector('.tab-loading');
+      if (loader) loader.remove();
+    }
+    switch(tabName) {
+      case 'overview': renderOverview(state.contact, state.practice); break;
+      case 'proposals': renderProposals(); break;
+      case 'onboarding': renderOnboarding(); break;
+      case 'intro-call': renderIntroCall(); break;
+      case 'profile': renderProfile(); break;
+      case 'rising-tide': renderRisingTide(); break;
+      case 'deliverables': renderDeliverables(); break;
+      case 'content': renderContent(); break;
+      case 'audit': renderAudit(); break;
+      case 'reports': renderReports(); break;
+      case 'billing': renderBilling(state.contact); break;
+    }
+    // Update tab count from live data after load
+    updateTabCountFromData(tabName);
+  }
+
+  function updateTabCountFromData(tabName) {
+    switch(tabName) {
+      case 'proposals': setTabCount('proposals', state.proposals.filter(function(p) { return p.status === 'draft' || p.status === 'review' || p.status === 'ready'; }).length); break;
+      case 'onboarding': setTabCount('onboarding', state.onboarding.filter(function(s) { return s.status !== 'complete'; }).length); break;
+      case 'intro-call': setTabCount('intro-call', state.introCall.filter(function(s) { return s.status !== 'complete' && s.status !== 'not_applicable'; }).length); break;
+      case 'audit': setTabCount('audit', state.tasks.filter(function(t) { return t.status !== 'complete'; }).length); break;
+      case 'deliverables': setTabCount('deliverables', state.deliverables.filter(function(d) { return d.status !== 'delivered' && d.status !== 'active'; }).length); break;
+      case 'reports': setTabCount('reports', state.snapshots.length); break;
+      case 'content': setTabCount('content', state.contentPages.filter(function(cp) { return cp.status !== 'delivered' && cp.status !== 'approved'; }).length); break;
+    }
+  }
+
+  window.ensureTabData = ensureTabData;
 
   function setTabCount(tab, count) {
     var btn = document.querySelector('.tab-btn[data-tab="' + tab + '"]');
@@ -6418,10 +6570,15 @@ strong { font-weight: 600; color: var(--color-heading); }
   document.getElementById('tabBar').addEventListener('click', function(e) {
     var btn = e.target.closest('.tab-btn');
     if (!btn) return;
+    var tabName = btn.dataset.tab;
     document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
     document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
     btn.classList.add('active');
-    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    document.getElementById('tab-' + tabName).classList.add('active');
+    // Lazy load tab data if in detail view
+    if (state.contact && typeof ensureTabData === 'function') {
+      ensureTabData(tabName);
+    }
   });
 
   // Support ?tab=audit (or any tab) in URL
@@ -6435,6 +6592,7 @@ strong { font-weight: 600; color: var(--color-heading); }
         document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
         targetBtn.classList.add('active');
         targetPanel.classList.add('active');
+        // Lazy load will be triggered by loadDetailData checking the active tab
       }
     }
   })();
