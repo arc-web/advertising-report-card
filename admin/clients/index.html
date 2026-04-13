@@ -1846,7 +1846,8 @@ strong { font-weight: 600; color: var(--color-heading); }
           sb('neo_images?select=*&contact_id=eq.' + cid + '&order=created_at.desc'),
           sb('endorsements?select=*&contact_id=eq.' + cid + '&order=created_at.desc'),
           sb('content_audit_batches?select=*&client_slug=eq.' + s + '&order=created_at.desc&limit=5'),
-          sb('tracked_keywords?select=*&client_slug=eq.' + s + '&active=eq.true&order=keyword.asc')
+          sb('tracked_keywords?select=*&client_slug=eq.' + s + '&active=eq.true&order=keyword.asc'),
+          sb('entity_audits?select=id,status,surge_data&contact_id=eq.' + cid + '&status=in.(complete,delivered)&order=created_at.desc&limit=1')
         ];
         return Promise.all(queries).then(function(res) {
           state.contentPages = res[0] || [];
@@ -1855,6 +1856,7 @@ strong { font-weight: 600; color: var(--color-heading); }
           state.endorsements = res[3] || [];
           state.contentBatches = res[4] || [];
           state.trackedKeywords = res[5] || [];
+          if (!state.allAudits || state.allAudits.length === 0) state.allAudits = res[6] || [];
           state.tabLoaded['content'] = true;
           renderTab(tabName);
         });
@@ -5157,14 +5159,64 @@ strong { font-weight: 600; color: var(--color-heading); }
       var kwCount = state.trackedKeywords ? state.trackedKeywords.length : 0;
       var bioCount = state.bioMaterials ? state.bioMaterials.length : 0;
       if (kwCount > 0 || bioCount > 0) {
-        var seedHtml = '<div style="text-align:center;padding:1.5rem;">' +
-          '<p style="font-size:.88rem;color:var(--color-heading);margin-bottom:.35rem;">Ready to set up content pages</p>' +
-          '<p style="font-size:.82rem;color:var(--color-muted);margin-bottom:1rem;">' + kwCount + ' tracked keyword' + (kwCount !== 1 ? 's' : '') + ' and ' + bioCount + ' clinician bio' + (bioCount !== 1 ? 's' : '') + ' found.</p>' +
-          '<div style="display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;">';
-        if (kwCount > 0) seedHtml += '<button class="btn btn-primary" onclick="seedContentPages(\x27service\x27)" style="font-size:.84rem;padding:.5rem 1.1rem;">Seed Service Pages (' + kwCount + ')</button>';
-        if (bioCount > 0) seedHtml += '<button class="btn" onclick="seedContentPages(\x27bio\x27)" style="font-size:.84rem;padding:.5rem 1.1rem;background:var(--color-surface);color:var(--color-primary);border:1px solid var(--color-primary);border-radius:6px;cursor:pointer;">Seed Bio Pages (' + bioCount + ')</button>';
-        if (kwCount > 0 && bioCount > 0) seedHtml += '<button class="btn btn-ghost" onclick="seedContentPages(\x27all\x27)" style="font-size:.78rem;padding:.45rem .9rem;">Seed All</button>';
-        seedHtml += '</div></div>';
+        var hasEntityAudit = state.allAudits && state.allAudits.length > 0 && state.allAudits[0].status === 'complete';
+        var hpExists = pages.some(function(p) { return p.page_type === 'homepage'; });
+        var svcExists = pages.some(function(p) { return p.page_type === 'service'; });
+        var bioExists = pages.some(function(p) { return p.page_type === 'bio'; });
+
+        var seedHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;padding:.5rem 0;">';
+
+        // Homepage card
+        seedHtml += '<div style="border:1px solid var(--color-border);border-radius:10px;padding:1rem;text-align:center;background:var(--color-surface);">';
+        seedHtml += '<div style="font-size:1.25rem;margin-bottom:.35rem;">&#127968;</div>';
+        seedHtml += '<div style="font-size:.82rem;font-weight:600;color:var(--color-heading);margin-bottom:.25rem;">Homepage</div>';
+        if (hpExists) {
+          seedHtml += '<span style="font-size:.72rem;color:#00b86c;font-weight:500;">Seeded</span>';
+        } else if (hasEntityAudit) {
+          seedHtml += '<p style="font-size:.72rem;color:var(--color-muted);margin-bottom:.5rem;">From entity audit RTPBA</p>';
+          seedHtml += '<button class="btn btn-primary btn-sm" onclick="seedContentPages(\x27homepage\x27)" style="font-size:.75rem;padding:.35rem .75rem;">Seed Homepage</button>';
+        } else {
+          seedHtml += '<p style="font-size:.72rem;color:var(--color-muted);">Needs entity audit first</p>';
+        }
+        seedHtml += '</div>';
+
+        // Service Pages card
+        seedHtml += '<div style="border:1px solid var(--color-border);border-radius:10px;padding:1rem;text-align:center;background:var(--color-surface);">';
+        seedHtml += '<div style="font-size:1.25rem;margin-bottom:.35rem;">&#128196;</div>';
+        seedHtml += '<div style="font-size:.82rem;font-weight:600;color:var(--color-heading);margin-bottom:.25rem;">Service Pages</div>';
+        if (svcExists) {
+          var svcCount = pages.filter(function(p) { return p.page_type === 'service'; }).length;
+          seedHtml += '<span style="font-size:.72rem;color:#00b86c;font-weight:500;">' + svcCount + ' seeded</span>';
+        } else if (kwCount > 0) {
+          seedHtml += '<p style="font-size:.72rem;color:var(--color-muted);margin-bottom:.5rem;">' + kwCount + ' keyword' + (kwCount !== 1 ? 's' : '') + ' + location + FAQ</p>';
+          seedHtml += '<button class="btn btn-primary btn-sm" onclick="seedContentPages(\x27service\x27)" style="font-size:.75rem;padding:.35rem .75rem;">Seed Service Pages</button>';
+        } else {
+          seedHtml += '<p style="font-size:.72rem;color:var(--color-muted);">Set keywords in Reporting tab</p>';
+        }
+        seedHtml += '</div>';
+
+        // Bio Pages card
+        seedHtml += '<div style="border:1px solid var(--color-border);border-radius:10px;padding:1rem;text-align:center;background:var(--color-surface);">';
+        seedHtml += '<div style="font-size:1.25rem;margin-bottom:.35rem;">&#129489;</div>';
+        seedHtml += '<div style="font-size:.82rem;font-weight:600;color:var(--color-heading);margin-bottom:.25rem;">Bio Pages</div>';
+        if (bioExists) {
+          var bpCount = pages.filter(function(p) { return p.page_type === 'bio'; }).length;
+          seedHtml += '<span style="font-size:.72rem;color:#00b86c;font-weight:500;">' + bpCount + ' seeded</span>';
+        } else if (bioCount > 0) {
+          seedHtml += '<p style="font-size:.72rem;color:var(--color-muted);margin-bottom:.5rem;">' + bioCount + ' clinician' + (bioCount !== 1 ? 's' : '') + '</p>';
+          seedHtml += '<button class="btn btn-primary btn-sm" onclick="seedContentPages(\x27bio\x27)" style="font-size:.75rem;padding:.35rem .75rem;">Seed Bio Pages</button>';
+        } else {
+          seedHtml += '<p style="font-size:.72rem;color:var(--color-muted);">No bio materials yet</p>';
+        }
+        seedHtml += '</div>';
+
+        seedHtml += '</div>';
+
+        // Seed All button if nothing is seeded yet
+        if (!hpExists && !svcExists && !bioExists && (kwCount > 0 || bioCount > 0)) {
+          seedHtml += '<div style="text-align:center;margin-top:.5rem;"><button class="btn btn-ghost" onclick="seedContentPages(\x27all\x27)" style="font-size:.78rem;">Seed All Pages</button></div>';
+        }
+
         listEl.innerHTML = seedHtml;
         if (emptyEl) emptyEl.style.display = 'none';
       } else {
