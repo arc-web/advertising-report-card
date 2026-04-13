@@ -3217,12 +3217,14 @@ strong { font-weight: 600; color: var(--color-heading); }
     });
     h += '</select></div>';
 
-    // Tier
-    h += '<div><div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);margin-bottom:.25rem;">Tier</div>';
-    h += '<select id="eaTierSelect" onchange="updateEntityAuditField(\'audit_tier\',this.value)" style="width:100%;padding:.45rem .65rem;border:1px solid var(--color-border);border-radius:8px;font-size:.84rem;background:var(--color-surface);color:var(--color-heading);font-family:inherit;">';
-    h += '<option value="free"' + (ea.audit_tier === 'free' ? ' selected' : '') + '>Free</option>';
-    h += '<option value="premium"' + (ea.audit_tier === 'premium' ? ' selected' : '') + '>Premium</option>';
-    h += '</select></div>';
+    // Tier (only show for leads/prospects)
+    if (isLeadOrProspect) {
+      h += '<div><div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);margin-bottom:.25rem;">Tier</div>';
+      h += '<select id="eaTierSelect" onchange="updateEntityAuditField(\'audit_tier\',this.value)" style="width:100%;padding:.45rem .65rem;border:1px solid var(--color-border);border-radius:8px;font-size:.84rem;background:var(--color-surface);color:var(--color-heading);font-family:inherit;">';
+      h += '<option value="free"' + (ea.audit_tier === 'free' ? ' selected' : '') + '>Free</option>';
+      h += '<option value="premium"' + (ea.audit_tier === 'premium' ? ' selected' : '') + '>Premium</option>';
+      h += '</select></div>';
+    }
 
     // Date
     h += '<div><div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);margin-bottom:.25rem;">Created</div>';
@@ -3305,7 +3307,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       if (ea.variance_score != null) {
         h += '<span style="font-size:.75rem;color:var(--color-muted);">Variance: ' + ea.variance_score + '/100</span>';
       }
-      h += '<span class="tag tag-' + (ea.audit_tier === 'premium' ? 'active' : 'prospect') + '" style="font-size:.7rem;">' + (ea.audit_tier === 'premium' ? 'Premium' : 'Free') + '</span>';
+      if (isLeadOrProspect) { h += '<span class="tag tag-' + (ea.audit_tier === 'premium' ? 'active' : 'prospect') + '" style="font-size:.7rem;">' + (ea.audit_tier === 'premium' ? 'Premium' : 'Free') + '</span>'; }
       h += '</div></div>';
       h += '<div class="score-grid">';
       pillars.forEach(function(p) {
