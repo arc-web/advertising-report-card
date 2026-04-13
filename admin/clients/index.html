@@ -2329,7 +2329,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       updated_at: new Date().toISOString()
     };
 
-    var isNew = !state.practice || !state.practice.id;
+    var isNew = !state.practice || (!state.practice.id && !state.practice.contact_id);
 
     if (isNew) {
       data.contact_id = state.contact.id;
@@ -2338,7 +2338,7 @@ strong { font-weight: 600; color: var(--color-heading); }
         body: JSON.stringify({ action: 'create_record', table: 'practice_details', data: data })
       }).then(function(r) { return r.json(); }).then(function(res) {
         if (res.success && res.data) {
-          state.practice = res.data;
+          state.practice = Array.isArray(res.data) ? res.data[0] : res.data;
           if (statusEl) { statusEl.textContent = 'Saved'; statusEl.style.color = 'var(--color-success)'; }
           setTimeout(function() { if (statusEl) statusEl.textContent = ''; }, 2500);
         } else {
