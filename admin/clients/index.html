@@ -3710,7 +3710,7 @@ strong { font-weight: 600; color: var(--color-heading); }
   };
 
   window.toggleEaDetails = function() {
-    state._eaDetailsCollapsed = !state._eaDetailsCollapsed;
+    state._eaDetailsCollapsed = (state._eaDetailsCollapsed === false);
     renderEntityAudit();
   };
 
@@ -7827,5 +7827,6 @@ strong { font-weight: 600; color: var(--color-heading); }
 <script src="/shared/chat-panel.js"></script>
 </body>
 </html>
+
 
 
