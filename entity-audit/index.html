@@ -184,6 +184,7 @@ section { padding: 5rem 0; }
 .form-consent input[type="checkbox"]:checked { background: var(--color-primary); border-color: var(--color-primary); }
 .form-consent input[type="checkbox"]:checked::after { content: ''; position: absolute; left: 5px; top: 1px; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
 .form-consent label { font-size: .8125rem; color: rgba(232,245,239,.5); line-height: 1.5; cursor: pointer; font-weight: 400; letter-spacing: 0; }
+.form-field-hint { font-size: .75rem; color: rgba(232,245,239,.35); margin-top: .35rem; line-height: 1.4; }
 .form-row-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 @media (max-width: 480px) { .form-row-grid { grid-template-columns: 1fr; } }
 .form-btn { width: 100%; background: var(--color-primary); color: #fff; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1.0625rem; padding: .875rem; border-radius: 10px; border: none; cursor: pointer; transition: all .25s; margin-top: .5rem; }
@@ -502,8 +503,17 @@ section { padding: 5rem 0; }
           </div>
         </div>
         <div class="form-row">
-          <label for="gbpLink">Google Business Profile Link <span style="font-weight:400;opacity:.6;">(optional)</span></label>
-          <input type="url" id="gbpLink" placeholder="https://maps.google.com/..." >
+          <label for="hasGbp">Do you have a Google Business Profile?</label>
+          <select id="hasGbp" onchange="toggleGbpLink()">
+            <option value="">Select an option</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+        <div class="form-row" id="gbpLinkRow" style="display:none;">
+          <label for="gbpLink">Google Business Profile Share Link <span style="font-weight:400;opacity:.5;font-size:.75rem;">Required</span></label>
+          <input type="url" id="gbpLink" placeholder="https://maps.google.com/...">
+          <p class="form-field-hint">Open Google Maps, search your business name, click Share, and paste the link here.</p>
         </div>
         <div class="form-row">
           <label for="auditSource">How did you hear about us?</label>
@@ -682,6 +692,13 @@ section { padding: 5rem 0; }
     return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 60);
   }
 
+  window.toggleGbpLink = function() {
+    var val = document.getElementById('hasGbp').value;
+    var row = document.getElementById('gbpLinkRow');
+    row.style.display = val === 'yes' ? 'block' : 'none';
+    if (val !== 'yes') document.getElementById('gbpLink').value = '';
+  };
+
   window.submitIntake = function() {
     var firstName = document.getElementById('firstName').value.trim();
     var lastName = document.getElementById('lastName').value.trim();
@@ -710,6 +727,15 @@ section { padding: 5rem 0; }
       showError('Please fill in all required fields.');
       return;
     }
+    var hasGbp = document.getElementById('hasGbp').value;
+    if (hasGbp === 'yes' && !gbpLink) {
+      showError('Please enter your Google Business Profile share link.');
+      return;
+    }
+    if (gbpLink && !/^https?:\/\/.+\..+/.test(gbpLink)) {
+      showError('Please enter a valid Google Business Profile link starting with http:// or https://');
+      return;
+    }
     if (!/^https?:\/\/.+\..+/.test(websiteUrl)) {
       showError('Please enter a valid website URL starting with http:// or https://');
       return;
@@ -735,6 +761,7 @@ section { padding: 5rem 0; }
         email: email,
         city: city,
         state: state,
+        has_gbp: hasGbp === 'yes',
         gbp_link: gbpLink,
         source: source,
         referral_name: referralName,
