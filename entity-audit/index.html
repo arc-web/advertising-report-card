@@ -723,11 +723,11 @@ section { padding: 5rem 0; }
     }
 
     // Validation
-    if (!firstName || !lastName || !websiteUrl || !email) {
+    var hasGbp = document.getElementById('hasGbp').value;
+    if (!firstName || !lastName || !websiteUrl || !email || !hasGbp) {
       showError('Please fill in all required fields.');
       return;
     }
-    var hasGbp = document.getElementById('hasGbp').value;
     if (hasGbp === 'yes' && !gbpLink) {
       showError('Please enter your Google Business Profile share link.');
       return;
