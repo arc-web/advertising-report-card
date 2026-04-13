@@ -529,8 +529,9 @@ a:hover { color: var(--color-primary-hover); }
 
   function renderStats() {
     var a = state.audits;
-    var free = a.filter(function(x) { return x.audit_tier === 'free'; }).length;
-    var premium = a.filter(function(x) { return x.audit_tier === 'premium'; }).length;
+    var leadAudits = a.filter(function(x) { var ct = state.contactMap[x.contact_id] || {}; return ct.status === 'lead' || ct.status === 'prospect'; });
+    var free = leadAudits.filter(function(x) { return x.audit_tier === 'free'; }).length;
+    var premium = leadAudits.filter(function(x) { return x.audit_tier === 'premium'; }).length;
     var queued = a.filter(function(x) { return x.status === 'queued'; }).length;
     var agentRunning = a.filter(function(x) { return x.status === 'agent_running'; }).length;
     var pending = a.filter(function(x) { return x.status === 'pending'; }).length;
@@ -610,7 +611,7 @@ a:hover { color: var(--color-primary-hover); }
       var auditStatusLabels = { pending: 'pending', queued: 'queued', agent_running: 'processing', agent_error: 'error', complete: 'complete', delivered: 'delivered' };
       var auditLabel = auditStatusLabels[ea.status] || ea.status;
       var auditTag = '<span class="tag tag-' + ea.status + '">' + auditLabel + '</span>';
-      if (ea.audit_tier === 'premium') {
+      if (ea.audit_tier === 'premium' && c.status !== 'active' && c.status !== 'onboarding') {
         auditTag += ' <span class="tag tag-premium" style="font-size:.65rem;">premium</span>';
       }
 
