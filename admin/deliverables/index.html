@@ -484,7 +484,7 @@ a:hover { color: var(--color-primary-hover); }
   function loadData() {
     Promise.all([
       fetch(SB + '/rest/v1/contacts?select=id,slug,status,practice_name,first_name,last_name,email,website_platform&order=practice_name', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }),
-      fetch(SB + '/rest/v1/deliverables?select=*&order=created_at.desc', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); })
+      fetch(SB + '/rest/v1/deliverables?select=*&order=created_at.desc&limit=5000', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); })
     ]).then(function(res) {
       state.contacts = res[0] || [];
       state.deliverables = res[1] || [];
