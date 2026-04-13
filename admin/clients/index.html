@@ -550,6 +550,22 @@ strong { font-weight: 600; color: var(--color-heading); }
 .bio-card.expanded .bio-expand { transform: rotate(180deg); }
 .bio-expand { transition: transform .2s; font-size: .7rem; color: var(--color-muted); }
 .bio-badge { font-size: .68rem; padding: .1rem .45rem; border-radius: 4px; background: var(--color-primary-subtle); color: var(--color-primary); font-weight: 600; margin-left: .5rem; }
+.bio-actions { display: flex; align-items: center; gap: .5rem; }
+.bio-move-btn { font-size: .72rem; padding: .2rem .45rem; border-radius: 4px; cursor: pointer; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-muted); font-family: inherit; transition: all .15s; }
+.bio-move-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.bio-delete-btn { font-size: .72rem; padding: .2rem .55rem; border-radius: 4px; cursor: pointer; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-muted); font-family: inherit; transition: all .15s; }
+.bio-delete-btn:hover { border-color: var(--color-danger); color: var(--color-danger); background: rgba(239,68,68,.06); }
+.bio-form-group { margin-bottom: .85rem; }
+.bio-form-group label { display: block; font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); margin-bottom: .3rem; }
+.bio-form-group input, .bio-form-group textarea { width: 100%; font-size: .84rem; padding: .45rem .6rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); color: var(--color-heading); font-family: inherit; line-height: 1.5; box-sizing: border-box; }
+.bio-form-group input:focus, .bio-form-group textarea:focus { border-color: var(--color-primary); outline: none; }
+.bio-form-group textarea { min-height: 70px; resize: vertical; }
+.bio-form-group .bio-help { font-size: .72rem; color: var(--color-muted); margin-top: .2rem; }
+.bio-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.bio-save-row { display: flex; align-items: center; gap: .75rem; margin-top: .5rem; padding-top: .75rem; border-top: 1px solid var(--color-border); }
+.bio-save-btn { padding: .4rem 1rem; font-size: .78rem; font-weight: 600; border: 1px solid var(--color-primary); background: var(--color-primary-subtle); color: var(--color-primary); border-radius: 6px; cursor: pointer; font-family: inherit; transition: all .15s; }
+.bio-save-btn:hover { background: var(--color-primary); color: #fff; }
+.bio-save-status { font-size: .78rem; color: var(--color-muted); }
 
 /* Rising Tide */
 .rt-platform-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; padding: 1rem; }
@@ -960,14 +976,14 @@ strong { font-weight: 600; color: var(--color-heading); }
       <!-- Tabs -->
       <div class="tab-bar" id="tabBar">
         <button class="tab-btn active" data-tab="overview">Overview</button>
+        <button class="tab-btn" data-tab="profile">Profile</button>
         <button class="tab-btn" data-tab="proposals">Proposals</button>
         <button class="tab-btn" data-tab="onboarding">Onboarding</button>
         <button class="tab-btn" data-tab="intro-call">Intro Call</button>
-        <button class="tab-btn" data-tab="profile">Profile</button>
         <button class="tab-btn" data-tab="rising-tide">Rising Tide</button>
         <button class="tab-btn" data-tab="deliverables">Deliverables</button>
-        <button class="tab-btn" data-tab="content">Content</button>
         <button class="tab-btn" data-tab="audit">Audit</button>
+        <button class="tab-btn" data-tab="content">Content</button>
         <button class="tab-btn" data-tab="reports">Reports</button>
         <button class="tab-btn" data-tab="billing">Billing</button>
         <button class="history-toggle tab-hidden" id="historyToggle" onclick="toggleHistoryTabs()"><span class="ht-icon">&#9654;</span>History</button>
@@ -1017,16 +1033,7 @@ strong { font-weight: 600; color: var(--color-heading); }
             </div>
             <div id="profileBio"></div>
           </div>
-          <div class="card-grid card-grid-2" style="margin-bottom:1rem;">
-            <div class="card">
-              <div class="card-header"><h3>Account Access</h3></div>
-              <div id="profileAccess"></div>
-            </div>
-            <div class="card">
-              <div class="card-header"><h3>Performance Guarantee</h3></div>
-              <div id="profileGuarantee"></div>
-            </div>
-          </div>
+
         </div>
       </div>
 
@@ -1210,6 +1217,10 @@ strong { font-weight: 600; color: var(--color-heading); }
             <div id="agreementInfo"></div>
             <div id="csaLink" style="display:none;padding:0 1rem 1rem;"></div>
           </div>
+        </div>
+        <div class="card" style="margin-top:1rem;">
+          <div class="card-header"><h3>Performance Guarantee</h3></div>
+          <div id="profileGuarantee"></div>
         </div>
       </div>
     </div>
@@ -1438,7 +1449,6 @@ strong { font-weight: 600; color: var(--color-heading); }
       state.workspace = null;
       state.socialPlatforms = [];
       state.directoryListings = [];
-      state.accountAccess = [];
       state.contentPages = [];
       state.designSpec = null;
       state.neoImages = [];
@@ -1767,13 +1777,11 @@ strong { font-weight: 600; color: var(--color-heading); }
       case 'onboarding':
         queries = [
           sb('onboarding_steps?select=*&order=sort_order&contact_id=eq.' + cid),
-          sb('signed_agreements?select=*&contact_id=eq.' + cid + '&limit=1'),
-          sb('account_access?select=*&contact_id=eq.' + cid)
+          sb('signed_agreements?select=*&contact_id=eq.' + cid + '&limit=1')
         ];
         return Promise.all(queries).then(function(res) {
           state.onboarding = res[0] || [];
           state.signed = (res[1] && res[1][0]) || null;
-          state.accountAccess = res[2] || [];
           state.tabLoaded['onboarding'] = true;
           renderTab(tabName);
         });
@@ -2083,77 +2091,140 @@ strong { font-weight: 600; color: var(--color-heading); }
       container.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><p>No practice details yet. Collected during onboarding.</p></div>';
     }
 
-    // Bio Materials
+    // Bio Materials (editable)
+    renderBioMaterials();
+  }
+
+  function bioFormHtml(b, idx) {
+    var p = 'bio_' + idx + '_';
+    var ea = function(s) { return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); };
+    var arrToText = function(v) { return Array.isArray(v) ? v.join('\n') : (v || ''); };
+    var h = '<div class="bio-form-row">';
+    h += '<div class="bio-form-group"><label>Full Name</label><input type="text" id="' + p + 'name" value="' + ea(b.therapist_name) + '"></div>';
+    h += '<div class="bio-form-group"><label>Credentials</label><input type="text" id="' + p + 'creds" value="' + ea(b.therapist_credentials) + '" placeholder="e.g. PhD, LCSW, LMFT"></div>';
+    h += '</div>';
+    h += '<div class="bio-form-group"><label>Professional Bio</label><textarea id="' + p + 'bio" style="min-height:100px;" placeholder="Background, approach, and what drives their work.">' + ea(b.professional_bio) + '</textarea></div>';
+    h += '<div class="bio-form-group"><label>Clinical Approach Keywords</label><input type="text" id="' + p + 'approach" value="' + ea(b.clinical_approach) + '" placeholder="e.g. trauma-informed, attachment-based"></div>';
+    h += '<div class="bio-form-group"><label>Education</label><textarea id="' + p + 'education" placeholder="One per line">' + ea(arrToText(b.education_details)) + '</textarea><div class="bio-help">Institution, Degree, Year per line</div></div>';
+    h += '<div class="bio-form-group"><label>License Details</label><textarea id="' + p + 'licenses" placeholder="One per line">' + ea(arrToText(b.license_details)) + '</textarea><div class="bio-help">State, Type, Number, Verification URL per line</div></div>';
+    h += '<div class="bio-form-group"><label>Certifications</label><textarea id="' + p + 'certifications" placeholder="One per line">' + ea(arrToText(b.certification_details)) + '</textarea></div>';
+    h += '<div class="bio-form-group"><label>Associations</label><textarea id="' + p + 'associations" placeholder="One per line">' + ea(arrToText(b.association_details)) + '</textarea></div>';
+    h += '<div class="bio-form-group"><label>Awards</label><input type="text" id="' + p + 'awards" value="' + ea(b.awards) + '" placeholder="Awards, recognitions, or media features"></div>';
+    h += '<div class="bio-form-group"><label>Media &amp; Publications</label><textarea id="' + p + 'media" placeholder="One per line">' + ea(arrToText(b.media_publications)) + '</textarea></div>';
+    h += '<div class="bio-save-row">';
+    h += '<button class="bio-save-btn" onclick="saveBioCard(' + idx + ')">Save Changes</button>';
+    h += '<span class="bio-save-status" id="' + p + 'status"></span>';
+    h += '</div>';
+    return h;
+  }
+
+  function renderBioMaterials() {
     var bioEl = document.getElementById('profileBio');
     var bios = state.bioMaterials || [];
     if (bios.length === 0) {
-      bioEl.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><p>No bio materials yet.</p></div>';
-    } else {
-      var bh = '';
-      bios.forEach(function(b, i) {
-        var expanded = i === 0 ? ' expanded' : '';
-        bh += '<div class="bio-card' + expanded + '" data-bio-id="' + b.id + '">';
-        bh += '<div class="bio-card-header" onclick="this.parentElement.classList.toggle(\'expanded\')">';
-        bh += '<h4>' + esc(b.therapist_name || 'Unnamed') + (b.therapist_credentials ? ', ' + esc(b.therapist_credentials) : '') + (b.is_primary ? '<span class=\"bio-badge\">Primary</span>' : '') + '</h4>';
-        bh += '<span class="bio-expand">&#9660;</span>';
-        bh += '</div>';
-        bh += '<div class="bio-card-body">';
-
-        var bioFields = [
-          ['Professional Bio', b.professional_bio],
-          ['Clinical Approach', b.clinical_approach],
-          ['Education', Array.isArray(b.education_details) ? b.education_details.join('\n') : b.education_details],
-          ['Licenses', Array.isArray(b.license_details) ? b.license_details.join('\n') : b.license_details],
-          ['Certifications', Array.isArray(b.certification_details) ? b.certification_details.join('\n') : b.certification_details],
-          ['Associations', Array.isArray(b.association_details) ? b.association_details.join('\n') : b.association_details],
-          ['Awards', b.awards],
-          ['Media & Publications', Array.isArray(b.media_publications) ? b.media_publications.join('\n') : b.media_publications]
-        ];
-        bh += '<div class="field-group">';
-        bioFields.forEach(function(f) {
-          if (f[1]) {
-            var display = esc(String(f[1])).replace(/\n/g, '<br>');
-            bh += '<div class="field-row" style="align-items:flex-start;"><span class="field-label">' + esc(f[0]) + '</span><span class="field-value" style="white-space:pre-wrap;">' + display + '</span></div>';
-          }
-        });
-        bh += '</div>';
-        bh += '</div></div>';
-      });
-      bioEl.innerHTML = bh;
+      bioEl.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><p>No bio materials yet. Click + Add Clinician to get started.</p></div>';
+      return;
     }
-
-    // Account Access
-    var accEl = document.getElementById('profileAccess');
-    var acc = state.accountAccess || [];
-    if (acc.length === 0) {
-      accEl.innerHTML = '<div class="empty-state" style="padding:1rem;"><p>No access records yet.</p></div>';
-    } else {
-      var ah = '<div class="field-group" style="padding:.75rem 1rem;">';
-      acc.forEach(function(a) {
-        var st = a.status === 'granted' ? '<span style="color:var(--color-success);">Granted</span>' : '<span style="color:var(--color-warning);">' + esc(a.status || 'Pending') + '</span>';
-        ah += '<div class="field-row"><span class="field-label">' + esc(a.platform || a.service || 'Platform') + '</span><span class="field-value">' + st + '</span></div>';
-      });
-      ah += '</div>';
-      accEl.innerHTML = ah;
-    }
-
-    // Performance Guarantee
-    var pgEl = document.getElementById('profileGuarantee');
-    var pg = state.guarantee;
-    if (!pg) {
-      pgEl.innerHTML = '<div class="empty-state" style="padding:1rem;"><p>No guarantee configured.</p></div>';
-    } else {
-      var status = pg.status === 'locked' ? '<span style="color:var(--color-success);font-weight:600;">Locked</span>' : '<span style="color:var(--color-warning);">' + esc(pg.status || 'Draft') + '</span>';
-      pgEl.innerHTML = '<div class="field-group" style="padding:.75rem 1rem;">'
-        + '<div class="field-row"><span class="field-label">Status</span><span class="field-value">' + status + '</span></div>'
-        + '<div class="field-row"><span class="field-label">Guarantee Calls</span><span class="field-value">' + (pg.guarantee_calls || 0) + ' calls in 12 months</span></div>'
-        + '<div class="field-row"><span class="field-label">Total Benchmark</span><span class="field-value">' + (pg.total_benchmark || 0) + ' total organic calls</span></div>'
-        + '<div class="field-row"><span class="field-label">Avg Client LTV</span><span class="field-value">$' + ((pg.avg_client_ltv_cents || 0) / 100).toLocaleString() + '</span></div>'
-        + '<div class="field-row"><span class="field-label">Conversion Rate</span><span class="field-value">' + Math.round((pg.conversion_rate || 0) * 100) + '%</span></div>'
-        + '<div class="field-row"><span class="field-label">Investment</span><span class="field-value">$' + ((pg.investment_cents || 0) / 100).toLocaleString() + '</span></div>'
-        + '</div>';
-    }
+    var bh = '';
+    bios.forEach(function(b, i) {
+      var expanded = i === 0 ? ' expanded' : '';
+      bh += '<div class="bio-card' + expanded + '" data-bio-id="' + b.id + '">';
+      bh += '<div class="bio-card-header">';
+      bh += '<h4 style="cursor:pointer;flex:1;" onclick="this.closest(\'.bio-card\').classList.toggle(\'expanded\')">' + esc(b.therapist_name || 'Unnamed') + (b.therapist_credentials ? ', ' + esc(b.therapist_credentials) : '') + (b.is_primary ? '<span class="bio-badge">Primary</span>' : '') + '</h4>';
+      bh += '<div class="bio-actions">';
+      if (i > 0) bh += '<button class="bio-move-btn" onclick="event.stopPropagation();moveBio(' + i + ',-1)" title="Move up">&#9650;</button>';
+      if (i < bios.length - 1) bh += '<button class="bio-move-btn" onclick="event.stopPropagation();moveBio(' + i + ',1)" title="Move down">&#9660;</button>';
+      bh += '<button class="bio-delete-btn" onclick="event.stopPropagation();deleteBio(\'' + b.id + '\')" title="Delete clinician">&#10005;</button>';
+      bh += '<span class="bio-expand" onclick="this.closest(\'.bio-card\').classList.toggle(\'expanded\')">&#9660;</span>';
+      bh += '</div>';
+      bh += '</div>';
+      bh += '<div class="bio-card-body">';
+      bh += bioFormHtml(b, i);
+      bh += '</div></div>';
+    });
+    bioEl.innerHTML = bh;
   }
+
+  function bioTextareaToArray(id) {
+    var el = document.getElementById(id);
+    if (!el) return null;
+    var val = el.value.trim();
+    if (!val) return null;
+    return val.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+  }
+
+  window.saveBioCard = function(idx) {
+    var bio = (state.bioMaterials || [])[idx];
+    if (!bio) return;
+    var p = 'bio_' + idx + '_';
+    var statusEl = document.getElementById(p + 'status');
+    if (statusEl) statusEl.textContent = 'Saving...';
+
+    var data = {
+      therapist_name: document.getElementById(p + 'name').value.trim(),
+      therapist_credentials: document.getElementById(p + 'creds').value.trim() || null,
+      professional_bio: document.getElementById(p + 'bio').value.trim() || null,
+      clinical_approach: document.getElementById(p + 'approach').value.trim() || null,
+      education_details: bioTextareaToArray(p + 'education'),
+      license_details: bioTextareaToArray(p + 'licenses'),
+      certification_details: bioTextareaToArray(p + 'certifications'),
+      association_details: bioTextareaToArray(p + 'associations'),
+      awards: document.getElementById(p + 'awards').value.trim() || null,
+      media_publications: bioTextareaToArray(p + 'media'),
+      updated_at: new Date().toISOString()
+    };
+
+    fetch('/api/action', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_record', table: 'bio_materials', filters: { id: bio.id }, data: data })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        Object.assign(bio, data);
+        if (statusEl) { statusEl.textContent = 'Saved'; statusEl.style.color = 'var(--color-success)'; }
+        // Update header name
+        var card = document.querySelector('.bio-card[data-bio-id="' + bio.id + '"] h4');
+        if (card) card.innerHTML = esc(data.therapist_name || 'Unnamed') + (data.therapist_credentials ? ', ' + esc(data.therapist_credentials) : '') + (bio.is_primary ? '<span class="bio-badge">Primary</span>' : '');
+        setTimeout(function() { if (statusEl) { statusEl.textContent = ''; statusEl.style.color = ''; } }, 2500);
+      } else {
+        if (statusEl) { statusEl.textContent = 'Error saving'; statusEl.style.color = 'var(--color-danger)'; }
+      }
+    }).catch(function() {
+      if (statusEl) { statusEl.textContent = 'Error saving'; statusEl.style.color = 'var(--color-danger)'; }
+    });
+  };
+
+  window.deleteBio = function(bioId) {
+    if (!confirm('Remove this clinician? This cannot be undone.')) return;
+    fetch('/api/action', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete_record', table: 'bio_materials', filters: { id: bioId } })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        state.bioMaterials = (state.bioMaterials || []).filter(function(b) { return b.id !== bioId; });
+        renderBioMaterials();
+        showToast('Clinician removed');
+      }
+    });
+  };
+
+  window.moveBio = function(idx, direction) {
+    var bios = state.bioMaterials || [];
+    var targetIdx = idx + direction;
+    if (targetIdx < 0 || targetIdx >= bios.length) return;
+    // Swap in local state
+    var temp = bios[idx];
+    bios[idx] = bios[targetIdx];
+    bios[targetIdx] = temp;
+    // Update sort_order in DB for both
+    var updates = [
+      fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_record', table: 'bio_materials', filters: { id: bios[idx].id }, data: { sort_order: idx } }) }),
+      fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_record', table: 'bio_materials', filters: { id: bios[targetIdx].id }, data: { sort_order: targetIdx } }) })
+    ];
+    bios[idx].sort_order = idx;
+    bios[targetIdx].sort_order = targetIdx;
+    renderBioMaterials();
+    Promise.all(updates).catch(function() { showToast('Error reordering', 'error'); });
+  };
 
   window.addBioClinician = function() {
     if (!state.contact) return;
@@ -2167,7 +2238,10 @@ strong { font-weight: 600; color: var(--color-heading); }
       if (res.success && res.data) {
         var row = Array.isArray(res.data) ? res.data[0] : res.data;
         state.bioMaterials.push(row);
-        renderProfile();
+        renderBioMaterials();
+        // Auto-expand the new card
+        var cards = document.querySelectorAll('.bio-card');
+        if (cards.length > 0) cards[cards.length - 1].classList.add('expanded');
       }
     });
   };
@@ -5865,6 +5939,25 @@ strong { font-weight: 600; color: var(--color-heading); }
     } else {
       agr.innerHTML = '<div style="display:flex;align-items:center;gap:.5rem;"><span class="dot dot-gray"></span><span style="font-size:.84rem;color:var(--color-muted);">Not yet signed</span></div>';
     }
+
+    // Performance Guarantee
+    var pgEl = document.getElementById('profileGuarantee');
+    if (pgEl) {
+      var pg = state.guarantee;
+      if (!pg) {
+        pgEl.innerHTML = '<div class="empty-state" style="padding:1rem;"><p>No guarantee configured.</p></div>';
+      } else {
+        var pgStatus = pg.status === 'locked' ? '<span style="color:var(--color-success);font-weight:600;">Locked</span>' : '<span style="color:var(--color-warning);">' + esc(pg.status || 'Draft') + '</span>';
+        pgEl.innerHTML = '<div class="field-group" style="padding:.75rem 1rem;">'
+          + '<div class="field-row"><span class="field-label">Status</span><span class="field-value">' + pgStatus + '</span></div>'
+          + '<div class="field-row"><span class="field-label">Guarantee Calls</span><span class="field-value">' + (pg.guarantee_calls || 0) + ' calls in 12 months</span></div>'
+          + '<div class="field-row"><span class="field-label">Total Benchmark</span><span class="field-value">' + (pg.total_benchmark || 0) + ' total organic calls</span></div>'
+          + '<div class="field-row"><span class="field-label">Avg Client LTV</span><span class="field-value">$' + ((pg.avg_client_ltv_cents || 0) / 100).toLocaleString() + '</span></div>'
+          + '<div class="field-row"><span class="field-label">Conversion Rate</span><span class="field-value">' + Math.round((pg.conversion_rate || 0) * 100) + '%</span></div>'
+          + '<div class="field-row"><span class="field-label">Investment</span><span class="field-value">$' + ((pg.investment_cents || 0) / 100).toLocaleString() + '</span></div>'
+          + '</div>';
+      }
+    }
   }
 
 
@@ -6601,10 +6694,10 @@ strong { font-weight: 600; color: var(--color-heading); }
   // TAB VISIBILITY (status-aware)
   // ============================================================
   var TAB_VISIBILITY = {
-    lead:       ['overview', 'proposals', 'profile', 'audit'],
-    prospect:   ['overview', 'proposals', 'profile', 'audit'],
-    onboarding: ['overview', 'proposals', 'onboarding', 'intro-call', 'profile', 'rising-tide', 'deliverables', 'content', 'audit', 'reports', 'billing'],
-    active:     ['overview', 'proposals', 'onboarding', 'intro-call', 'profile', 'rising-tide', 'deliverables', 'content', 'audit', 'reports', 'billing']
+    lead:       ['overview', 'profile', 'proposals', 'audit'],
+    prospect:   ['overview', 'profile', 'proposals', 'audit'],
+    onboarding: ['overview', 'profile', 'proposals', 'onboarding', 'intro-call', 'rising-tide', 'deliverables', 'audit', 'content', 'reports', 'billing'],
+    active:     ['overview', 'profile', 'proposals', 'onboarding', 'intro-call', 'rising-tide', 'deliverables', 'audit', 'content', 'reports', 'billing']
   };
   var HISTORY_TABS = ['proposals', 'onboarding', 'intro-call'];
 
