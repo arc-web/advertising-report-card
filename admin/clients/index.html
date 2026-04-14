@@ -1029,13 +1029,6 @@ strong { font-weight: 600; color: var(--color-heading); }
             </div>
             <div id="profilePractice" class="collapsible-body"></div>
           </div>
-          <div class="card" style="margin-bottom:1rem;">
-            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-              <h3>Bio Materials</h3>
-              <button class="btn-sm" onclick="addBioClinician()" style="padding:.35rem .85rem;font-size:.75rem;font-weight:600;border:1px solid var(--color-primary);background:var(--color-primary-subtle);color:var(--color-primary);border-radius:6px;cursor:pointer;font-family:inherit;">+ Add Clinician</button>
-            </div>
-            <div id="profileBio"></div>
-          </div>
 
         </div>
       </div>
@@ -1093,7 +1086,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 
       <!-- TAB: Content (Pagemaster) -->
       <div class="tab-panel" id="tab-content">
-        <!-- Keyword Targets (primary home) -->
+        <!-- 1. Keyword Targets (primary home) -->
         <div class="card" style="margin-bottom:1.25rem;" id="contentKeywordCard">
           <div class="card-header collapsible-header" onclick="toggleContentSection('keywords')" style="cursor:pointer;">
             <h3 style="display:flex;align-items:center;gap:.5rem;">
@@ -1107,7 +1100,44 @@ strong { font-weight: 600; color: var(--color-heading); }
           </div>
         </div>
 
-        <!-- Design Spec Card -->
+        <!-- 2. Service Pages (batch audit + page list unified) -->
+        <div style="margin-bottom:1.25rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
+            <h3 style="font-size:.95rem;font-weight:600;color:var(--color-heading);display:flex;align-items:center;gap:.5rem;">
+              Service Pages
+              <span id="batchAuditBadge" class="status-badge" style="font-size:.7rem;"></span>
+            </h3>
+            <div style="display:flex;gap:.5rem;">
+              <button class="btn btn-sm btn-ghost" id="btnTriggerBatch" onclick="triggerBatchAudit()" style="display:none;">&#9881; Run Batch Audit</button>
+              <button class="btn btn-sm btn-ghost" onclick="generateAllContent()" id="btnGenerateAll" style="display:none;" title="Generate HTML for all audit-loaded pages">&#9889; Generate All Ready</button>
+              <button class="btn btn-sm btn-primary" onclick="addContentPage()">+ Add Page</button>
+            </div>
+          </div>
+          <div id="batchAuditContent" style="margin-bottom:.75rem;"></div>
+          <div id="clusterSynthesis" style="display:none;margin-bottom:.75rem;"></div>
+          <div id="contentPhaseBar"></div>
+          <div id="contentPageList"></div>
+          <div class="empty-state" id="contentPagesEmpty" style="display:none;"><p>No content pages yet. Seed pages from keywords above, or add a page manually.</p></div>
+        </div>
+
+        <!-- 3. Clinician Profiles (bio materials + endorsements + bio pages) -->
+        <div style="margin-bottom:1.25rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
+            <h3 style="font-size:.95rem;font-weight:600;color:var(--color-heading);">Clinician Profiles</h3>
+            <button class="btn btn-sm btn-primary" onclick="addBioClinician()">+ Add Clinician</button>
+          </div>
+          <div id="contentBioMaterials"></div>
+          <div style="margin-top:1rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+              <h4 style="font-size:.85rem;font-weight:600;color:var(--color-heading);">Endorsements</h4>
+            </div>
+            <div id="contentEndorsements"></div>
+            <div class="empty-state" id="endorsementEmpty" style="display:none;"><p>No endorsements submitted yet. Share the endorsement collection link with the client.</p></div>
+            <div id="endorsementLink" style="margin-top:.5rem;"></div>
+          </div>
+        </div>
+
+        <!-- 4. Design Spec (collapsible, reference tool) -->
         <div class="card" id="contentDesignSpec" style="margin-bottom:1.25rem;">
           <div class="card-header collapsible-header" onclick="toggleContentSection('designSpec')" style="cursor:pointer;">
             <h3 style="display:flex;align-items:center;gap:.5rem;">
@@ -1121,48 +1151,14 @@ strong { font-weight: 600; color: var(--color-heading); }
           </div>
         </div>
 
-        <!-- Batch Audit Card -->
-        <div class="card" id="contentBatchAudit" style="margin-bottom:1.25rem;">
-          <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-            <h3 style="display:flex;align-items:center;gap:.5rem;font-size:.95rem;">
-              Batch Content Audit
-              <span id="batchAuditBadge" class="status-badge" style="font-size:.7rem;"></span>
-            </h3>
-            <button class="btn btn-sm btn-primary" id="btnTriggerBatch" onclick="triggerBatchAudit()" style="display:none;">Run Batch Audit</button>
-          </div>
-          <div id="batchAuditContent" style="padding:0 1rem .75rem;"></div>
-        </div>
-
-        <!-- Pages Section -->
-        <div style="margin-bottom:1.25rem;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
-            <h3 style="font-size:.95rem;font-weight:600;color:var(--color-heading);">Pages</h3>
-            <div style="display:flex;gap:.5rem;">
-              <button class="btn btn-sm btn-ghost" onclick="generateAllContent()" id="btnGenerateAll" style="display:none;" title="Generate HTML for all audit-loaded pages">&#9889; Generate All Ready</button>
-              <button class="btn btn-sm btn-primary" onclick="addContentPage()">+ Add Page</button>
-            </div>
-          </div>
-          <div id="contentPhaseBar"></div>
-          <div id="contentPageList"></div>
-          <div class="empty-state" id="contentPagesEmpty" style="display:none;"><p>No content pages yet. Add a page or wait for Surge audits to complete.</p></div>
-        </div>
-
-        <!-- Assets Section -->
+        <!-- 5. NEO Images -->
         <div>
-          <div style="display:flex;gap:.5rem;margin-bottom:.75rem;">
-            <button class="filter-tab active" id="assetTabNeo" onclick="switchAssetTab('neo')">NEO Images</button>
-            <button class="filter-tab" id="assetTabEndorsements" onclick="switchAssetTab('endorsements')">Endorsements</button>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;">
+            <h3 style="font-size:.95rem;font-weight:600;color:var(--color-heading);">NEO Images</h3>
+            <button class="btn btn-sm btn-ghost" onclick="addNeoImage()">+ Add NEO Image</button>
           </div>
-          <div id="assetNeoSection">
-            <div id="neoImageList"></div>
-            <div class="empty-state" id="neoEmpty" style="display:none;"><p>No NEO images tracked yet.</p></div>
-            <button class="btn btn-sm btn-ghost" onclick="addNeoImage()" style="margin-top:.5rem;">+ Add NEO Image</button>
-          </div>
-          <div id="assetEndorsementSection" style="display:none;">
-            <div id="endorsementList"></div>
-            <div class="empty-state" id="endorsementEmpty" style="display:none;"><p>No endorsements submitted yet. Share the endorsement collection link with the client.</p></div>
-            <div id="endorsementLink" style="margin-top:.5rem;"></div>
-          </div>
+          <div id="neoImageList"></div>
+          <div class="empty-state" id="neoEmpty" style="display:none;"><p>No NEO images tracked yet.</p></div>
         </div>
       </div>
 
@@ -2144,9 +2140,6 @@ strong { font-weight: 600; color: var(--color-heading); }
 
     h += '</div>';
     container.innerHTML = h;
-
-    // Bio Materials (editable)
-    renderBioMaterials();
   }
 
 
@@ -2174,7 +2167,7 @@ strong { font-weight: 600; color: var(--color-heading); }
   }
 
   function renderBioMaterials() {
-    var bioEl = document.getElementById('profileBio');
+    var bioEl = document.getElementById('contentBioMaterials');
     var bios = state.bioMaterials || [];
     if (bios.length === 0) {
       bioEl.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><p>No bio materials yet. Click + Add Clinician to get started.</p></div>';
@@ -5591,6 +5584,7 @@ strong { font-weight: 600; color: var(--color-heading); }
     }
     listEl.innerHTML = h;
     renderContentAssets();
+    renderBioMaterials();
   }
 
   function renderBatchAuditStatus() {
@@ -5737,7 +5731,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       }
     }
 
-    var endList = document.getElementById('endorsementList');
+    var endList = document.getElementById('contentEndorsements');
     var endEmpty = document.getElementById('endorsementEmpty');
     var endLink = document.getElementById('endorsementLink');
     if (endList) {
