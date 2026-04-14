@@ -5259,6 +5259,35 @@ strong { font-weight: 600; color: var(--color-heading); }
   };
 
 
+  window.captureDesignAssets = function() {
+    var c = state.contact;
+    if (!c || !c.website_url) { toast('Website URL not set on contact record', 'warning'); return; }
+    var btn = document.getElementById('btnCaptureDesign') || document.getElementById('btnRecaptureDesign');
+    if (btn) { btn.disabled = true; btn.textContent = 'Starting...'; }
+    toast('Triggering website capture...', 'info');
+
+    fetch('/api/trigger-design-capture', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contact_id: c.id })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        toast('Website capture started. Screenshots, CSS, and content will be extracted automatically.', 'success');
+        // Update local state to show capturing status
+        if (!state.designSpec) state.designSpec = {};
+        state.designSpec.capture_status = 'capturing';
+        state.designSpec.id = res.design_spec_id;
+        renderContent();
+      } else {
+        toast('Capture failed: ' + (res.error || 'Unknown error'), 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Analyze Website'; }
+      }
+    }).catch(function(err) {
+      toast('Error: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Analyze Website'; }
+    });
+  };
+
   window.analyzeDesignSpec = function() {
     var cssEl = document.getElementById('specCssInput');
     var contentEl = document.getElementById('specContentInput');
@@ -5337,10 +5366,18 @@ strong { font-weight: 600; color: var(--color-heading); }
     // -- DESIGN SPEC --
     var badge = document.getElementById('designSpecBadge');
     if (badge) {
-      if (spec) {
+      if (spec && spec.summary_text) {
         badge.textContent = 'Configured';
         badge.style.background = 'rgba(0,212,126,.1)';
         badge.style.color = '#00b86c';
+      } else if (spec && spec.capture_status === 'capturing') {
+        badge.textContent = 'Capturing...';
+        badge.style.background = 'rgba(59,130,246,.1)';
+        badge.style.color = '#3B82F6';
+      } else if (spec && spec.capture_status === 'complete') {
+        badge.textContent = 'Assets Ready';
+        badge.style.background = 'rgba(245,158,11,.1)';
+        badge.style.color = '#D97706';
       } else {
         badge.textContent = 'Not Set';
         badge.style.background = 'rgba(245,158,11,.1)';
@@ -5351,51 +5388,123 @@ strong { font-weight: 600; color: var(--color-heading); }
     var specEl = document.getElementById('designSpecContent');
     if (specEl) {
       var sHtml = '';
-      if (!spec) {
-        sHtml += '<p style="font-size:.82rem;color:var(--color-muted);margin-bottom:.5rem;">The design spec captures your client\'s website styling (typography, colors, layout, voice DNA) and is used by all page builds.</p>';
-        sHtml += '<p style="font-size:.82rem;margin-bottom:.5rem;">Platform: <strong>' + esc(c.website_platform || 'Not set') + '</strong> &middot; Site: <strong>' + esc(c.website_url || 'Not set') + '</strong></p>';
-        sHtml += '<button class="btn btn-primary btn-sm" style="font-size:.78rem;" onclick="toggleSpecForm()">Create Design Spec</button>';
-        sHtml += '<div id="specFormArea" style="display:none;margin-top:.75rem;">';
-        sHtml += '<div style="margin-bottom:.5rem;"><label style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);display:block;margin-bottom:.25rem;">Raw CSS / Computed Styles</label>';
-        sHtml += '<textarea id="specCssInput" class="paste-surge-area" rows="6" placeholder="Paste computed CSS from browser dev tools (select element, copy all computed styles)..."></textarea></div>';
-        sHtml += '<div style="margin-bottom:.5rem;"><label style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);display:block;margin-bottom:.25rem;">Sample Page Content (for voice analysis)</label>';
-        sHtml += '<textarea id="specContentInput" class="paste-surge-area" rows="6" placeholder="Paste text from 2-3 existing pages on the client site (About page, a service page, etc.)..."></textarea></div>';
-        sHtml += '<div style="margin-bottom:.5rem;"><label style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);display:block;margin-bottom:.25rem;">Screenshot URLs (optional, one per line)</label>';
-        sHtml += '<textarea id="specScreenshotInput" class="paste-surge-area" rows="2" placeholder="Drive links or direct URLs to homepage/about page screenshots..."></textarea></div>';
-        sHtml += '<button id="btnAnalyzeSpec" class="btn btn-primary btn-sm" style="font-size:.78rem;" onclick="analyzeDesignSpec()">Analyze</button>';
-        sHtml += ' <button class="btn btn-ghost btn-sm" style="font-size:.78rem;" onclick="toggleSpecForm()">Cancel</button>';
+      sHtml += '<p style="font-size:.82rem;color:var(--color-muted);margin-bottom:.5rem;">Platform: <strong>' + esc(c.website_platform || 'Not set') + '</strong> &middot; Site: <strong>' + esc(c.website_url || 'Not set') + '</strong></p>';
+
+      // Capture status
+      if (spec && spec.capture_status === 'capturing') {
+        sHtml += '<div style="display:flex;align-items:center;gap:.5rem;padding:.6rem .8rem;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.15);border-radius:8px;margin-bottom:.75rem;">';
+        sHtml += '<div class="spinner"></div>';
+        sHtml += '<span style="font-size:.82rem;color:#3B82F6;font-weight:500;">Capturing website assets (screenshots, CSS, content)...</span>';
         sHtml += '</div>';
-      } else {
-        sHtml += '<p style="font-size:.78rem;color:var(--color-muted);margin-bottom:.5rem;">Platform: ' + esc(c.website_platform || '?') + ' &middot; Updated: ' + formatDate(spec.updated_at) + '</p>';
-        if (spec.summary_text) {
-          sHtml += '<div style="font-size:.82rem;color:var(--color-body);line-height:1.6;white-space:pre-line;max-height:200px;overflow-y:auto;margin-bottom:.5rem;">' + esc(spec.summary_text).substring(0, 600) + (spec.summary_text.length > 600 ? '...' : '') + '</div>';
+        // Poll for completion
+        if (!window._specCapturePoll) {
+          window._specCapturePoll = setInterval(function() {
+            sb('design_specs?contact_id=eq.' + c.id + '&limit=1').then(function(res) {
+              var updated = res && res[0];
+              if (updated && updated.capture_status !== 'capturing') {
+                clearInterval(window._specCapturePoll);
+                window._specCapturePoll = null;
+                state.designSpec = updated;
+                renderContent();
+              }
+            });
+          }, 5000);
         }
+      }
+
+      // Show captured screenshots if available
+      var hasScreenshots = spec && (spec.screenshot_homepage || spec.screenshot_service || spec.screenshot_about);
+      if (hasScreenshots) {
+        sHtml += '<div style="margin-bottom:.75rem;"><div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);margin-bottom:.4rem;">Captured Screenshots</div>';
+        sHtml += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;">';
+        var shots = [
+          { label: 'Homepage', url: spec.screenshot_homepage },
+          { label: 'Service Page', url: spec.screenshot_service },
+          { label: 'About / Bio', url: spec.screenshot_about }
+        ];
+        shots.forEach(function(s) {
+          sHtml += '<div style="text-align:center;">';
+          if (s.url) {
+            sHtml += '<a href="' + esc(s.url) + '" target="_blank" style="display:block;"><img src="' + esc(s.url) + '" style="width:100%;max-height:150px;object-fit:cover;object-position:top;border-radius:6px;border:1px solid var(--color-border);"></a>';
+          } else {
+            sHtml += '<div style="height:80px;border-radius:6px;border:1px dashed var(--color-border);display:flex;align-items:center;justify-content:center;font-size:.72rem;color:var(--color-muted);">Not captured</div>';
+          }
+          sHtml += '<div style="font-size:.68rem;color:var(--color-muted);margin-top:.25rem;">' + s.label + '</div></div>';
+        });
+        sHtml += '</div></div>';
+      }
+
+      // Show extracted CSS data
+      if (spec && spec.computed_css) {
+        var css = spec.computed_css;
+        sHtml += '<div style="margin-bottom:.75rem;"><div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);margin-bottom:.4rem;">Extracted from Website</div>';
         var pills = [];
-        if (spec.typography && spec.typography.heading_font) pills.push(spec.typography.heading_font);
-        if (spec.typography && spec.typography.body_font) pills.push(spec.typography.body_font);
-        if (spec.color_palette && spec.color_palette.primary) pills.push(spec.color_palette.primary);
+        if (css.allFonts) css.allFonts.forEach(function(f) { var clean = f.replace(/"/g, '').split(',')[0].trim(); if (clean && pills.indexOf(clean) === -1) pills.push(clean); });
+        if (css.allColors) css.allColors.forEach(function(c) { if (c && c !== 'rgba(0, 0, 0, 0)') pills.push(c); });
         if (pills.length) {
-          sHtml += '<div style="display:flex;gap:.35rem;flex-wrap:wrap;">';
+          sHtml += '<div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.5rem;">';
           pills.forEach(function(p) {
-            var isColor = p.startsWith('#') || p.startsWith('rgb');
-            sHtml += '<span style="display:inline-flex;align-items:center;gap:.25rem;font-size:.68rem;padding:.15rem .4rem;border-radius:4px;background:var(--color-bg);border:1px solid var(--color-border);">';
-            if (isColor) sHtml += '<span style="width:10px;height:10px;border-radius:2px;background:' + esc(p) + ';"></span>';
+            var isColor = p.startsWith('rgb') || p.startsWith('#');
+            sHtml += '<span style="display:inline-flex;align-items:center;gap:.2rem;font-size:.65rem;padding:.12rem .35rem;border-radius:4px;background:var(--color-bg);border:1px solid var(--color-border);">';
+            if (isColor) sHtml += '<span style="width:8px;height:8px;border-radius:2px;background:' + esc(p) + ';border:1px solid var(--color-border);"></span>';
             sHtml += esc(p) + '</span>';
           });
           sHtml += '</div>';
         }
-        sHtml += '<div style="margin-top:.5rem;"><button class="btn btn-ghost btn-sm" style="font-size:.75rem;" onclick="toggleSpecForm()">Update Design Spec</button></div>';
-        sHtml += '<div id="specFormArea" style="display:none;margin-top:.75rem;">';
-        sHtml += '<div style="margin-bottom:.5rem;"><label style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);display:block;margin-bottom:.25rem;">Raw CSS / Computed Styles</label>';
-        sHtml += '<textarea id="specCssInput" class="paste-surge-area" rows="6" placeholder="Paste computed CSS from browser dev tools...">' + esc(spec.raw_css || '') + '</textarea></div>';
-        sHtml += '<div style="margin-bottom:.5rem;"><label style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);display:block;margin-bottom:.25rem;">Sample Page Content (for voice analysis)</label>';
-        sHtml += '<textarea id="specContentInput" class="paste-surge-area" rows="6" placeholder="Paste text from existing pages..."></textarea></div>';
-        sHtml += '<div style="margin-bottom:.5rem;"><label style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);display:block;margin-bottom:.25rem;">Screenshot URLs (optional, one per line)</label>';
-        sHtml += '<textarea id="specScreenshotInput" class="paste-surge-area" rows="2" placeholder="Drive links or direct URLs...">' + esc((spec.screenshots || []).join('\n')) + '</textarea></div>';
-        sHtml += '<button id="btnAnalyzeSpec" class="btn btn-primary btn-sm" style="font-size:.78rem;" onclick="analyzeDesignSpec()">Re-Analyze</button>';
-        sHtml += ' <button class="btn btn-ghost btn-sm" style="font-size:.78rem;" onclick="toggleSpecForm()">Cancel</button>';
-        sHtml += '</div>';
+        sHtml += '<p style="font-size:.72rem;color:var(--color-muted);">CSS + content auto-extracted via Playwright</p></div>';
       }
+
+      // Show summary if analysis has been run
+      if (spec && spec.summary_text) {
+        sHtml += '<div style="font-size:.82rem;color:var(--color-body);line-height:1.6;white-space:pre-line;max-height:200px;overflow-y:auto;margin-bottom:.5rem;">' + esc(spec.summary_text).substring(0, 600) + (spec.summary_text.length > 600 ? '...' : '') + '</div>';
+        var typoPills = [];
+        if (spec.typography && spec.typography.heading_font) typoPills.push(spec.typography.heading_font);
+        if (spec.typography && spec.typography.body_font) typoPills.push(spec.typography.body_font);
+        if (spec.color_palette && spec.color_palette.primary) typoPills.push(spec.color_palette.primary);
+        if (typoPills.length) {
+          sHtml += '<div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.5rem;">';
+          typoPills.forEach(function(p) {
+            var isColor = p.startsWith('#') || p.startsWith('rgb');
+            sHtml += '<span style="display:inline-flex;align-items:center;gap:.25rem;font-size:.68rem;padding:.15rem .4rem;border-radius:4px;background:var(--color-bg);border:1px solid var(--color-border);">';
+            if (isColor) sHtml += '<span style="width:10px;height:10px;border-radius:2px;background:' + esc(p) + ';\"></span>';
+            sHtml += esc(p) + '</span>';
+          });
+          sHtml += '</div>';
+        }
+      }
+
+      // Action buttons
+      sHtml += '<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem;">';
+      if (!spec || (!spec.capture_status || spec.capture_status === 'pending' || spec.capture_status === 'error')) {
+        sHtml += '<button class="btn btn-primary btn-sm" id="btnCaptureDesign" style="font-size:.78rem;" onclick="captureDesignAssets()">&#9881; Analyze Website</button>';
+      }
+      if (spec && spec.capture_status === 'complete' && !spec.summary_text) {
+        sHtml += '<button class="btn btn-primary btn-sm" id="btnAnalyzeSpec" style="font-size:.78rem;" onclick="analyzeDesignSpec()">&#9889; Run Analysis</button>';
+        sHtml += '<button class="btn btn-ghost btn-sm" id="btnRecaptureDesign" style="font-size:.78rem;" onclick="captureDesignAssets()">&#8635; Re-capture</button>';
+      }
+      if (spec && spec.summary_text) {
+        sHtml += '<button class="btn btn-ghost btn-sm" id="btnRecaptureDesign" style="font-size:.78rem;" onclick="captureDesignAssets()">&#8635; Re-capture Website</button>';
+        sHtml += '<button class="btn btn-ghost btn-sm" id="btnAnalyzeSpec" style="font-size:.78rem;" onclick="analyzeDesignSpec()">&#9889; Re-analyze</button>';
+      }
+      sHtml += '<button class="btn btn-ghost btn-sm" style="font-size:.75rem;" onclick="toggleSpecForm()">Manual Setup</button>';
+      sHtml += '</div>';
+
+      // Manual fallback form (hidden by default)
+      sHtml += '<div id="specFormArea" style="display:none;margin-top:.75rem;">';
+      sHtml += '<div style="margin-bottom:.5rem;"><label style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);display:block;margin-bottom:.25rem;">Raw CSS / Computed Styles</label>';
+      sHtml += '<textarea id="specCssInput" class="paste-surge-area" rows="6" placeholder="Paste computed CSS from browser dev tools...">' + esc((spec && spec.raw_css) || '') + '</textarea></div>';
+      sHtml += '<div style="margin-bottom:.5rem;"><label style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);display:block;margin-bottom:.25rem;">Sample Page Content</label>';
+      sHtml += '<textarea id="specContentInput" class="paste-surge-area" rows="6" placeholder="Paste text from existing pages..."></textarea></div>';
+      sHtml += '<div style="margin-bottom:.5rem;"><label style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);display:block;margin-bottom:.25rem;">Screenshot URLs (optional)</label>';
+      sHtml += '<textarea id="specScreenshotInput" class="paste-surge-area" rows="2" placeholder="Drive links or direct URLs...">' + esc(spec && spec.screenshots ? spec.screenshots.join('\n') : '') + '</textarea></div>';
+      sHtml += '<button id="btnAnalyzeSpecManual" class="btn btn-primary btn-sm" style="font-size:.78rem;" onclick="analyzeDesignSpec()">Analyze</button>';
+      sHtml += ' <button class="btn btn-ghost btn-sm" style="font-size:.78rem;" onclick="toggleSpecForm()">Cancel</button>';
+      sHtml += '</div>';
+
+      if (spec && spec.capture_error) {
+        sHtml += '<p style="font-size:.78rem;color:var(--color-danger);margin-top:.5rem;">Capture error: ' + esc(spec.capture_error) + '</p>';
+      }
+
       specEl.innerHTML = sHtml;
     }
 
