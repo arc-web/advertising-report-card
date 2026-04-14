@@ -1323,9 +1323,10 @@ async function runAIResearch() {
     if (!resp.ok) throw new Error(data.error || 'Research failed');
 
     researchCandidates = data.stories || [];
-    document.getElementById('aiResearchStatus').textContent = (data.search_results_found || '?') + ' results searched, ' + researchCandidates.length + ' stories curated';
+    var dupNote = data.duplicates_removed > 0 ? ' (' + data.duplicates_removed + ' duplicates filtered)' : '';
+    document.getElementById('aiResearchStatus').textContent = (data.search_results_found || '?') + ' results searched, ' + researchCandidates.length + ' stories curated' + dupNote;
     renderCandidates();
-    toast('Found ' + researchCandidates.length + ' candidate stories from ' + (data.search_results_found || '?') + ' search results');
+    toast('Found ' + researchCandidates.length + ' candidate stories' + dupNote);
     loadEditions();
   } catch (e) {
     grid.innerHTML = '<div style="padding:1rem;color:var(--color-danger);font-size:.85rem;">Research failed: ' + escHtml(e.message) + '</div>';
