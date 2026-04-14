@@ -482,12 +482,24 @@ a:hover { color: var(--color-primary-hover); }
   var state = { contacts: [], deliverables: [], clientFilter: 'all', phaseFilter: 'all', view: 'list' };
 
   function loadData() {
-    Promise.all([
-      fetch(SB + '/rest/v1/contacts?select=id,slug,status,practice_name,first_name,last_name,email,website_platform&order=practice_name', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }),
-      fetch(SB + '/rest/v1/deliverables?select=*&order=created_at.desc&limit=5000', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); })
-    ]).then(function(res) {
-      state.contacts = res[0] || [];
-      state.deliverables = res[1] || [];
+    var cacheKey = 'mr-cache-deliverables-dir';
+    try {
+      var cached = JSON.parse(sessionStorage.getItem(cacheKey));
+      if (cached && (Date.now() - cached.ts) < 60000) {
+        processDeliverablesData(cached.data);
+        return;
+      }
+    } catch(e) {}
+
+    fetch('/api/admin/deliverables-directory').then(function(r) { return r.json(); }).then(function(data) {
+      try { sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: data })); } catch(e) {}
+      processDeliverablesData(data);
+    });
+  }
+
+  function processDeliverablesData(data) {
+      state.contacts = data.contacts || [];
+      state.deliverables = data.deliverables || [];
 
       document.getElementById('loadingState').style.display = 'none';
 
@@ -514,7 +526,6 @@ a:hover { color: var(--color-primary-hover); }
           }
         });
       }
-    });
   }
 
   function getFiltered() {
