@@ -656,6 +656,7 @@ function renderEditions() {
   }
   document.getElementById('editionsCount').textContent = editions.length + ' edition' + (editions.length !== 1 ? 's' : '');
 
+  container.className = '';
   container.innerHTML = editions.map(function(ed) {
     var statusTag = ed.status === 'sent' ? '<span class="tag tag-success">Sent</span>'
       : ed.status === 'scheduled' ? '<span class="tag tag-info">Scheduled</span>'
