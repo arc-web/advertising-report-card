@@ -5247,7 +5247,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       var kwCount = state.trackedKeywords ? state.trackedKeywords.length : 0;
       var bioCount = state.bioMaterials ? state.bioMaterials.length : 0;
       if (kwCount > 0 || bioCount > 0) {
-        var hasEntityAudit = state.allAudits && state.allAudits.length > 0 && state.allAudits[0].status === 'complete';
+        var hasEntityAudit = state.entityAudit && (state.entityAudit.status === 'complete' || state.entityAudit.status === 'delivered');
         var hpExists = pages.some(function(p) { return p.page_type === 'homepage'; });
         var svcExists = pages.some(function(p) { return p.page_type === 'service'; });
         var bioExists = pages.some(function(p) { return p.page_type === 'bio'; });
