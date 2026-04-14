@@ -10,7 +10,7 @@ var auth = require('./_lib/auth');
 async function searchNews(query, apiKey) {
   var url = 'https://serpapi.com/search.json?engine=google_news' +
     '&q=' + encodeURIComponent(query) +
-    '&gl=us&hl=en' +
+    '&gl=us&hl=en&when=1m' +
     '&api_key=' + apiKey;
   try {
     var resp = await fetch(url);
@@ -237,3 +237,4 @@ module.exports = async function handler(req, res) {
     }
   }
 };
+
