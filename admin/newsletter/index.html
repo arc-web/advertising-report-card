@@ -386,7 +386,7 @@ textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.6; }
             <button class="btn btn-secondary" onclick="previewNewsletter()">Preview</button>
             <button class="btn btn-secondary" onclick="copyNewsletterHtml()" id="copyHtmlBtn" title="Copy rendered HTML for pasting into GHL">Copy HTML</button>
             <button class="btn btn-secondary" onclick="saveDraft()">Save Draft</button>
-            <button class="btn btn-primary" onclick="confirmSend()" id="sendBtn" disabled>Send</button>
+            <button class="btn btn-primary" onclick="confirmSend()" id="sendBtn" disabled>Send...</button>
           </div>
         </div>
 
@@ -548,25 +548,43 @@ textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.6; }
 
 <!-- Send confirm modal -->
 <div class="modal-overlay" id="sendModal">
-  <div class="modal">
-    <h3 style="font-size:1rem;">Confirm Send</h3>
-    <p style="font-size:.85rem;color:var(--color-body);margin-bottom:.5rem;">You are about to send <strong id="sendEditionLabel">Newsletter #--</strong> to:</p>
-    <div style="padding:1rem;background:var(--color-bg);border-radius:8px;margin-bottom:1rem;">
-      <div style="font-family:'Outfit',sans-serif;font-size:1.5rem;font-weight:700;color:var(--color-heading);text-align:center;" id="sendRecipientCount">--</div>
-      <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);text-align:center;">Active Subscribers</div>
+  <div class="modal" style="max-width:440px;">
+    <h3 style="font-size:1rem;margin-bottom:.75rem;">Send Newsletter</h3>
+    <p style="font-size:.85rem;color:var(--color-body);margin-bottom:.75rem;">Sending <strong id="sendEditionLabel">Newsletter #--</strong></p>
+
+    <div style="padding:.85rem 1rem;background:var(--color-bg);border-radius:8px;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-family:'Outfit',sans-serif;font-size:1.35rem;font-weight:700;color:var(--color-heading);" id="sendRecipientCount">--</div>
+        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);">Active Subscribers</div>
+      </div>
+      <div>
+        <label class="form-label" style="font-size:.72rem;margin-bottom:.2rem;">Send to</label>
+        <select class="form-input" id="sendTier" style="font-size:.82rem;padding:.35rem .5rem;">
+          <option value="all">All Active</option>
+          <option value="hot">Hot Tier</option>
+          <option value="warm">Hot + Warm</option>
+        </select>
+      </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Send to Tier</label>
-      <select class="form-input" id="sendTier">
-        <option value="all">All Active Subscribers</option>
-        <option value="hot">Hot Tier Only</option>
-        <option value="warm">Hot + Warm Tiers</option>
-      </select>
-    </div>
+
     <div id="warmupInfo" style="display:none;"></div>
-    <div class="modal-actions">
+
+    <!-- Send mode toggle -->
+    <div style="display:flex;gap:.5rem;margin-bottom:.75rem;">
+      <button class="btn btn-sm" id="modeNowBtn" style="flex:1;" onclick="setSendMode('now')">Send Now</button>
+      <button class="btn btn-sm btn-secondary" id="modeScheduleBtn" style="flex:1;" onclick="setSendMode('schedule')">Schedule</button>
+    </div>
+
+    <!-- Schedule fields (hidden by default) -->
+    <div id="scheduleFields" style="display:none;margin-bottom:.75rem;">
+      <label class="form-label" style="font-size:.78rem;">Send date and time (ET)</label>
+      <input type="datetime-local" class="form-input" id="scheduleDateTime" style="font-size:.85rem;" />
+      <div class="form-hint">Newsletter will be sent automatically at this time.</div>
+    </div>
+
+    <div class="modal-actions" style="gap:.5rem;">
       <button class="btn btn-secondary" onclick="closeSendModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="executeSend()">Send Now</button>
+      <button class="btn" id="sendActionBtn" onclick="executeSend()" style="background:var(--color-danger);color:#fff;">Send Now</button>
     </div>
   </div>
 </div>
@@ -661,7 +679,18 @@ function renderEditions() {
     var statusTag = ed.status === 'sent' ? '<span class="tag tag-success">Sent</span>'
       : ed.status === 'scheduled' ? '<span class="tag tag-info">Scheduled</span>'
       : ed.status === 'sending' ? '<span class="tag tag-warning">Sending</span>'
+      : ed.status === 'failed' ? '<span class="tag tag-danger">Failed</span>'
       : '<span class="tag tag-muted">Draft</span>';
+
+    var schedHtml = '';
+    if (ed.status === 'scheduled' && ed.scheduled_at) {
+      var sd = new Date(ed.scheduled_at);
+      schedHtml = '<span style="font-size:.72rem;color:var(--color-info);white-space:nowrap;">' +
+        sd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
+        sd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) +
+        '</span>' +
+        '<button class="btn btn-sm" style="font-size:.7rem;padding:.15rem .4rem;background:rgba(239,68,68,.1);color:var(--color-danger);border:1px solid rgba(239,68,68,.2);" onclick="event.stopPropagation();cancelSchedule(\'' + ed.id + '\')">Cancel</button>';
+    }
 
     var dateStr = ed.sent_at ? new Date(ed.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       : ed.created_at ? new Date(ed.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -682,6 +711,7 @@ function renderEditions() {
       '</div>' +
       '<div class="edition-right">' +
         statsHtml +
+        schedHtml +
         '<div class="edition-date">' + dateStr + '</div>' +
         statusTag +
       '</div>' +
@@ -870,7 +900,13 @@ function populateCompose(ed) {
   document.getElementById('editionNumber').value = ed.edition_number || '';
   document.getElementById('editionSubject').value = ed.subject || '';
   document.getElementById('editionPreview').value = ed.preview_text || '';
-  document.getElementById('sendBtn').disabled = (ed.status === 'sent');
+  document.getElementById('sendBtn').disabled = (ed.status === 'sent' || ed.status === 'sending');
+  if (ed.status === 'scheduled') {
+    document.getElementById('sendBtn').textContent = 'Scheduled';
+    document.getElementById('sendBtn').disabled = true;
+  } else {
+    document.getElementById('sendBtn').innerHTML = 'Send...';
+  }
 
   var content = ed.content || {};
   var stories = content.stories || [];
@@ -1114,9 +1150,90 @@ async function confirmSend() {
     warmupEl.style.display = 'none';
   }
   document.getElementById('sendModal').classList.add('open');
+  setSendMode('now');
 }
 window.confirmSend = confirmSend;
 window.closeSendModal = function() { document.getElementById('sendModal').classList.remove('open'); };
+
+var currentSendMode = 'now';
+function setSendMode(mode) {
+  currentSendMode = mode;
+  var nowBtn = document.getElementById('modeNowBtn');
+  var schedBtn = document.getElementById('modeScheduleBtn');
+  var fields = document.getElementById('scheduleFields');
+  var actionBtn = document.getElementById('sendActionBtn');
+
+  if (mode === 'now') {
+    nowBtn.className = 'btn btn-sm';
+    nowBtn.style.background = 'var(--color-primary)';
+    nowBtn.style.color = '#fff';
+    schedBtn.className = 'btn btn-sm btn-secondary';
+    schedBtn.style.background = '';
+    schedBtn.style.color = '';
+    fields.style.display = 'none';
+    actionBtn.textContent = 'Send Now';
+    actionBtn.style.background = 'var(--color-danger)';
+    actionBtn.onclick = executeSend;
+  } else {
+    schedBtn.className = 'btn btn-sm';
+    schedBtn.style.background = 'var(--color-primary)';
+    schedBtn.style.color = '#fff';
+    nowBtn.className = 'btn btn-sm btn-secondary';
+    nowBtn.style.background = '';
+    nowBtn.style.color = '';
+    fields.style.display = 'block';
+    actionBtn.textContent = 'Schedule Send';
+    actionBtn.style.background = 'var(--color-primary)';
+    actionBtn.onclick = scheduleNewsletter;
+    // Default to tomorrow 10am ET
+    if (!document.getElementById('scheduleDateTime').value) {
+      var d = new Date();
+      d.setDate(d.getDate() + 1);
+      d.setHours(10, 0, 0, 0);
+      document.getElementById('scheduleDateTime').value = d.toISOString().slice(0, 16);
+    }
+  }
+}
+window.setSendMode = setSendMode;
+
+async function scheduleNewsletter() {
+  var dt = document.getElementById('scheduleDateTime').value;
+  if (!dt) { toast('Pick a date and time', 'error'); return; }
+
+  // Convert local datetime to UTC ISO string
+  var scheduled = new Date(dt);
+  if (scheduled <= new Date()) { toast('Schedule time must be in the future', 'error'); return; }
+
+  document.getElementById('sendModal').classList.remove('open');
+
+  try {
+    await apiAction('update_record', 'newsletters', {
+      status: 'scheduled',
+      scheduled_at: scheduled.toISOString()
+    }, { id: currentEditionId });
+
+    var opts = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' };
+    toast('Scheduled for ' + scheduled.toLocaleDateString('en-US', opts));
+    loadEditions();
+  } catch (e) {
+    toast('Failed to schedule: ' + e.message, 'error');
+  }
+}
+window.scheduleNewsletter = scheduleNewsletter;
+
+async function cancelSchedule(newsletterId) {
+  try {
+    await apiAction('update_record', 'newsletters', {
+      status: 'draft',
+      scheduled_at: null
+    }, { id: newsletterId });
+    toast('Schedule cancelled, reverted to draft');
+    loadEditions();
+  } catch (e) {
+    toast('Failed to cancel: ' + e.message, 'error');
+  }
+}
+window.cancelSchedule = cancelSchedule;
 
 async function executeSend() {
   document.getElementById('sendModal').classList.remove('open');
