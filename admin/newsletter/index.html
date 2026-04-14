@@ -1003,12 +1003,36 @@ function editEdition(id) {
 window.editEdition = editEdition;
 
 // ---- Preview ----
-function previewNewsletter() {
-  var data = gatherContent();
-  // Build a minimal newsletter object for the template
-  var previewHtml = buildPreviewHtml(data);
+async function previewNewsletter() {
+  // Save draft first so server has latest content
+  if (currentEditionId) {
+    try {
+      var data = gatherContent();
+      await apiAction('update_record', 'newsletters', {
+        subject: data.subject,
+        preview_text: data.preview_text,
+        content: data.content
+      }, { id: currentEditionId });
+    } catch (e) { /* continue to preview even if save fails */ }
+  }
+
+  // Fetch server-side rendered preview (includes logo, partner logos, signature, badges)
   var frame = document.getElementById('previewFrame');
-  frame.srcdoc = previewHtml;
+  if (currentEditionId) {
+    try {
+      var resp = await fetch('/api/newsletter-preview?id=' + currentEditionId);
+      if (resp.ok) {
+        var html = await resp.text();
+        frame.srcdoc = html;
+      } else {
+        frame.srcdoc = '<div style="padding:2rem;text-align:center;color:#EF4444;font-family:Inter,sans-serif;">Preview failed: ' + resp.status + '</div>';
+      }
+    } catch (e) {
+      frame.srcdoc = '<div style="padding:2rem;text-align:center;color:#EF4444;font-family:Inter,sans-serif;">Preview error: ' + e.message + '</div>';
+    }
+  } else {
+    frame.srcdoc = '<div style="padding:2rem;text-align:center;color:#6B7599;font-family:Inter,sans-serif;">Save as draft first to preview.</div>';
+  }
   document.getElementById('previewModal').classList.add('open');
 }
 window.previewNewsletter = previewNewsletter;
