@@ -171,12 +171,13 @@ textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.6; }
 .form-hint { font-size: .75rem; color: var(--color-muted); margin-top: .25rem; }
 
 /* Edition rows */
-.edition-row { display: grid; grid-template-columns: 60px 1fr auto auto auto; gap: 1rem; align-items: center; padding: 1rem 1.25rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; cursor: pointer; transition: all .2s; margin-bottom: .5rem; }
+.edition-row { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; cursor: pointer; transition: all .2s; margin-bottom: .5rem; }
 .edition-row:hover { border-color: var(--color-primary); box-shadow: 0 2px 12px rgba(0,212,126,.08); }
-.edition-num { font-family: 'Outfit', sans-serif; font-size: 1.5rem; font-weight: 700; color: var(--color-primary); text-align: center; }
-.edition-meta { display: flex; flex-direction: column; gap: .15rem; }
-.edition-subject { font-weight: 600; color: var(--color-heading); font-size: .9rem; }
-.edition-date { font-size: .78rem; color: var(--color-muted); }
+.edition-num { font-family: 'Outfit', sans-serif; font-size: 1.5rem; font-weight: 700; color: var(--color-primary); flex-shrink: 0; }
+.edition-meta { flex: 1; min-width: 0; }
+.edition-subject { font-weight: 600; color: var(--color-heading); font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.edition-right { display: flex; align-items: center; gap: .75rem; flex-shrink: 0; }
+.edition-date { font-size: .78rem; color: var(--color-muted); white-space: nowrap; }
 .edition-stats { display: flex; gap: .75rem; font-size: .78rem; color: var(--color-muted); }
 
 /* Story editor card */
@@ -267,7 +268,7 @@ textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.6; }
   .main { margin-left: 0 !important; }
   .collapse-btn { display: none; }
   .stat-row { grid-template-columns: repeat(2, 1fr); }
-  .edition-row { grid-template-columns: 50px 1fr auto; }
+  .edition-row { gap: .65rem; }
   .edition-stats { display: none; }
   .sub-row { grid-template-columns: 1fr 55px 55px; }
   .sub-row .sub-name, .sub-row > div:last-child { display: none; }
@@ -677,10 +678,12 @@ function renderEditions() {
       '<div class="edition-num">#' + ed.edition_number + '</div>' +
       '<div class="edition-meta">' +
         '<div class="edition-subject">' + escHtml(ed.subject || 'Untitled') + '</div>' +
-        '<div class="edition-date">' + dateStr + '</div>' +
       '</div>' +
-      statusTag +
-      statsHtml +
+      '<div class="edition-right">' +
+        statsHtml +
+        '<div class="edition-date">' + dateStr + '</div>' +
+        statusTag +
+      '</div>' +
       '</div>';
   }).join('');
 }
