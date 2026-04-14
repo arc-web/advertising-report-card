@@ -10,11 +10,15 @@ var SHEET_ID = '1fmuVF8N7ZrjetgSWmXlvTYJQMDWArXo7T79Yzurory4';
 
 module.exports = async function(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  var user = await auth.requireAdmin(req, res);
+  var user = await auth.requireAdminOrInternal(req, res);
   if (!user) return;
   if (!sb.isConfigured()) return res.status(500).json({ error: 'Not configured' });
 
   try {
+    // Streaming response for progress
+    res.setHeader('Content-Type', 'application/x-ndjson');
+    res.setHeader('Cache-Control', 'no-cache');
+
     // 1. Fetch images CSV (rows 1-2190)
     var imgResp = await fetch('https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/export?format=csv&range=A1:I2190');
     var imgCsv = await imgResp.text();
