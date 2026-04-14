@@ -69,11 +69,16 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to load newsletter: ' + e.message });
     }
 
-    // Load previous stories for dedup
+    // Load previous stories for dedup (headlines for Claude prompt, URLs for hard filter)
     var previousHeadlines = [];
+    var existingUrls = new Set();
     try {
-      var recent = await sb.query('newsletter_stories?select=headline&order=created_at.desc&limit=50');
+      var recent = await sb.query('newsletter_stories?select=headline,source_url&order=created_at.desc&limit=500');
       previousHeadlines = (recent || []).map(function(s) { return s.headline; });
+      (recent || []).forEach(function(s) {
+        if (s.source_url) existingUrls.add(s.source_url.replace(/\/$/, '').toLowerCase());
+      });
+      console.log('Newsletter research: ' + existingUrls.size + ' existing URLs for dedup');
     } catch (e) { /* non-fatal */ }
 
     // Phase 1: SerpAPI searches — SEQUENTIAL to avoid OOM
@@ -183,6 +188,18 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: 'Empty stories array' });
     }
 
+    // URL-based dedup: filter out stories already used in previous editions
+    var beforeCount = stories.length;
+    stories = stories.filter(function(s) {
+      if (!s.source_url) return true; // keep stories without URLs
+      var normalized = s.source_url.replace(/\/$/, '').toLowerCase();
+      return !existingUrls.has(normalized);
+    });
+    var dupsRemoved = beforeCount - stories.length;
+    if (dupsRemoved > 0) {
+      console.log('Newsletter research: removed ' + dupsRemoved + ' duplicate URL(s)');
+    }
+
     console.log('Newsletter research: Claude returned ' + stories.length + ' stories, saving to DB');
 
     // Delete existing candidates for this newsletter
@@ -223,7 +240,8 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       success: true,
       search_results_found: totalFound,
-      stories_curated: stories.length,
+      stories_curated: stories.length + dupsRemoved,
+      duplicates_removed: dupsRemoved,
       stories_saved: saved.length,
       stories: saved
     });
@@ -237,4 +255,5 @@ module.exports = async function handler(req, res) {
     }
   }
 };
+
 
