@@ -114,10 +114,12 @@ module.exports = async function(req, res) {
       case 'reports': {
         var results = await Promise.all([
           sb.query('report_configs?select=*&client_slug=eq.' + s + '&limit=1'),
-          sb.query('report_snapshots?select=*&client_slug=eq.' + s + '&order=report_month.desc&limit=20')
+          sb.query('report_snapshots?select=*&client_slug=eq.' + s + '&order=report_month.desc&limit=20'),
+          sb.query('tracked_keywords?select=id,keyword,keyword_type,priority&client_slug=eq.' + s + '&active=eq.true&retired_at=is.null&order=priority.asc,keyword.asc')
         ]);
         data.config = (results[0] && results[0][0]) || null;
         data.snapshots = results[1] || [];
+        data.keywords = results[2] || [];
         break;
       }
 
