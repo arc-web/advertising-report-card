@@ -15,7 +15,7 @@ module.exports = async function(req, res) {
   try {
     var results = await Promise.all([
       // 1. All contacts with directory fields (GET)
-      sb.query('contacts?select=id,slug,status,practice_name,email,first_name,last_name,campaign_start,website_url,phone,state_province,city,team_size,lost,follow_up_date,audit_tier,referral_source,referral_code&order=practice_name'),
+      sb.query('contacts?select=id,slug,status,practice_name,email,first_name,last_name,campaign_start,website_url,phone,state_province,city,team_size,lost,follow_up_date,audit_tier,referral_code,source&order=practice_name'),
 
       // 2. Onboarding summary (POST RPC - replaces 738+ raw rows)
       sb.mutate('rpc/get_onboarding_summary', 'POST', {}),
