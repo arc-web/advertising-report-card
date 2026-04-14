@@ -1825,6 +1825,7 @@ strong { font-weight: 600; color: var(--color-heading); }
           case 'reports':
             state.reportConfig = data.config || null;
             state.snapshots = data.snapshots || [];
+            state.trackedKeywords = data.keywords || [];
             break;
         }
 
