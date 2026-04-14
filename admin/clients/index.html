@@ -1306,84 +1306,97 @@ strong { font-weight: 600; color: var(--color-heading); }
     }
   }
 
-  function loadDirectoryData() {
-    // Single server-side aggregation call (replaces 5 browser-to-Supabase requests)
-    fetch('/api/admin/clients-directory').then(function(r) { return r.json(); }).then(function(data) {
-      state.contacts = data.contacts || [];
+  function processDirectoryData(data) {
+  state.contacts = data.contacts || [];
 
-      // Onboarding is now pre-aggregated: {contact_id, total, complete, book_intro_call_done, connect_accounts_done}
-      state.allOnboarding = {};
-      (data.onboarding || []).forEach(function(o) {
-        state.allOnboarding[o.contact_id] = { total: Number(o.total) || 0, complete: Number(o.complete) || 0, book_intro_call_done: o.book_intro_call_done, connect_accounts_done: o.connect_accounts_done };
-      });
+  // Onboarding is now pre-aggregated: {contact_id, total, complete, book_intro_call_done, connect_accounts_done}
+  state.allOnboarding = {};
+  (data.onboarding || []).forEach(function(o) {
+    state.allOnboarding[o.contact_id] = { total: Number(o.total) || 0, complete: Number(o.complete) || 0, book_intro_call_done: o.book_intro_call_done, connect_accounts_done: o.connect_accounts_done };
+  });
 
-      state.allTasks = {};
-      (data.checklist || []).forEach(function(t) {
-        state.allTasks[t.client_slug] = { total: Number(t.total) || 0, complete: Number(t.complete) || 0 };
-      });
+  state.allTasks = {};
+  (data.checklist || []).forEach(function(t) {
+    state.allTasks[t.client_slug] = { total: Number(t.total) || 0, complete: Number(t.complete) || 0 };
+  });
 
-      // Intro calls now pre-aggregated: {contact_id, intro_call_complete}
-      var allIntroCall = {};
-      (data.introCalls || []).forEach(function(ic) {
-        allIntroCall[ic.contact_id] = { intro_call_complete: ic.intro_call_complete };
-      });
+  // Intro calls now pre-aggregated: {contact_id, intro_call_complete}
+  var allIntroCall = {};
+  (data.introCalls || []).forEach(function(ic) {
+    allIntroCall[ic.contact_id] = { intro_call_complete: ic.intro_call_complete };
+  });
 
-      // Deliverables pre-aggregated (same as before)
-      var allDeliverables = {};
-      (data.deliverables || []).forEach(function(d) {
-        allDeliverables[d.contact_id] = { not_started: Number(d.not_started) || 0, in_progress: Number(d.in_progress) || 0, internal_review: Number(d.internal_review) || 0, waiting_on_client: Number(d.waiting_on_client) || 0, delivered: Number(d.delivered) || 0 };
-      });
+  // Deliverables pre-aggregated (same as before)
+  var allDeliverables = {};
+  (data.deliverables || []).forEach(function(d) {
+    allDeliverables[d.contact_id] = { not_started: Number(d.not_started) || 0, in_progress: Number(d.in_progress) || 0, internal_review: Number(d.internal_review) || 0, waiting_on_client: Number(d.waiting_on_client) || 0, delivered: Number(d.delivered) || 0 };
+  });
 
-      document.getElementById('loadingState').style.display = 'none';
-      document.getElementById('directoryView').style.display = 'block';
-      renderDirectory();
-      refreshTime();
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('directoryView').style.display = 'block';
+  renderDirectory();
+  refreshTime();
 
-      // Wire up chat panel context with rich cross-client summaries
-      if (window.MoonrakerChat) {
-        var summary = { total: state.contacts.length };
-        ['active','onboarding','prospect','lead'].forEach(function(s) {
-          summary[s] = state.contacts.filter(function(c) { return c.status === s && !c.lost; }).length;
-        });
-        summary.lost = state.contacts.filter(function(c) { return c.lost; }).length;
+  // Wire up chat panel context with rich cross-client summaries
+  if (window.MoonrakerChat) {
+    var summary = { total: state.contacts.length };
+    ['active','onboarding','prospect','lead'].forEach(function(s) {
+      summary[s] = state.contacts.filter(function(c) { return c.status === s && !c.lost; }).length;
+    });
+    summary.lost = state.contacts.filter(function(c) { return c.lost; }).length;
 
-        // Build per-client summary for COREBot (only active/onboarding clients)
-        var clientSummaries = state.contacts.filter(function(c) {
-          return !c.lost && (c.status === 'active' || c.status === 'onboarding');
-        }).map(function(c) {
-          var ob = state.allOnboarding[c.id] || { total: 0, complete: 0 };
-          var obComplete = ob.complete;
-          var introCallBooked = ob.book_intro_call_done || false;
-          var accountsConnected = ob.connect_accounts_done || false;
+    // Build per-client summary for COREBot (only active/onboarding clients)
+    var clientSummaries = state.contacts.filter(function(c) {
+      return !c.lost && (c.status === 'active' || c.status === 'onboarding');
+    }).map(function(c) {
+      var ob = state.allOnboarding[c.id] || { total: 0, complete: 0 };
+      var obComplete = ob.complete;
+      var introCallBooked = ob.book_intro_call_done || false;
+      var accountsConnected = ob.connect_accounts_done || false;
 
-          var ic = allIntroCall[c.id] || {};
-          var introCallDone = ic.intro_call_complete || false;
+      var ic = allIntroCall[c.id] || {};
+      var introCallDone = ic.intro_call_complete || false;
 
-          var tasks = state.allTasks[c.slug] || { total: 0, complete: 0 };
-          var dels = allDeliverables[c.id] || { not_started: 0, in_progress: 0, internal_review: 0, waiting_on_client: 0, delivered: 0 };
+      var tasks = state.allTasks[c.slug] || { total: 0, complete: 0 };
+      var dels = allDeliverables[c.id] || { not_started: 0, in_progress: 0, internal_review: 0, waiting_on_client: 0, delivered: 0 };
 
-          var s = {
-            name: c.practice_name || (c.first_name + ' ' + c.last_name),
-            slug: c.slug,
-            status: c.status,
-            campaign_start: c.campaign_start || null,
-            intro_call_booked: introCallBooked,
-            intro_call_complete: introCallDone,
-            accounts_connected: accountsConnected,
-            onboarding: obComplete + '/' + ob.total + ' steps done',
-            tasks: tasks.complete + '/' + tasks.total + ' complete',
-            deliverables: dels
-          };
-          return s;
-        });
+      var s = {
+        name: c.practice_name || (c.first_name + ' ' + c.last_name),
+        slug: c.slug,
+        status: c.status,
+        campaign_start: c.campaign_start || null,
+        intro_call_booked: introCallBooked,
+        intro_call_complete: introCallDone,
+        accounts_connected: accountsConnected,
+        onboarding: obComplete + '/' + ob.total + ' steps done',
+        tasks: tasks.complete + '/' + tasks.total + ' complete',
+        deliverables: dels
+      };
+      return s;
+    });
 
-        window.MoonrakerChat.setContext({
-          clientData: {
-            summary: summary,
-            clientSummaries: clientSummaries
-          }
-        });
+    window.MoonrakerChat.setContext({
+      clientData: {
+        summary: summary,
+        clientSummaries: clientSummaries
       }
+    });
+  }
+  }
+
+  function loadDirectoryData() {
+    var cacheKey = 'mr-cache-clients-dir';
+    try {
+      var cached = JSON.parse(sessionStorage.getItem(cacheKey));
+      if (cached && (Date.now() - cached.ts) < 60000) {
+        processDirectoryData(cached.data);
+        return;
+      }
+    } catch(e) {}
+
+    fetch('/api/admin/clients-directory').then(function(r) { return r.json(); }).then(function(data) {
+      try { sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: data })); } catch(e) {}
+      processDirectoryData(data);
     });
   }
 
