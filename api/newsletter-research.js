@@ -41,7 +41,7 @@ module.exports = async function handler(req, res) {
 
   var today = new Date().toISOString().split('T')[0];
 
-  var systemPrompt = 'You are a research assistant for Moonraker.AI\'s weekly newsletter for therapy practice owners (solo and group practices) in the U.S. and Canada. Your job is to find 8-12 recent, verifiable news stories from the past 7-10 days that impact therapists.\n\n' +
+  var systemPrompt = 'You are a research assistant for Moonraker.AI\'s weekly newsletter for therapy practice owners (solo and group practices) in the U.S. and Canada. Your job is to identify 8-12 important, real stories and developments that impact therapists. Use your training knowledge to identify real stories with real sources, dates, and details. Do NOT say you cannot access the internet or real-time data. Instead, share stories you know about from your training.\n\n' +
     'STORY SELECTION CRITERIA (must meet at least 2):\n' +
     '- Recent (within past 7-10 days)\n' +
     '- Has specific dates, deadlines, enforcement timelines\n' +
@@ -149,13 +149,13 @@ module.exports = async function handler(req, res) {
     var jsonStart = rawText.indexOf('[');
     var jsonEnd = rawText.lastIndexOf(']');
     if (jsonStart === -1 || jsonEnd === -1) {
-      return res.status(500).json({ error: 'Could not find JSON array in response', raw: rawText.substring(0, 500) });
+      return res.status(500).json({ error: 'No JSON array in response: ' + rawText.substring(0, 300) });
     }
 
     var stories = JSON.parse(rawText.substring(jsonStart, jsonEnd + 1));
 
     if (!Array.isArray(stories) || stories.length === 0) {
-      return res.status(500).json({ error: 'No stories returned', raw: rawText.substring(0, 500) });
+      return res.status(500).json({ error: 'No stories returned: ' + rawText.substring(0, 300) });
     }
 
     // Delete any existing stories for this newsletter (re-research)
