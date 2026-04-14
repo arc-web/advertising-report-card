@@ -4887,23 +4887,18 @@ strong { font-weight: 600; color: var(--color-heading); }
   var expandedContentId = null;
 
   window.toggleContentSection = function(section) {
-    var bodyMap = { designSpec: 'designSpecBody', keywords: 'contentKeywordsBody' };
-    var iconMap = { designSpec: 'designSpecIcon', keywords: 'contentKeywordsIcon' };
+    var bodyMap = { designSpec: 'designSpecBody', keywords: 'contentKeywordsBody', synthesis: 'synthBody' };
+    var iconMap = { designSpec: 'designSpecIcon', keywords: 'contentKeywordsIcon', synthesis: 'synthIcon' };
     var body = document.getElementById(bodyMap[section] || null);
     var icon = document.getElementById(iconMap[section] || null);
     if (!body) return;
     var collapsed = body.classList.contains('collapsed');
     body.classList.toggle('collapsed', !collapsed);
-    body.style.maxHeight = collapsed ? '600px' : '0';
+    body.style.maxHeight = collapsed ? '2000px' : '0';
     if (icon) icon.style.transform = collapsed ? '' : 'rotate(-90deg)';
   };
 
-  window.switchAssetTab = function(tab) {
-    document.getElementById('assetTabNeo').classList.toggle('active', tab === 'neo');
-    document.getElementById('assetTabEndorsements').classList.toggle('active', tab === 'endorsements');
-    document.getElementById('assetNeoSection').style.display = tab === 'neo' ? 'block' : 'none';
-    document.getElementById('assetEndorsementSection').style.display = tab === 'endorsements' ? 'block' : 'none';
-  };
+  // Asset tab switching removed - NEO Images and Endorsements now in separate sections
 
   window.setContentFilter = function(f) { contentFilter = f; renderContent(); };
   window.toggleContentExpand = function(id) { expandedContentId = expandedContentId === id ? null : id; renderContent(); };
@@ -5648,6 +5643,26 @@ strong { font-weight: 600; color: var(--color-heading); }
       var synthNote = lastBatch.synthesis_raw ? ' Synthesis captured.' : '';
       contentEl.innerHTML = '<p style="font-size:.82rem;color:var(--color-body);">Last batch: ' + lastBatch.pages_processed + '/' + lastBatch.pages_total + ' pages processed.' + synthNote + ' <span style="color:var(--color-muted);font-size:.78rem;">(' + formatDate(lastBatch.updated_at) + ')</span></p>';
 
+      // Render cluster synthesis if available
+      var synthEl = document.getElementById('clusterSynthesis');
+      if (synthEl && lastBatch.synthesis_raw) {
+        var synth = lastBatch.synthesis_raw;
+        var synthPreview = synth.length > 500 ? synth.substring(0, 500) + '...' : synth;
+        synthEl.style.display = 'block';
+        synthEl.innerHTML = '<div class="card" style="border-left:3px solid var(--color-primary);">' +
+          '<div class="card-header collapsible-header" onclick="toggleContentSection(\'synthesis\')" style="cursor:pointer;">' +
+          '<h3 style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;">' +
+          '<span id="synthIcon" style="transition:transform .2s;display:inline-block;">&#9654;</span>' +
+          'Cluster Synthesis' +
+          '<span class="status-badge" style="font-size:.65rem;background:rgba(0,212,126,.1);color:#00b86c;">Available</span>' +
+          '</h3></div>' +
+          '<div id="synthBody" class="collapsed" style="overflow:hidden;transition:max-height .3s ease;max-height:0;">' +
+          '<div style="padding:0 1rem 1rem;font-size:.82rem;color:var(--color-body);line-height:1.7;white-space:pre-line;">' + esc(synth) + '</div>' +
+          '</div></div>';
+      } else if (synthEl) {
+        synthEl.style.display = 'none';
+      }
+
     } else if (lastBatch && (lastBatch.status === 'failed' || lastBatch.status === 'agent_error')) {
       badge.textContent = 'Error';
       badge.style.background = 'rgba(239,68,68,.1)';
@@ -5669,7 +5684,7 @@ strong { font-weight: 600; color: var(--color-heading); }
         badge.style.background = 'rgba(107,117,153,.1)';
         badge.style.color = 'var(--color-muted)';
         if (triggerBtn) triggerBtn.style.display = 'none';
-        contentEl.innerHTML = '<p style="font-size:.82rem;color:var(--color-muted);">Set up P1 keyword targets in the Reporting tab first. Each keyword needs a target page URL.</p>';
+        contentEl.innerHTML = '<p style="font-size:.82rem;color:var(--color-muted);">Set up P1 keyword targets in the Keyword Targets section above. Each keyword needs a target page URL.</p>';
       }
     }
   }
