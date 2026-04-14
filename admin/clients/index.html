@@ -3302,18 +3302,46 @@ strong { font-weight: 600; color: var(--color-heading); }
     var page = (document.getElementById(p + 'NewPage') || {}).value || '';
     var priority = parseInt((document.getElementById(p + 'NewPriority') || {}).value) || 1;
     var pageType = (document.getElementById(p + 'NewPageType') || {}).value || 'new';
-    var data = { contact_id: state.contact.id, client_slug: state.contact.slug, keyword: kw, label: kw, keyword_type: 'service', priority: priority, target_page: page.trim() || null, source: 'intro_call', notes: pageType === 'new' ? 'New page to create' : 'Existing page' };
+    var slug = state.contact.slug;
+    var data = { contact_id: state.contact.id, client_slug: slug, keyword: kw, label: kw, keyword_type: 'service', priority: priority, target_page: page.trim() || null, source: 'content_tab', notes: pageType === 'new' ? 'New page to create' : 'Existing page' };
     fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'create_record', table: 'tracked_keywords', filters: undefined, data: data }) }).then(function(r) { return r.json(); }).then(function(res) {
-      if (res.success) { renderKeywordForm(); }
-      else { alert('Failed to add keyword: ' + JSON.stringify(res)); }
+      if (res.success) {
+        var kwRow = Array.isArray(res.data) ? res.data[0] : res.data;
+        // Auto-seed a content_page for this keyword
+        if (kwRow && kwRow.id) {
+          var cpSlug = kw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+          fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'create_record', table: 'content_pages', data: {
+            contact_id: state.contact.id, client_slug: slug, page_type: 'service',
+            page_name: kw, page_slug: cpSlug, tracked_keyword_id: kwRow.id,
+            target_keyword: kw, target_url: page.trim() || null, status: 'pending_audit'
+          }})}).then(function(r2) { return r2.json(); }).then(function(res2) {
+            if (res2.success) {
+              var cp = Array.isArray(res2.data) ? res2.data[0] : res2.data;
+              if (cp) state.contentPages.push(cp);
+              toast('Keyword + service page created', 'success');
+            }
+            renderKeywordForm();
+            renderContent();
+          }).catch(function() { renderKeywordForm(); });
+        } else {
+          renderKeywordForm();
+        }
+      } else { alert('Failed to add keyword: ' + JSON.stringify(res)); }
     }).catch(function(err) { alert('Error adding keyword: ' + err.message); });
   };
 
   window.deleteICKeyword = function(kwId) {
-    if (!confirm('Delete this keyword? Only unlocked keywords (no content pages or LF campaigns) can be deleted. For keywords with dependencies, use the keyword change protocol to retire instead.')) return;
-    fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete_record', table: 'tracked_keywords', filters: { id: kwId } }) }).then(function(r) { return r.json(); }).then(function(res) {
-      if (res.success) renderKeywordForm();
-      else alert('Failed to delete keyword');
+    if (!confirm('Delete this keyword and its pending service page? Only unlocked keywords can be deleted.')) return;
+    // First delete any pending_audit content page for this keyword
+    fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete_record', table: 'content_pages', filters: { tracked_keyword_id: kwId, status: 'pending_audit' } }) }).then(function() {
+      // Then delete the keyword itself
+      return fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete_record', table: 'tracked_keywords', filters: { id: kwId } }) });
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        state.contentPages = (state.contentPages || []).filter(function(cp) { return cp.tracked_keyword_id !== kwId; });
+        renderKeywordForm();
+        renderContent();
+      } else { alert('Failed to delete keyword'); }
     }).catch(function() { alert('Error deleting keyword'); });
   };
 
