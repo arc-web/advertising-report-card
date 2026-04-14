@@ -79,7 +79,7 @@ module.exports = async function handler(req, res) {
   var systemPrompt = 'You are the newsletter writer for Moonraker.AI, a digital marketing agency serving therapy practice owners. You write the weekly newsletter following strict editorial rules.\n\n' +
     'CRITICAL RULES:\n' +
     '- Use "client" not "patient" (except official regulatory language)\n' +
-    '- No em dashes anywhere. Use commas, periods, colons, or restructure.\n' +
+    '- NEVER use em dashes (the long dash character). Use commas, periods, colons, or restructure sentences instead. This is a strict formatting requirement.\n' +
     '- No paid advertising recommendations (no Google Ads, Facebook Ads)\n' +
     '- No industry jargon. Plain language throughout.\n' +
     '- All claims must be factual and verifiable\n' +
@@ -87,6 +87,11 @@ module.exports = async function handler(req, res) {
     '- Specific data: exact dates, penalties, timelines (not "soon" or "many")\n' +
     '- Professional but accessible tone. Urgent but not alarmist.\n' +
     '- Empathetic toward therapists who are overwhelmed by digital complexity\n\n' +
+    'STORY LENGTH (strict):\n' +
+    '- Each story body: 100-150 words maximum (about 1 minute to read). Be concise and direct.\n' +
+    '- Action items: exactly 3 per story, one sentence each\n' +
+    '- Quick wins: one sentence each, 4 total\n' +
+    '- Final thoughts: 2 short paragraphs\n\n' +
     'EMOJI RULES (strict):\n' +
     '- Use the pointing right emoji ONLY for Action sections (one per story)\n' +
     '- No other emojis in story content\n\n' +
@@ -96,13 +101,13 @@ module.exports = async function handler(req, res) {
     '  "stories": [\n' +
     '    {\n' +
     '      "headline": "Clear headline",\n' +
-    '      "body": "2-3 paragraphs of HTML (<p> tags). Include specific dates, numbers, penalties.",\n' +
-    '      "actions": "3-5 specific action items, one per line, plain text",\n' +
+    '      "body": "1-2 short paragraphs of HTML (<p> tags). 100-150 words max.",\n' +
+    '      "actions": "3 specific action items, one per line, plain text",\n' +
     '      "image_suggestion": "Description of relevant stock image"\n' +
     '    }\n' +
     '  ],\n' +
     '  "quick_wins": ["Win 1 (one sentence)", "Win 2", "Win 3", "Win 4"],\n' +
-    '  "final_thoughts": "2-3 paragraphs in HTML (<p> tags). Connect themes, emphasize complexity, position Moonraker. MUST include this exact closing line: While you\\\'re providing therapy, we\\\'re monitoring policy changes, protecting your Google presence, and optimizing for AI search. You shouldn\\\'t need to become an SEO expert, compliance specialist, and tech strategist on top of being a therapist.",\n' +
+    '  "final_thoughts": "2 short paragraphs in HTML (<p> tags). Connect themes, emphasize complexity, position Moonraker. MUST include this exact closing line: While you\\\'re providing therapy, we\\\'re monitoring policy changes, protecting your Google presence, and optimizing for AI search. You shouldn\\\'t need to become an SEO expert, compliance specialist, and tech strategist on top of being a therapist.",\n' +
     '  "subject_lines": ["Option 1", "Option 2", "Option 3"],\n' +
     '  "preview_texts": ["Preview 1", "Preview 2", "Preview 3"]\n' +
     '}';
@@ -117,15 +122,16 @@ module.exports = async function handler(req, res) {
   var userPrompt = 'Write the complete content for Newsletter Edition #' + newsletter.edition_number + '.\n\n' +
     'Here are the 5 selected stories in order:\n\n' + storySummaries + '\n\n' +
     'For each story, write:\n' +
-    '- A clear, specific headline\n' +
-    '- 2-3 body paragraphs with specific dates, numbers, and penalties (use <p> tags)\n' +
-    '- 3-5 specific, implementable action items (one per line, plain text)\n' +
+    '- A clear, specific headline (no em dashes)\n' +
+    '- 1-2 body paragraphs, 100-150 words MAX (use <p> tags). Include specific dates and numbers.\n' +
+    '- Exactly 3 action items (one per line, plain text, one sentence each)\n' +
     '- A suggested image description\n\n' +
     'Also write:\n' +
-    '- 4-6 Quick Wins (one sentence each, summarizing key takeaways from the 5 stories)\n' +
-    '- Final Thoughts (2-3 paragraphs connecting themes, include the required closing line verbatim)\n' +
-    '- 3 subject line options (specific, urgent, name a threat or opportunity)\n' +
+    '- 4 Quick Wins (one sentence each)\n' +
+    '- Final Thoughts (2 short paragraphs, include the required closing line verbatim)\n' +
+    '- 3 subject line options (specific, urgent, no em dashes)\n' +
     '- 3 preview text options\n\n' +
+    'IMPORTANT: Do not use em dashes (the long dash) anywhere. Use commas, colons, or periods instead.\n\n' +
     'Return ONLY the JSON object. No markdown fences.';
 
   try {
@@ -174,6 +180,23 @@ module.exports = async function handler(req, res) {
     }
 
     var content = JSON.parse(rawText.substring(jsonStart, jsonEnd + 1));
+
+    // Post-process: strip any em dashes that slipped through
+    function stripEmDashes(s) {
+      if (typeof s !== 'string') return s;
+      return s.replace(/\u2014/g, ', ').replace(/\u2013/g, ', ').replace(/ —/g, ',').replace(/— /g, ', ').replace(/—/g, ', ');
+    }
+    if (content.stories) {
+      content.stories.forEach(function(s) {
+        s.headline = stripEmDashes(s.headline);
+        s.body = stripEmDashes(s.body);
+        s.actions = stripEmDashes(s.actions);
+      });
+    }
+    if (content.final_thoughts) content.final_thoughts = stripEmDashes(content.final_thoughts);
+    if (content.quick_wins) content.quick_wins = content.quick_wins.map(stripEmDashes);
+    if (content.subject_lines) content.subject_lines = content.subject_lines.map(stripEmDashes);
+    if (content.preview_texts) content.preview_texts = content.preview_texts.map(stripEmDashes);
 
     // Validate required fields
     if (!content.stories || !Array.isArray(content.stories) || content.stories.length !== 5) {
