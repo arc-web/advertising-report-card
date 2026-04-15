@@ -92,9 +92,7 @@ module.exports = async function handler(req, res) {
     '- Action items: exactly 3 per story, one sentence each\n' +
     '- Quick wins: one sentence each, 4 total\n' +
     '- Final thoughts: 2 short paragraphs\n\n' +
-    'EMOJI RULES (strict):\n' +
-    '- Use the pointing right emoji ONLY for Action sections (one per story)\n' +
-    '- No other emojis in story content\n\n' +
+    'FORMATTING: Do NOT include any emojis in the content. No pointing hand, no checkmarks, no other emojis. The template adds these automatically.\n\n' +
     'Today\'s date: ' + today + '\n\n' +
     'RESPONSE FORMAT: Return ONLY a JSON object with no markdown fences:\n' +
     '{\n' +
@@ -287,6 +285,7 @@ module.exports = async function handler(req, res) {
     try { return res.status(500).json({ error: 'Fatal: ' + fatal.message }); } catch(e2) {}
   }
 };
+
 
 
 
