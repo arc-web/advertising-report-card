@@ -201,6 +201,11 @@ strong { font-weight: 600; color: var(--color-heading); }
   .query-item { grid-template-columns: 1fr; }
   .stats-bar { flex-wrap: wrap; gap: 1rem; }
 }
+@media (max-width: 560px) {
+  .content { padding: 1rem !important; }
+  .topbar { padding: 0 1rem; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
 
 /* Loading spinner */
 .spinner { width: 16px; height: 16px; border: 2px solid var(--color-border); border-top-color: var(--color-primary); border-radius: 50%; animation: spin .6s linear infinite; display: inline-block; }
@@ -1471,5 +1476,6 @@ strong { font-weight: 600; color: var(--color-heading); }
 </script>
 </body>
 </html>
+
 
 
