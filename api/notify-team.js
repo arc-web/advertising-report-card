@@ -164,7 +164,7 @@ function buildIntroCallContent(contact, clientName, deepDiveUrl, steps) {
 
   var warningHtml = '';
   if (pending > 0) {
-    warningHtml = email.p('<span style="color:#D97706">\u26A0\uFE0F ' + pending + ' task' + (pending > 1 ? 's' : '') + ' still need attention.</span>');
+    warningHtml = email.p('<span style="color:#D97706">\u26A0\uFE0F ' + pending + ' task' + (pending > 1 ? 's' : '') + ' still need' + (pending === 1 ? 's' : '') + ' attention.</span>');
   }
 
   return clientHeader(contact, clientName) +
@@ -203,3 +203,4 @@ function buildReferralContent(contact, clientName, deepDiveUrl, partner, partner
     email.p('<span style="color:#D97706;font-weight:600">Action needed:</span> Send the referral partner their 10% commission of the first payment.') +
     email.cta(deepDiveUrl, 'View Client');
 }
+
