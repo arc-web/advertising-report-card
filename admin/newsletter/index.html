@@ -642,6 +642,33 @@ textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.6; }
   </div>
 </div>
 
+<!-- Custom Story Modal -->
+<div class="modal-overlay" id="customStoryModal">
+  <div class="modal" style="max-width:520px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <h3 style="font-size:1rem;margin:0;">Custom Story</h3>
+      <button class="btn btn-sm btn-secondary" onclick="closeCustomStory()">Cancel</button>
+    </div>
+    <p style="font-size:.82rem;color:var(--color-body);margin-bottom:1rem;">Describe a story you found elsewhere. AI will generate the headline, body, action items, and find a matching image.</p>
+    <div class="form-group">
+      <label class="form-label">What is this story about?</label>
+      <textarea class="form-input" id="customStoryContext" rows="4" placeholder="Describe the story: what happened, when, who is affected, why it matters for therapists..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Source URL <span style="font-weight:400;color:var(--color-muted);">(optional)</span></label>
+      <input type="text" class="form-input" id="customStoryUrl" placeholder="https://..." />
+      <div class="form-hint">If provided, AI will reference this source for verification.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Source Name <span style="font-weight:400;color:var(--color-muted);">(optional)</span></label>
+      <input type="text" class="form-input" id="customStorySource" placeholder="e.g., HIPAA Journal, Search Engine Land" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="generateCustomStory()" id="customStoryBtn">Generate Story</button>
+    </div>
+  </div>
+</div>
+
 <style>
 .ramp-bar { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
 .ramp-step { font-size:.7rem; padding:3px 8px; border-radius:4px; background:var(--color-bg); color:var(--color-muted); font-weight:500; }
@@ -879,6 +906,7 @@ function storyEditorHtml(index) {
       '<span class="story-label" id="storyLabel-' + index + '">Story ' + num + '</span>' +
       '<span class="drag-summary" id="dragSummary-' + index + '" style="display:none;"></span>' +
       '<div class="story-actions">' +
+        '<button class="refresh-img-btn" onclick="event.stopPropagation();openCustomStory(' + index + ')" title="Write a custom story from your own source"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Custom</button>' +
         '<button class="refresh-img-btn" onclick="event.stopPropagation();regenerateStory(' + index + ')" title="Regenerate body and action items"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3m6.36.64l-2.12 2.12M21 12h-3m-.64 6.36l-2.12-2.12M12 21v-3m-4.24.64l2.12-2.12M3 12h3m.64-6.36l2.12 2.12"/></svg>Regenerate</button>' +
         '<button class="refresh-img-btn" onclick="event.stopPropagation();refreshStoryImage(' + index + ')" title="Search for a different image"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>New Image</button>' +
         '<span class="collapse-toggle" onclick="event.stopPropagation();toggleStory(' + index + ')"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></span>' +
@@ -1161,6 +1189,178 @@ async function regenerateStory(index) {
   }
 }
 window.regenerateStory = regenerateStory;
+
+// ---- Custom Story ----
+var customStoryTargetIndex = null;
+
+function openCustomStory(index) {
+  customStoryTargetIndex = index;
+  document.getElementById('customStoryContext').value = '';
+  document.getElementById('customStoryUrl').value = '';
+  document.getElementById('customStorySource').value = '';
+  document.getElementById('customStoryModal').classList.add('open');
+}
+window.openCustomStory = openCustomStory;
+
+function closeCustomStory() {
+  document.getElementById('customStoryModal').classList.remove('open');
+  customStoryTargetIndex = null;
+}
+window.closeCustomStory = closeCustomStory;
+
+async function generateCustomStory() {
+  var context = document.getElementById('customStoryContext').value.trim();
+  if (!context) { toast('Describe the story first', 'error'); return; }
+  var url = document.getElementById('customStoryUrl').value.trim();
+  var sourceName = document.getElementById('customStorySource').value.trim();
+  var idx = customStoryTargetIndex;
+
+  var btn = document.getElementById('customStoryBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2.5px solid var(--color-primary-light);border-top-color:var(--color-primary);border-radius:50%;animation:spin 1s linear infinite;vertical-align:-2px;margin-right:.35rem;"></span>Generating...';
+
+  closeCustomStory();
+  toast('Generating custom story for position ' + (idx + 1) + '...');
+
+  // Clear current fields
+  document.getElementById('s' + idx + '-headline').value = '(generating...)';
+  document.getElementById('s' + idx + '-body').value = '';
+  document.getElementById('s' + idx + '-actions').value = '';
+
+  try {
+    // Step 1: Generate headline + body + actions via regenerate-story endpoint
+    var genResp = await fetch('/api/newsletter-regenerate-story', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        headline: context.substring(0, 120),
+        summary: context,
+        source_name: sourceName,
+        source_url: url
+      })
+    });
+    var genData = await genResp.json();
+
+    if (genResp.ok && genData.body) {
+      // Extract a headline from the body if the context was used as headline
+      // The regenerate endpoint uses the headline we send, so let's get a better one
+      var headlineResp = await fetch('/api/newsletter-refine-story', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          headline: context.substring(0, 120),
+          body: genData.body,
+          feedback: 'Write a clear, specific newsletter headline for this story. Keep it under 100 characters. Do not use em dashes.'
+        })
+      });
+      var headlineData = await headlineResp.json();
+
+      document.getElementById('s' + idx + '-headline').value = (headlineData.headline || context.substring(0, 100));
+      document.getElementById('s' + idx + '-body').value = genData.body;
+      document.getElementById('s' + idx + '-actions').value = genData.actions || '';
+      flashFields(['s' + idx + '-headline', 's' + idx + '-body', 's' + idx + '-actions']);
+    } else {
+      document.getElementById('s' + idx + '-headline').value = context.substring(0, 100);
+      document.getElementById('s' + idx + '-body').value = '<p>' + context + '</p>';
+      toast('Generation partial, review and edit manually', 'error');
+    }
+
+    // Step 2: Fetch Pexels image
+    try {
+      var headline = document.getElementById('s' + idx + '-headline').value;
+      var imgResp = await fetch('/api/newsletter-refresh-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: headline })
+      });
+      var imgData = await imgResp.json();
+      if (imgData.image_url) {
+        document.getElementById('s' + idx + '-image').value = imgData.image_url;
+        document.getElementById('s' + idx + '-imagealt').value = imgData.image_alt || '';
+        flashFields(['s' + idx + '-image', 's' + idx + '-imagealt']);
+      }
+    } catch (e) { /* non-fatal */ }
+
+    // Step 3: Save draft then verify this story
+    try {
+      var data = gatherContent();
+      await apiAction('update_record', 'newsletters', {
+        subject: data.subject,
+        preview_text: data.preview_text,
+        content: data.content
+      }, { id: currentEditionId });
+
+      var verifyEl = document.getElementById('storyVerify-' + idx);
+      if (verifyEl) {
+        verifyEl.innerHTML = '<div style="padding:.4rem;font-size:.78rem;color:var(--color-muted);display:flex;align-items:center;gap:.5rem;"><span class="research-spinner" style="width:14px;height:14px;flex-shrink:0;"></span> Verifying custom story...</div>';
+        verifyEl.style.display = 'block';
+      }
+
+      var vResp = await fetch('/api/newsletter-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newsletter_id: currentEditionId, story_index: idx })
+      });
+      var vData = await vResp.json();
+      if (vResp.ok && vData.results && vData.results.length) {
+        var c = vData.results[0];
+        var conf = c.confidence || 'medium';
+        var icons = { high: '\u2713', medium: '!', low: '\u2717' };
+        var sh = '<div class="verify-story ' + conf + '" style="margin-top:.5rem;">';
+        sh += '<div class="verify-badge ' + conf + '">' + (icons[conf] || '?') + '</div>';
+        sh += '<div style="flex:1;"><div class="verify-headline">' + conf.charAt(0).toUpperCase() + conf.slice(1) + ' confidence</div>';
+        if (c.notes) sh += '<div class="verify-issues">' + escHtml(c.notes) + '</div>';
+        if (c.issues && c.issues.length) {
+          sh += '<ul class="verify-issues" style="margin:.25rem 0 0;padding-left:1.2rem;">';
+          c.issues.forEach(function(issue) { sh += '<li>' + escHtml(issue) + '</li>'; });
+          sh += '</ul>';
+        }
+        sh += '</div></div>';
+        if (verifyEl) verifyEl.innerHTML = sh;
+      } else {
+        if (verifyEl) verifyEl.style.display = 'none';
+      }
+    } catch (e) { /* non-fatal */ }
+
+    // Step 4: Regenerate quick wins
+    try {
+      var currentStories = [];
+      for (var q = 0; q < 5; q++) {
+        currentStories.push({
+          headline: document.getElementById('s' + q + '-headline').value,
+          body: document.getElementById('s' + q + '-body').value
+        });
+      }
+      var qwResp = await fetch('/api/newsletter-regenerate-quickwins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stories: currentStories })
+      });
+      var qwData = await qwResp.json();
+      if (qwResp.ok && qwData.quick_wins && qwData.quick_wins.length) {
+        var qwContainer = document.getElementById('quickWinsContainer');
+        qwContainer.innerHTML = '';
+        qwData.quick_wins.forEach(function(item) {
+          addQuickWinField(qwContainer);
+          var input = qwContainer.lastChild.querySelector('.qw-input');
+          input.value = item;
+          input.classList.remove('field-flash');
+          input.offsetHeight;
+          input.classList.add('field-flash');
+        });
+      }
+    } catch (e) { /* non-fatal */ }
+
+    toast('Custom story generated and verified');
+  } catch (e) {
+    toast('Custom story failed: ' + e.message, 'error');
+    document.getElementById('s' + idx + '-headline').value = context.substring(0, 100);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Generate Story';
+  }
+}
+window.generateCustomStory = generateCustomStory;
 
 // ---- Fact Verification ----
 async function verifyFacts() {
@@ -2499,6 +2699,7 @@ init();
 </script>
 </body>
 </html>
+
 
 
 
