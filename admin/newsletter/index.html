@@ -204,6 +204,8 @@ textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.6; }
 .story-editor.drag-over { border-color:var(--color-primary);border-style:dashed;background:var(--color-primary-subtle); }
 .story-editor.just-landed { animation:landPulse .6s ease; border-color:var(--color-primary); }
 @keyframes landPulse { 0% { box-shadow:0 0 0 0 rgba(0,212,126,.3); } 50% { box-shadow:0 0 0 6px rgba(0,212,126,.15); } 100% { box-shadow:none; } }
+@keyframes fieldFlash { 0% { background:rgba(0,212,126,.15);box-shadow:0 0 0 2px rgba(0,212,126,.25); } 100% { background:transparent;box-shadow:none; } }
+.field-flash { animation:fieldFlash .8s ease-out; }
 .verify-panel { padding:1rem 1.25rem;border-radius:12px;border:1px solid var(--color-border);background:var(--color-surface); }
 .verify-story { padding:.65rem .85rem;border-radius:8px;margin-bottom:.5rem;display:flex;align-items:flex-start;gap:.65rem; }
 .verify-story.high { background:rgba(0,212,126,.06);border:1px solid rgba(0,212,126,.15); }
@@ -1107,6 +1109,7 @@ async function refreshStoryImage(index) {
 
     document.getElementById('s' + index + '-image').value = data.image_url;
     document.getElementById('s' + index + '-imagealt').value = data.image_alt || '';
+    flashFields(['s' + index + '-image', 's' + index + '-imagealt']);
     toast('Image refreshed');
   } catch (e) {
     toast('Image refresh failed: ' + e.message, 'error');
@@ -1140,6 +1143,7 @@ async function regenerateStory(index) {
 
     if (data.body) document.getElementById('s' + index + '-body').value = data.body;
     if (data.actions) document.getElementById('s' + index + '-actions').value = data.actions;
+    flashFields(['s' + index + '-body', 's' + index + '-actions']);
     toast('Story ' + (index + 1) + ' content regenerated');
   } catch (e) {
     toast('Regenerate failed: ' + e.message, 'error');
@@ -1266,6 +1270,7 @@ async function refineStory(storyIndex) {
 
     if (data.headline) document.getElementById('s' + storyIndex + '-headline').value = data.headline;
     if (data.body) document.getElementById('s' + storyIndex + '-body').value = data.body;
+    flashFields(['s' + storyIndex + '-headline', 's' + storyIndex + '-body']);
     toast('Story ' + (storyIndex + 1) + ' refined for accuracy');
   } catch (e) {
     toast('Refine failed: ' + e.message, 'error');
@@ -1344,6 +1349,7 @@ async function swapStory(storyIndex, candidateId) {
     if (genResp.ok && genData.body) {
       document.getElementById('s' + storyIndex + '-body').value = genData.body;
       document.getElementById('s' + storyIndex + '-actions').value = genData.actions || '';
+      flashFields(['s' + storyIndex + '-headline', 's' + storyIndex + '-body', 's' + storyIndex + '-actions']);
       toast('Story ' + (storyIndex + 1) + ' content generated');
     } else {
       document.getElementById('s' + storyIndex + '-body').value = '<p>' + (candidate.summary || '') + '</p>';
@@ -1365,6 +1371,7 @@ async function swapStory(storyIndex, candidateId) {
       if (imgData.image_url) {
         imgField.value = imgData.image_url;
         altField.value = imgData.image_alt || '';
+        flashFields(['s' + storyIndex + '-image', 's' + storyIndex + '-imagealt']);
       }
     } catch (e) { /* non-fatal */ }
   }
@@ -2256,6 +2263,17 @@ function escHtml(s) {
   return d.innerHTML;
 }
 
+function flashField(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('field-flash');
+  el.offsetHeight; // force reflow to restart animation
+  el.classList.add('field-flash');
+}
+function flashFields(ids) {
+  ids.forEach(function(id) { flashField(id); });
+}
+
 
 // ---- Search filter ----
 var allLoadedSubs = [];
@@ -2366,6 +2384,7 @@ init();
 </script>
 </body>
 </html>
+
 
 
 
