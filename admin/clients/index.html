@@ -2977,7 +2977,9 @@ strong { font-weight: 600; color: var(--color-heading); }
   var IC_STEPS = [
     { key: 'verify_website_access', label: 'Verify Website Platform & Access', cat: 'platform_access', sort: 1,
       desc: '<div class="ic-detail-label">Quick Check</div><ul><li>Confirm the CMS platform (WordPress, Squarespace, Wix, etc.) and note it on the contact record</li><li>If WordPress: note page builder (Elementor, Bricks, Divi) and caching plugins</li><li>Verify we have or can get admin-level credentials</li><li>If credentials not handy, client shares via the Connect Accounts onboarding step</li></ul><p style="color:var(--color-muted);font-size:.78rem;">Actual platform setup (GSC, GA4, GTM, GBP) is tracked in Deliverables.</p>' },
-    { key: 'confirm_leadsie_access', label: 'Confirm Leadsie Access', cat: 'platform_access', sort: 2,
+    { key: 'configure_cms_access', label: 'Configure CMS Access', cat: 'platform_access', sort: 2,
+      desc: '<div class="ic-detail-label">Set up agent access for content deployment</div><div style="margin:.5rem 0;padding:.5rem .75rem;background:var(--color-bg);border-radius:8px;font-size:.82rem;"><strong>WordPress sites:</strong><ol style="margin:.25rem 0;padding-left:1.2rem;"><li>Log into the WP admin using client credentials</li><li>Reset the password to a Moonraker-managed one (store in Design and Config)</li><li>Go to Users > Profile > Application Passwords</li><li>Name it <strong>Moonraker Agent</strong> and click Add New</li><li>Copy the generated password (shown once) and store in Design and Config > App PW</li><li>Note the login URL if custom (not /wp-admin)</li></ol></div><div style="margin:.5rem 0;padding:.5rem .75rem;background:var(--color-bg);border-radius:8px;font-size:.82rem;"><strong>Squarespace and Wix sites:</strong><ol style="margin:.25rem 0;padding-left:1.2rem;"><li>These are managed through the support@ account via Leadsie access</li><li>Confirm we have contributor or admin access to the site</li><li>Store the login URL in Design and Config</li></ol></div><p style="color:var(--color-muted);font-size:.78rem;">Credentials are stored in the Content tab > Design and Config card.</p>' },
+    { key: 'confirm_leadsie_access', label: 'Confirm Leadsie Access', cat: 'platform_access', sort: 3,
       desc: '<div class="ic-detail-label">Quick Check</div><ul><li>Walk through the onboarding form with the client and confirm they have completed the Leadsie access step</li><li>If any access requests were declined or had issues, note them here so the team can follow up</li><li>Common issues: client needs to be logged into the correct Google account, or they accidentally deny the request</li></ul><p style="color:var(--color-muted);font-size:.78rem;">Once access is confirmed, the team completes platform setup (GSC, GA4, GTM, GBP) via the Deliverables tab.</p>' },
     { key: 'referral_source', label: 'Confirm Referral Source', cat: 'campaign_setup', sort: 10,
       desc: '<div class="ic-detail-label">Talking Points</div><ul><li>Ask how they heard about Moonraker</li><li>If partner referral, select the partner below for commission tracking</li></ul><div id="icReferralArea"></div>' },
@@ -3037,7 +3039,7 @@ strong { font-weight: 600; color: var(--color-heading); }
         var def = IC_STEPS.find(function(d) { return d.key === s.step_key; });
         var isExp = expandedICId === s.id; var st = s.status || 'pending';
         var icIcons = {
-          verify_website_access: '&#127760;', confirm_leadsie_access: '&#128279;',
+          verify_website_access: '&#127760;', configure_cms_access: '&#128272;', confirm_leadsie_access: '&#128279;',
           referral_source: '&#129309;', set_keyword_targets: '&#127919;',
           review_socials: '&#128101;', check_booking_calendar: '&#128197;', lead_attribution: '&#128203;',
           google_marketing_account: '&#9993;', content_turnaround: '&#9200;', scope_boundaries: '&#128208;',
