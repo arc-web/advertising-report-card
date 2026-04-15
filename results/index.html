@@ -186,7 +186,8 @@ html.dark .site-footer { background: #0A1630; }
 .lightbox-caption { position: absolute; top: calc(100% + .75rem); left: 50%; transform: translateX(-50%); background: var(--color-primary); color: #fff; padding: .5rem 1.25rem; border-radius: 99px; font-size: .875rem; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 12px rgba(0,0,0,.2); z-index: 1; }
 
 @media (max-width: 768px) {
-  .hero h1 { font-size: 2rem; }
+  .hero h1 { font-size: 2.5rem; }
+  .section-heading { font-size: 1.5rem; }
   .hero-wrap { padding: 3rem 1.5rem 2rem; }
   .results-grid { grid-template-columns: 1fr; padding: 0 1rem 2rem; }
   .testimonials-section { padding: 3rem 1rem; }
@@ -197,7 +198,7 @@ html.dark .site-footer { background: #0A1630; }
   .reviews-masonry { columns: 1; }
   .stats-bar { gap: 1.5rem; }
 }
-@media (max-width: 480px) { .stats-bar { gap: 1rem; } .hero h1 { font-size: 1.5rem; } .partner-logo { height: 44px; } }
+@media (max-width: 480px) { .stats-bar { gap: 1rem; } .hero h1 { font-size: 2rem; } .section-heading { font-size: 1.35rem; } .partner-logo { height: 44px; } }
 @media (min-width: 769px) and (max-width: 1024px) { .reviews-masonry { columns: 2; } .partner-logo { height: 60px; } }
 </style>
 </head>
@@ -228,18 +229,24 @@ html.dark .site-footer { background: #0A1630; }
       <img class="partner-logo" src="/assets/partners/psychology-business-school.webp" alt="Psychology Business School">
       <img class="partner-logo" src="/assets/partners/walker-co-strategy.webp" alt="Walker Co Strategy">
       <img class="partner-logo" src="/assets/partners/traveling-therapist.webp" alt="The Traveling Therapist">
+    </div>
+    <div class="partner-row">
       <img class="partner-logo" src="/assets/partners/berries.webp" alt="Berries">
       <img class="partner-logo" src="/assets/partners/therasaas.webp" alt="TheraSaaS">
     </div>
     <div class="partner-row">
       <img class="partner-logo" src="/assets/partners/scalingup-emdr.webp" alt="ScalingUp EMDR">
       <img class="partner-logo" src="/assets/partners/entrepreneurial-therapist.webp" alt="Entrepreneurial Therapist">
+    </div>
+    <div class="partner-row">
       <img class="partner-logo" src="/assets/partners/private-practice-academy.webp" alt="The Private Practice Academy">
       <img class="partner-logo" src="/assets/partners/balanced-private-practice.webp" alt="Balanced Private Practice">
     </div>
     <div class="partner-row">
       <img class="partner-logo" src="/assets/partners/private-practice-elevation.webp" alt="Private Practice Elevation">
       <img class="partner-logo" src="/assets/partners/intensive-therapy-coach.webp" alt="Intensive Therapy Coach">
+    </div>
+    <div class="partner-row">
       <img class="partner-logo" src="/assets/partners/prosperous-therapist.webp" alt="The Prosperous Therapist">
       <img class="partner-logo" src="/assets/partners/mccance-method.webp" alt="The McCance Method">
     </div>
@@ -499,5 +506,6 @@ renderReviews();
 </script>
 </body>
 </html>
+
 
 
