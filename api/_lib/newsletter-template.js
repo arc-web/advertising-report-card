@@ -49,14 +49,14 @@ function storyBlock(story, index) {
     if (typeof items === 'string') {
       var lines = items.split('\n').filter(function(l) { return l.trim(); });
       actionHtml = lines.length > 1
-        ? '<ul style="margin:0;padding:0 0 0 20px;">' + lines.map(function(item) {
-            return '<li style="font-family:' + F.body + ';font-size:15px;color:' + C.body + ';line-height:1.6;margin:0 0 4px;">\u{1F449} ' + item + '</li>';
-          }).join('') + '</ul>'
+        ? '<div style="margin:0;padding:0;">' + lines.map(function(item) {
+            return '<p style="font-family:' + F.body + ';font-size:15px;color:' + C.body + ';line-height:1.6;margin:0 0 6px;">\u{1F449} ' + item + '</p>';
+          }).join('') + '</div>'
         : '<p style="font-family:' + F.body + ';font-size:15px;color:' + C.body + ';line-height:1.7;margin:0;">' + items + '</p>';
     } else if (Array.isArray(items)) {
-      actionHtml = '<ul style="margin:0;padding:0 0 0 20px;">' + items.map(function(item) {
-        return '<li style="font-family:' + F.body + ';font-size:15px;color:' + C.body + ';line-height:1.6;margin:0 0 4px;">\u{1F449} ' + item + '</li>';
-      }).join('') + '</ul>';
+      actionHtml = '<div style="margin:0;padding:0;">' + items.map(function(item) {
+        return '<p style="font-family:' + F.body + ';font-size:15px;color:' + C.body + ';line-height:1.6;margin:0 0 6px;">\u{1F449} ' + item + '</p>';
+      }).join('') + '</div>';
     }
   }
 
@@ -235,6 +235,7 @@ function buildBlog(newsletter) {
 }
 
 module.exports = { build: build, buildBlog: buildBlog, esc: esc, C: C, F: F };
+
 
 
 
