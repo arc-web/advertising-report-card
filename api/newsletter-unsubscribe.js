@@ -13,7 +13,7 @@ module.exports = async function handler(req, res) {
     if (!sid) return res.status(400).json({ error: 'Missing subscriber ID' });
 
     try {
-      await sb.mutate('newsletter_subscribers', 'id=eq.' + sid, 'PATCH', {
+      await sb.mutate('newsletter_subscribers?id=eq.' + sid, 'PATCH', {
         status: 'unsubscribed',
         unsubscribed_at: new Date().toISOString()
       });
@@ -72,3 +72,4 @@ function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
