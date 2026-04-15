@@ -320,10 +320,10 @@ textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.6; }
 @media (max-width: 768px) {
   .content { padding: 1rem; overflow-x: hidden; }
   .main { overflow-x: hidden; }
-  .stat-row { grid-template-columns: repeat(2, 1fr); gap: .5rem; }
-  .stat-card { padding: .65rem .5rem; }
-  .stat-card .value { font-size: 1.2rem; }
-  .stat-card .label { font-size: .62rem; }
+  .stat-row { grid-template-columns: repeat(2, 1fr); gap: .75rem; }
+  .stat-card { padding: 1rem; }
+  .stat-card .value { font-size: 1.5rem; }
+  .stat-card .label { font-size: .68rem; }
 
   /* Compose toolbar: wrap buttons */
   #tab-compose > div:first-child { flex-wrap: wrap; gap: .5rem; }
@@ -389,15 +389,18 @@ textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.6; }
   /* Drag summary text shorter on mobile */
   .story-editor.is-minimized .story-num .drag-summary { max-width: 180px; }
 
+  /* Bigger touch target for drag handle */
+  .story-editor .drag-handle { padding: .5rem; margin: -.35rem; }
+
   /* Subscriber rows */
   .sub-row { font-size: .78rem; padding: .5rem .75rem; }
 }
 
 @media (max-width: 480px) {
   .content { padding: .65rem; }
-  .stat-card .value { font-size: 1.05rem; }
-  .stat-card .label { font-size: .58rem; }
-  .stat-card { padding: .5rem .4rem; }
+  .stat-card .value { font-size: 1.3rem; }
+  .stat-card .label { font-size: .65rem; }
+  .stat-card { padding: .85rem .65rem; }
 
   /* Stack story action buttons */
   .story-editor .story-actions { flex-wrap: wrap; justify-content: flex-end; }
@@ -610,9 +613,9 @@ textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.6; }
 
       <!-- TAB: Subscribers -->
       <div class="tab-content" id="tab-subscribers">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-          <div style="display:flex;gap:.5rem;align-items:center;">
-            <input type="text" class="form-input" id="subSearch" placeholder="Search by email or name..." style="width:220px;font-size:.82rem;" oninput="filterSubscribers()" />
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem;">
+          <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+            <input type="text" class="form-input" id="subSearch" placeholder="Search by email or name..." style="width:220px;max-width:100%;font-size:.82rem;" oninput="filterSubscribers()" />
             <select class="form-input" style="width:auto;font-size:.82rem;" id="subSort" onchange="loadSubscribers()">
               <option value="alpha">A-Z (Name)</option>
               <option value="recent">Most Recent</option>
@@ -635,6 +638,8 @@ textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.6; }
           </div>
         </div>
         <div class="card" style="padding:0;overflow:hidden;">
+          <div class="sub-scroll-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+          <div style="min-width:560px;">
           <div style="padding:.65rem 1rem;border-bottom:1px solid var(--color-border);display:grid;grid-template-columns:2fr 1.5fr 80px 80px 100px;gap:.75rem;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-muted);">
             <div>Email</div>
             <div>Name</div>
@@ -643,6 +648,8 @@ textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.6; }
             <div>Source</div>
           </div>
           <div id="subscribersList" class="loading" style="padding:2rem;">Loading...</div>
+          </div><!-- min-width -->
+          </div><!-- scroll-wrap -->
         </div>
       </div>
     </div>
@@ -1216,6 +1223,110 @@ window.storyDragOver = storyDragOver;
 window.storyDragLeave = storyDragLeave;
 window.storyDrop = storyDrop;
 window.storyDragEnd = storyDragEnd;
+
+// ---- Touch Drag and Drop (mobile) ----
+var touchDragEl = null;
+var touchDragIdx = null;
+var touchMoved = false;
+
+function initTouchDrag() {
+  var container = document.getElementById('storiesContainer');
+  if (!container) return;
+
+  container.addEventListener('touchstart', function(e) {
+    var handle = e.target.closest('.drag-handle');
+    if (!handle) return;
+    var card = handle.closest('.story-editor');
+    if (!card) return;
+    e.preventDefault();
+
+    touchDragIdx = parseInt(card.id.replace('story-', ''));
+    touchDragEl = card;
+    touchMoved = false;
+    // Set desktop drag vars so finalizeDragOrder/cleanupDrag work
+    draggedEl = card;
+    dragMoved = false;
+
+    // Minimize all cards with headlines
+    for (var i = 0; i < 5; i++) {
+      var el = document.getElementById('story-' + i);
+      if (!el) continue;
+      el.classList.add('is-minimized');
+      var headline = document.getElementById('s' + i + '-headline').value || '(empty)';
+      var summary = document.getElementById('dragSummary-' + i);
+      if (summary) {
+        summary.textContent = headline.length > 40 ? headline.substring(0, 40) + '...' : headline;
+        summary.style.display = 'inline';
+      }
+    }
+    card.classList.add('drag-source');
+  }, { passive: false });
+
+  container.addEventListener('touchmove', function(e) {
+    if (!touchDragEl) return;
+    e.preventDefault();
+
+    var touch = e.touches[0];
+    var cards = Array.from(container.querySelectorAll('.story-editor'));
+
+    // Find which card the touch is over
+    for (var i = 0; i < cards.length; i++) {
+      var rect = cards[i].getBoundingClientRect();
+      if (touch.clientY >= rect.top && touch.clientY <= rect.bottom && cards[i] !== touchDragEl) {
+        var dragIdx = cards.indexOf(touchDragEl);
+        var targetIdx = cards.indexOf(cards[i]);
+        if (dragIdx === targetIdx) continue;
+
+        // FLIP animation
+        var oldRects = {};
+        cards.forEach(function(c) { oldRects[c.id] = c.getBoundingClientRect(); });
+
+        if (dragIdx < targetIdx) {
+          container.insertBefore(touchDragEl, cards[i].nextSibling);
+        } else {
+          container.insertBefore(touchDragEl, cards[i]);
+        }
+
+        touchMoved = true;
+        dragMoved = true;
+        updateStoryLabels();
+
+        var newCards = Array.from(container.querySelectorAll('.story-editor'));
+        newCards.forEach(function(c) {
+          if (c === touchDragEl) return;
+          var oldRect = oldRects[c.id];
+          if (!oldRect) return;
+          var newRect = c.getBoundingClientRect();
+          var dy = oldRect.top - newRect.top;
+          if (Math.abs(dy) > 2) {
+            c.style.transition = 'none';
+            c.style.transform = 'translateY(' + dy + 'px)';
+            c.offsetHeight;
+            c.style.transition = 'transform .2s ease';
+            c.style.transform = '';
+          }
+        });
+        break;
+      }
+    }
+  }, { passive: false });
+
+  container.addEventListener('touchend', function(e) {
+    if (!touchDragEl) return;
+    if (touchMoved) {
+      finalizeDragOrder();
+    } else {
+      cleanupDrag();
+    }
+    touchDragEl = null;
+    touchDragIdx = null;
+    touchMoved = false;
+  });
+}
+
+// Initialize touch drag on page load
+if (document.readyState === 'complete') { initTouchDrag(); }
+else { window.addEventListener('load', initTouchDrag); }
 
 // ---- Refresh Story Image ----
 async function refreshStoryImage(index) {
@@ -2810,6 +2921,7 @@ init();
 </script>
 </body>
 </html>
+
 
 
 
