@@ -1625,8 +1625,8 @@ async function runAIGenerate() {
       document.getElementById('s' + i + '-headline').value = s.headline || '';
       document.getElementById('s' + i + '-body').value = s.body || '';
       document.getElementById('s' + i + '-actions').value = s.actions || '';
-      document.getElementById('s' + i + '-image').value = '';
-      document.getElementById('s' + i + '-imagealt').value = s.image_suggestion || '';
+      document.getElementById('s' + i + '-image').value = s.image_url || '';
+      document.getElementById('s' + i + '-imagealt').value = s.image_alt || s.image_suggestion || '';
     }
 
     // Populate quick wins
