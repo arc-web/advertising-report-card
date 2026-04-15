@@ -1098,21 +1098,30 @@ strong { font-weight: 600; color: var(--color-heading); }
           <div id="designSpecBody" class="collapsed" style="overflow:hidden;transition:max-height .3s ease;max-height:0;">
             <!-- CMS Config section (top of design spec) -->
             <div id="cmsConfigSection" style="padding:.75rem 1rem;border-bottom:1px solid var(--color-border-tertiary);">
-              <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
-                <div style="display:flex;align-items:center;gap:.4rem;min-width:130px;">
-                  <span id="cmsPlatformIcon" style="font-size:.9rem;">&#127760;</span>
-                  <span id="cmsPlatformLabel" style="font-weight:600;font-size:.8rem;color:var(--color-text-secondary);">No platform set</span>
+              <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;">
+                <span id="cmsPlatformIcon" style="font-size:.9rem;">&#127760;</span>
+                <span id="cmsPlatformLabel" style="font-weight:600;font-size:.85rem;color:var(--color-text-secondary);">No platform set</span>
+                <button class="btn btn-sm btn-ghost" id="btnRunScout" onclick="runWpScout()" title="Scan this WordPress site" style="white-space:nowrap;display:none;margin-left:auto;">&#128269; Scout</button>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem .75rem;">
+                <div style="display:flex;align-items:center;gap:.35rem;">
+                  <label style="font-size:.7rem;color:var(--color-text-tertiary);white-space:nowrap;min-width:55px;">Login URL</label>
+                  <input type="text" id="cmsLoginUrl" placeholder="/wp-admin" style="flex:1;padding:.25rem .5rem;font-size:.8rem;border:1px solid var(--color-border-tertiary);border-radius:6px;background:var(--color-surface);color:var(--color-text-primary);" onchange="saveCmsField('cms_login_url', this.value)">
                 </div>
-                <div style="display:flex;align-items:center;gap:.4rem;flex:1;min-width:180px;">
-                  <label style="font-size:.7rem;color:var(--color-text-tertiary);white-space:nowrap;">Login URL</label>
-                  <input type="text" id="cmsLoginUrl" placeholder="/wp-admin" style="flex:1;padding:.25rem .5rem;font-size:.8rem;border:1px solid var(--color-border-tertiary);border-radius:6px;background:var(--color-surface);color:var(--color-text-primary);max-width:200px;" onchange="saveCmsField('cms_login_url', this.value)">
+                <div style="display:flex;align-items:center;gap:.35rem;">
+                  <label style="font-size:.7rem;color:var(--color-text-tertiary);white-space:nowrap;min-width:55px;">Username</label>
+                  <input type="text" id="cmsUsername" placeholder="admin@practice.com" style="flex:1;padding:.25rem .5rem;font-size:.8rem;border:1px solid var(--color-border-tertiary);border-radius:6px;background:var(--color-surface);color:var(--color-text-primary);" onchange="saveCmsField('cms_username', this.value)">
                 </div>
-                <div id="cmsAppPasswordGroup" style="display:flex;align-items:center;gap:.4rem;flex:1;min-width:200px;">
-                  <label style="font-size:.7rem;color:var(--color-text-tertiary);white-space:nowrap;">App Password</label>
-                  <input type="password" id="cmsAppPassword" placeholder="Generate in WP Users > Profile" style="flex:1;padding:.25rem .5rem;font-size:.8rem;border:1px solid var(--color-border-tertiary);border-radius:6px;background:var(--color-surface);color:var(--color-text-primary);max-width:200px;" onchange="saveCmsField('cms_app_password', this.value)">
+                <div style="display:flex;align-items:center;gap:.35rem;">
+                  <label style="font-size:.7rem;color:var(--color-text-tertiary);white-space:nowrap;min-width:55px;">Password</label>
+                  <input type="password" id="cmsPassword" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" style="flex:1;padding:.25rem .5rem;font-size:.8rem;border:1px solid var(--color-border-tertiary);border-radius:6px;background:var(--color-surface);color:var(--color-text-primary);" onchange="saveCmsField('cms_password', this.value)">
+                  <button onclick="togglePasswordVisibility('cmsPassword', this)" style="background:none;border:none;cursor:pointer;font-size:.7rem;color:var(--color-text-tertiary);padding:2px;" title="Show/hide">&#128065;</button>
+                </div>
+                <div id="cmsAppPasswordGroup" style="display:flex;align-items:center;gap:.35rem;">
+                  <label style="font-size:.7rem;color:var(--color-text-tertiary);white-space:nowrap;min-width:55px;">App PW</label>
+                  <input type="password" id="cmsAppPassword" placeholder="WP Application Password" style="flex:1;padding:.25rem .5rem;font-size:.8rem;border:1px solid var(--color-border-tertiary);border-radius:6px;background:var(--color-surface);color:var(--color-text-primary);" onchange="saveCmsField('cms_app_password', this.value)">
                   <button onclick="togglePasswordVisibility('cmsAppPassword', this)" style="background:none;border:none;cursor:pointer;font-size:.7rem;color:var(--color-text-tertiary);padding:2px;" title="Show/hide">&#128065;</button>
                 </div>
-                <button class="btn btn-sm btn-ghost" id="btnRunScout" onclick="runWpScout()" title="Scan this site to detect theme, plugins, pages, and SEO setup" style="white-space:nowrap;display:none;">&#128269; Scout</button>
               </div>
               <div id="cmsScoutResult" style="display:none;margin-top:.5rem;padding:.4rem .6rem;background:var(--color-bg);border-radius:6px;font-size:.78rem;color:var(--color-text-secondary);"></div>
             </div>
@@ -5566,18 +5575,22 @@ strong { font-weight: 600; color: var(--color-heading); }
 
     // -- CMS CONFIG (inside Design and Config card) --
     var plat = (c.website_platform || '').toLowerCase();
-    var platformIcons = { wordpress: '&#128214;', squarespace: '&#9632;', wix: '&#9670;', showit: '&#9733;' };
+    var platformIcons = { wordpress: '&#128214;', squarespace: '&#9632;', wix: '&#9670;', showit: '&#9733;', simplepractice: '&#128203;' };
     var platformEl = document.getElementById('cmsPlatformLabel');
     var iconEl = document.getElementById('cmsPlatformIcon');
     if (platformEl) {
-      platformEl.textContent = plat ? (plat.charAt(0).toUpperCase() + plat.slice(1) + (c.website_builder ? ' + ' + c.website_builder : '')) : 'No platform set';
+      platformEl.textContent = plat ? (plat.charAt(0).toUpperCase() + plat.slice(1) + (c.website_builder ? ' + ' + c.website_builder.charAt(0).toUpperCase() + c.website_builder.slice(1) : '')) : 'No platform set';
       if (iconEl) iconEl.innerHTML = platformIcons[plat] || '&#127760;';
     }
     var loginInput = document.getElementById('cmsLoginUrl');
     if (loginInput) loginInput.value = c.cms_login_url || '';
-    var pwInput = document.getElementById('cmsAppPassword');
-    if (pwInput) pwInput.value = c.cms_app_password || '';
-    // App Password only relevant for WordPress
+    var userInput = document.getElementById('cmsUsername');
+    if (userInput) userInput.value = c.cms_username || '';
+    var passInput = document.getElementById('cmsPassword');
+    if (passInput) passInput.value = c.cms_password || '';
+    var appPwInput = document.getElementById('cmsAppPassword');
+    if (appPwInput) appPwInput.value = c.cms_app_password || '';
+    // App Password only for WordPress
     var pwGroup = document.getElementById('cmsAppPasswordGroup');
     if (pwGroup) pwGroup.style.display = (plat === 'wordpress') ? 'flex' : 'none';
     // Scout button only for WordPress
