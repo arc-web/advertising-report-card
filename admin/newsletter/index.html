@@ -194,9 +194,16 @@ textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.6; }
 .story-editor .collapse-toggle:hover { color: var(--color-primary);background:var(--color-primary-subtle); }
 .story-editor .collapse-toggle svg { transition:transform .2s ease; }
 .story-editor .collapse-toggle.is-collapsed svg { transform:rotate(-90deg); }
-.story-editor .refresh-img-btn { background:none;border:none;color:var(--color-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;transition:all .15s;padding:0; }
-.story-editor .refresh-img-btn:hover { color:var(--color-info);background:rgba(59,130,246,.08); }
-.story-editor .refresh-img-btn.loading { animation:spin 1s linear infinite; }
+.story-editor .refresh-img-btn { background:none;border:1px solid var(--color-border);color:var(--color-muted);cursor:pointer;display:inline-flex;align-items:center;gap:.3rem;border-radius:6px;transition:all .15s;padding:.2rem .5rem;font-family:Inter,sans-serif;font-size:.7rem;font-weight:500;white-space:nowrap; }
+.story-editor .refresh-img-btn:hover { color:var(--color-info);background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.2); }
+.story-editor .refresh-img-btn.loading svg { animation:spin 1s linear infinite; }
+.story-editor.is-minimized { padding:.75rem 1.25rem; }
+.story-editor.is-minimized .story-num { margin-bottom:0; }
+.story-editor.is-minimized .story-num .drag-summary { display:inline;font-size:.8rem;font-weight:400;color:var(--color-body);margin-left:.35rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:400px; }
+.story-editor.drag-source { opacity:.4;border-color:var(--color-primary);background:var(--color-primary-subtle); }
+.story-editor.drag-over { border-color:var(--color-primary);border-style:dashed;background:var(--color-primary-subtle);transform:scale(1.01); }
+.story-editor.just-landed { animation:landPulse .6s ease; }
+@keyframes landPulse { 0% { box-shadow:0 0 0 0 rgba(0,212,126,.3); } 50% { box-shadow:0 0 0 6px rgba(0,212,126,.15); } 100% { box-shadow:none; } }
 .verify-panel { padding:1rem 1.25rem;border-radius:12px;border:1px solid var(--color-border);background:var(--color-surface); }
 .verify-story { padding:.65rem .85rem;border-radius:8px;margin-bottom:.5rem;display:flex;align-items:flex-start;gap:.65rem; }
 .verify-story.high { background:rgba(0,212,126,.06);border:1px solid rgba(0,212,126,.15); }
@@ -850,8 +857,9 @@ function storyEditorHtml(index) {
     '<div class="story-num">' +
       '<span class="drag-handle" title="Drag to reorder"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/></svg></span>' +
       '<span>Story ' + num + '</span>' +
+      '<span class="drag-summary" id="dragSummary-' + index + '" style="display:none;"></span>' +
       '<div class="story-actions">' +
-        '<button class="refresh-img-btn" onclick="event.stopPropagation();refreshStoryImage(' + index + ')" title="New image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></button>' +
+        '<button class="refresh-img-btn" onclick="event.stopPropagation();refreshStoryImage(' + index + ')" title="Search for a different image"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>New Image</button>' +
         '<span class="collapse-toggle" onclick="event.stopPropagation();toggleStory(' + index + ')"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></span>' +
       '</div>' +
     '</div>' +
@@ -885,11 +893,23 @@ var dragSourceIndex = null;
 function storyDragStart(e, index) {
   dragSourceIndex = index;
   e.dataTransfer.effectAllowed = 'move';
-  e.target.closest('.story-editor').classList.add('dragging');
-  // Minimize all stories during drag for easy reorder
+
+  // Minimize all stories and show headlines so you can see what you're reordering
   for (var i = 0; i < 5; i++) {
     var el = document.getElementById('story-' + i);
-    if (el) el.classList.add('is-minimized');
+    if (!el) continue;
+    el.classList.add('is-minimized');
+    // Show headline summary in the collapsed header
+    var headline = document.getElementById('s' + i + '-headline').value || '(empty)';
+    var summary = document.getElementById('dragSummary-' + i);
+    if (summary) {
+      summary.textContent = headline.length > 50 ? headline.substring(0, 50) + '...' : headline;
+      summary.style.display = 'inline';
+    }
+    // Mark source vs targets
+    if (i === index) {
+      el.classList.add('drag-source');
+    }
   }
 }
 
@@ -907,7 +927,10 @@ function storyDragLeave(e, index) {
 
 function storyDrop(e, targetIndex) {
   e.preventDefault();
-  if (dragSourceIndex === null || dragSourceIndex === targetIndex) return;
+  if (dragSourceIndex === null || dragSourceIndex === targetIndex) {
+    storyDragEnd(e);
+    return;
+  }
 
   // Gather current values from all 5 stories
   var allData = [];
@@ -934,19 +957,37 @@ function storyDrop(e, targetIndex) {
     document.getElementById('s' + j + '-imagealt').value = allData[j].imagealt;
   }
 
-  toast('Moved story ' + (dragSourceIndex + 1) + ' to position ' + (targetIndex + 1));
+  // Clear drag state on all cards
+  for (var k = 0; k < 5; k++) {
+    var el = document.getElementById('story-' + k);
+    if (!el) continue;
+    el.classList.remove('dragging', 'drag-over', 'drag-source', 'is-minimized', 'just-landed');
+    var summary = document.getElementById('dragSummary-' + k);
+    if (summary) summary.style.display = 'none';
+  }
+
+  // Highlight the landed card and scroll to it
+  var landed = document.getElementById('story-' + targetIndex);
+  if (landed) {
+    landed.classList.add('just-landed');
+    landed.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    setTimeout(function() { landed.classList.remove('just-landed'); }, 700);
+  }
+
+  toast('Moved to position ' + (targetIndex + 1));
   dragSourceIndex = null;
 }
 
 function storyDragEnd(e) {
-  dragSourceIndex = null;
-  // Restore all stories (remove minimize and drag classes)
+  // Restore all stories
   for (var i = 0; i < 5; i++) {
     var el = document.getElementById('story-' + i);
-    if (el) {
-      el.classList.remove('dragging', 'drag-over', 'is-minimized');
-    }
+    if (!el) continue;
+    el.classList.remove('dragging', 'drag-over', 'drag-source', 'is-minimized');
+    var summary = document.getElementById('dragSummary-' + i);
+    if (summary) summary.style.display = 'none';
   }
+  dragSourceIndex = null;
 }
 window.storyDragStart = storyDragStart;
 window.storyDragOver = storyDragOver;
@@ -966,7 +1007,9 @@ async function refreshStoryImage(index) {
   var storyId = selected[index] ? selected[index].id : null;
 
   var btn = document.getElementById('story-' + index).querySelector('.refresh-img-btn');
+  var originalText = btn.innerHTML;
   btn.classList.add('loading');
+  btn.lastChild.textContent = 'Searching...';
 
   try {
     var resp = await fetch('/api/newsletter-refresh-image', {
@@ -987,6 +1030,7 @@ async function refreshStoryImage(index) {
     toast('Image refresh failed: ' + e.message, 'error');
   } finally {
     btn.classList.remove('loading');
+    btn.innerHTML = originalText;
   }
 }
 window.refreshStoryImage = refreshStoryImage;
@@ -2057,6 +2101,7 @@ init();
 </script>
 </body>
 </html>
+
 
 
 
