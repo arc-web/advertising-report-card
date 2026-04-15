@@ -67,7 +67,7 @@ function storyBlock(story, index) {
     '<tr><td style="padding:0 0 16px;"><div style="font-family:' + F.body + ';font-size:15px;color:' + C.body + ';line-height:1.7;">' +
       (story.body || '') + '</div></td></tr>' +
     (actionHtml ? '<tr><td style="padding:14px 20px;background:' + C.subtleBg + ';border-left:3px solid ' + C.primary + ';border-radius:0 8px 8px 0;">' +
-      '<p style="font-family:' + F.body + ';font-size:15px;font-weight:600;color:' + C.heading + ';margin:0 0 8px;">\u{1F449} Action:</p>' +
+      '<p style="font-family:' + F.body + ';font-size:15px;font-weight:600;color:' + C.heading + ';margin:0 0 8px;">Action:</p>' +
       actionHtml + '</td></tr>' : '') +
     '</table></td></tr>' +
     '<tr><td style="padding:16px 0;"><table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>' +
@@ -168,8 +168,8 @@ function build(newsletter, subscriberId) {
 
     divider() +
 
-    '<tr><td style="padding:20px 0;text-align:center;"><img src="' + PARTNER_LOGOS_URL + '" alt="Trusted by leading therapy business coaches" ' +
-      'width="536" style="display:block;width:100%;max-width:536px;height:auto;margin:0 auto;" /></td></tr>' +
+    '<tr><td style="padding:24px 0;text-align:center;"><img src="' + PARTNER_LOGOS_URL + '" alt="Trusted by leading therapy business coaches" ' +
+      'width="600" style="display:block;width:calc(100% + 32px);max-width:none;height:auto;margin:0 -16px;" /></td></tr>' +
 
     divider() +
     '<tr><td style="padding:12px 0 0;">&nbsp;</td></tr>' +
@@ -222,7 +222,7 @@ function buildBlog(newsletter) {
     if (s.action_items || s.actions) {
       var raw = s.action_items || s.actions;
       var items = typeof raw === 'string' ? raw.split('\n').filter(function(l) { return l.trim(); }) : (raw || []);
-      actionHtml = '<div class="action-box"><p><strong>\u{1F449} Action:</strong></p><ul>' + items.map(function(item) { return '<li>' + item + '</li>'; }).join('') + '</ul></div>';
+      actionHtml = '<div class="action-box"><p><strong>Action:</strong></p><ul>' + items.map(function(item) { return '<li>' + item + '</li>'; }).join('') + '</ul></div>';
     }
     return '<article class="story">' + img + '<h2>' + num + '. ' + esc(s.headline) + '</h2><div class="story-body">' + (s.body || '') + '</div>' + actionHtml + '</article>';
   }).join('');
@@ -235,6 +235,7 @@ function buildBlog(newsletter) {
 }
 
 module.exports = { build: build, buildBlog: buildBlog, esc: esc, C: C, F: F };
+
 
 
 
