@@ -889,8 +889,9 @@ function toggleStory(index) {
 
 // ---- Drag and Drop Reorder ----
 var draggedEl = null;
+var dragOrigIndex = -1;
+var dragMoved = false;
 
-// Update "Story N" labels to match current DOM order (always 1-5 top to bottom)
 function updateStoryLabels() {
   var cards = document.getElementById('storiesContainer').querySelectorAll('.story-editor');
   cards.forEach(function(card, pos) {
@@ -901,21 +902,27 @@ function updateStoryLabels() {
 
 function storyDragStart(e, index) {
   draggedEl = document.getElementById('story-' + index);
+  dragOrigIndex = index;
+  dragMoved = false;
   e.dataTransfer.effectAllowed = 'move';
 
-  // Minimize all cards immediately (sync, so browser ghost image is also minimized)
-  for (var i = 0; i < 5; i++) {
-    var el = document.getElementById('story-' + i);
-    if (!el) continue;
-    el.classList.add('is-minimized');
-    var headline = document.getElementById('s' + i + '-headline').value || '(empty)';
-    var summary = document.getElementById('dragSummary-' + i);
-    if (summary) {
-      summary.textContent = headline.length > 55 ? headline.substring(0, 55) + '...' : headline;
-      summary.style.display = 'inline';
+  // Delay minimize so browser captures ghost image from current position
+  // (sync minimize shifts card positions and breaks drag on non-first cards)
+  setTimeout(function() {
+    if (!draggedEl) return;
+    for (var i = 0; i < 5; i++) {
+      var el = document.getElementById('story-' + i);
+      if (!el) continue;
+      el.classList.add('is-minimized');
+      var headline = document.getElementById('s' + i + '-headline').value || '(empty)';
+      var summary = document.getElementById('dragSummary-' + i);
+      if (summary) {
+        summary.textContent = headline.length > 55 ? headline.substring(0, 55) + '...' : headline;
+        summary.style.display = 'inline';
+      }
     }
-  }
-  draggedEl.classList.add('drag-source');
+    draggedEl.classList.add('drag-source');
+  }, 20);
 }
 
 function storyDragOver(e, index) {
@@ -942,13 +949,13 @@ function storyDragOver(e, index) {
     container.insertBefore(draggedEl, targetEl);
   }
 
-  // Update positional labels so numbers always read 1-5 top to bottom
+  dragMoved = true;
   updateStoryLabels();
 
-  // FLIP step 2: animate other cards from old position to new
+  // FLIP step 2: animate other cards smoothly
   var newCards = Array.from(container.querySelectorAll('.story-editor'));
   newCards.forEach(function(card) {
-    if (card === draggedEl) return; // dragged card stays put visually
+    if (card === draggedEl) return;
     var oldRect = oldRects[card.id];
     if (!oldRect) return;
     var newRect = card.getBoundingClientRect();
@@ -956,7 +963,7 @@ function storyDragOver(e, index) {
     if (Math.abs(dy) > 2) {
       card.style.transition = 'none';
       card.style.transform = 'translateY(' + dy + 'px)';
-      card.offsetHeight; // force reflow
+      card.offsetHeight;
       card.style.transition = 'transform .2s ease';
       card.style.transform = '';
     }
@@ -967,11 +974,31 @@ function storyDragLeave(e, index) {}
 
 function storyDrop(e, index) {
   e.preventDefault();
-  if (draggedEl) finalizeDragOrder();
+  // drop handled by dragEnd
 }
 
 function storyDragEnd(e) {
-  if (draggedEl) finalizeDragOrder();
+  if (!draggedEl) return;
+  if (dragMoved) {
+    finalizeDragOrder();
+  } else {
+    cleanupDrag();
+  }
+}
+
+function cleanupDrag() {
+  for (var i = 0; i < 5; i++) {
+    var el = document.getElementById('story-' + i);
+    if (!el) continue;
+    el.classList.remove('is-minimized', 'drag-source', 'drag-over');
+    el.style.transition = '';
+    el.style.transform = '';
+    var summary = document.getElementById('dragSummary-' + i);
+    if (summary) summary.style.display = 'none';
+  }
+  updateStoryLabels();
+  draggedEl = null;
+  dragMoved = false;
 }
 
 function finalizeDragOrder() {
@@ -1011,16 +1038,7 @@ function finalizeDragOrder() {
   }
 
   // Restore all cards
-  for (var k = 0; k < 5; k++) {
-    var el = document.getElementById('story-' + k);
-    if (!el) continue;
-    el.classList.remove('is-minimized', 'drag-source', 'drag-over');
-    el.style.transition = '';
-    el.style.transform = '';
-    var summary = document.getElementById('dragSummary-' + k);
-    if (summary) summary.style.display = 'none';
-  }
-  updateStoryLabels();
+  cleanupDrag();
 
   // Pulse the landed card
   var landedCard = document.getElementById('story-' + landedIndex);
@@ -1031,7 +1049,6 @@ function finalizeDragOrder() {
   }
 
   toast('Moved to position ' + (landedIndex + 1));
-  draggedEl = null;
 }
 window.storyDragStart = storyDragStart;
 window.storyDragOver = storyDragOver;
@@ -2145,6 +2162,7 @@ init();
 </script>
 </body>
 </html>
+
 
 
 
