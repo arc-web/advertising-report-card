@@ -1216,7 +1216,7 @@ async function verifyFacts() {
       if (conf !== 'high') {
         sh += '<div class="verify-actions">';
         sh += '<button onclick="refineStory(' + si + ')">Refine for accuracy</button>';
-        sh += '<button class="swap-btn" onclick="showSwapList(' + si + ',this)">Swap story</button>';
+        sh += '<button class="swap-btn" onclick="showSwapList(' + si + ',this)">Swap &amp; verify</button>';
         sh += '</div>';
         sh += '<div id="swapList-' + si + '" style="display:none;"></div>';
       }
@@ -1329,11 +1329,11 @@ async function swapStory(storyIndex, candidateId) {
   var listEl = document.getElementById('swapList-' + storyIndex);
   if (listEl) listEl.style.display = 'none';
   var verifyEl = document.getElementById('storyVerify-' + storyIndex);
-  if (verifyEl) { verifyEl.style.display = 'none'; verifyEl.innerHTML = ''; }
+  if (verifyEl) { verifyEl.innerHTML = '<div style="padding:.4rem;font-size:.78rem;color:var(--color-muted);display:flex;align-items:center;gap:.5rem;"><span class="research-spinner" style="width:14px;height:14px;flex-shrink:0;"></span> Generating content, updating quick wins, and verifying...</div>'; verifyEl.style.display = 'block'; }
 
   toast('Swapped story ' + (storyIndex + 1) + ', generating content...');
 
-  // Auto-generate body + actions
+  // Step 1: Generate body + actions
   try {
     var genResp = await fetch('/api/newsletter-regenerate-story', {
       method: 'POST',
@@ -1350,16 +1350,14 @@ async function swapStory(storyIndex, candidateId) {
       document.getElementById('s' + storyIndex + '-body').value = genData.body;
       document.getElementById('s' + storyIndex + '-actions').value = genData.actions || '';
       flashFields(['s' + storyIndex + '-headline', 's' + storyIndex + '-body', 's' + storyIndex + '-actions']);
-      toast('Story ' + (storyIndex + 1) + ' content generated');
     } else {
       document.getElementById('s' + storyIndex + '-body').value = '<p>' + (candidate.summary || '') + '</p>';
-      toast('Content generation failed, summary used as fallback', 'error');
     }
   } catch (e) {
     document.getElementById('s' + storyIndex + '-body').value = '<p>' + (candidate.summary || '') + '</p>';
   }
 
-  // Fetch Pexels image if none
+  // Step 2: Fetch Pexels image if none
   if (!imgField.value) {
     try {
       var imgResp = await fetch('/api/newsletter-refresh-image', {
@@ -1375,6 +1373,75 @@ async function swapStory(storyIndex, candidateId) {
       }
     } catch (e) { /* non-fatal */ }
   }
+
+  // Step 3: Regenerate quick wins based on all 5 current stories
+  try {
+    var currentStories = [];
+    for (var q = 0; q < 5; q++) {
+      currentStories.push({
+        headline: document.getElementById('s' + q + '-headline').value,
+        body: document.getElementById('s' + q + '-body').value
+      });
+    }
+    var qwResp = await fetch('/api/newsletter-regenerate-quickwins', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stories: currentStories })
+    });
+    var qwData = await qwResp.json();
+    if (qwResp.ok && qwData.quick_wins && qwData.quick_wins.length) {
+      var qwContainer = document.getElementById('quickWinsContainer');
+      qwContainer.innerHTML = '';
+      qwData.quick_wins.forEach(function(item) {
+        addQuickWinField(qwContainer);
+        var input = qwContainer.lastChild.querySelector('.qw-input');
+        input.value = item;
+        input.classList.remove('field-flash');
+        input.offsetHeight;
+        input.classList.add('field-flash');
+      });
+      toast('Quick wins updated');
+    }
+  } catch (e) { /* non-fatal */ }
+
+  // Step 4: Save draft then verify just this story
+  try {
+    var data = gatherContent();
+    await apiAction('update_record', 'newsletters', {
+      subject: data.subject,
+      preview_text: data.preview_text,
+      content: data.content
+    }, { id: currentEditionId });
+
+    var vResp = await fetch('/api/newsletter-verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newsletter_id: currentEditionId, story_index: storyIndex })
+    });
+    var vData = await vResp.json();
+    if (vResp.ok && vData.results && vData.results.length) {
+      var c = vData.results[0];
+      var conf = c.confidence || 'medium';
+      var icons = { high: '\u2713', medium: '!', low: '\u2717' };
+      var sh = '<div class="verify-story ' + conf + '" style="margin-top:.5rem;">';
+      sh += '<div class="verify-badge ' + conf + '">' + (icons[conf] || '?') + '</div>';
+      sh += '<div style="flex:1;"><div class="verify-headline">' + conf.charAt(0).toUpperCase() + conf.slice(1) + ' confidence</div>';
+      if (c.notes) sh += '<div class="verify-issues">' + escHtml(c.notes) + '</div>';
+      if (c.issues && c.issues.length) {
+        sh += '<ul class="verify-issues" style="margin:.25rem 0 0;padding-left:1.2rem;">';
+        c.issues.forEach(function(issue) { sh += '<li>' + escHtml(issue) + '</li>'; });
+        sh += '</ul>';
+      }
+      sh += '</div></div>';
+      if (verifyEl) { verifyEl.innerHTML = sh; verifyEl.style.display = 'block'; }
+    } else {
+      if (verifyEl) verifyEl.style.display = 'none';
+    }
+  } catch (e) {
+    if (verifyEl) verifyEl.style.display = 'none';
+  }
+
+  toast('Swap complete');
 }
 window.swapStory = swapStory;
 
@@ -2384,6 +2451,7 @@ init();
 </script>
 </body>
 </html>
+
 
 
 
