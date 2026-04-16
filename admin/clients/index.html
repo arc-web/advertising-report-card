@@ -1870,6 +1870,7 @@ strong { font-weight: 600; color: var(--color-heading); }
             state.endorsements = data.endorsements || [];
             state.contentBatches = data.auditBatches || [];
             state.trackedKeywords = data.keywords || [];
+            state.bioMaterials = data.bioMaterials || state.bioMaterials || [];
             break;
 
           case 'audit':
@@ -2214,6 +2215,14 @@ strong { font-weight: 600; color: var(--color-heading); }
   function renderBioMaterials() {
     var bioEl = document.getElementById('contentBioMaterials');
     var bios = state.bioMaterials || [];
+    // Ensure parent section is expanded when we have data
+    var body = document.getElementById('cliniciansBody');
+    if (body && (body.classList.contains('collapsed') || body.style.maxHeight === '0px' || body.style.maxHeight === '0')) {
+      body.classList.remove('collapsed');
+      body.style.maxHeight = '4000px';
+      var icon = document.getElementById('cliniciansIcon');
+      if (icon) icon.innerHTML = '&#9660;';
+    }
     if (bios.length === 0) {
       bioEl.innerHTML = '<div class="empty-state" style="padding:1.5rem;"><p>No bio materials yet. Click + Add Clinician to get started.</p></div>';
       return;
