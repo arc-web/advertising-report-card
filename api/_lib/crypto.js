@@ -16,17 +16,27 @@ var ALGO = 'aes-256-gcm';
 var IV_BYTES = 12;
 var PREFIX = 'v1:';
 
+// Loud warning at module load if the key is missing. Surfaces config issues
+// in Vercel logs even before the first encrypt/decrypt call.
+if (!process.env.CREDENTIALS_ENCRYPTION_KEY) {
+  console.error('[crypto] CRITICAL: CREDENTIALS_ENCRYPTION_KEY is not set. encrypt() and decrypt() will throw on any call. Set the env var immediately.');
+}
+
 function getKey() {
   var hex = process.env.CREDENTIALS_ENCRYPTION_KEY;
   if (!hex) return null;
   return Buffer.from(hex, 'hex');
 }
 
-// Encrypt a plaintext string. Returns "v1:iv_hex:ciphertext_hex:tag_hex" or null if no key.
+// Encrypt a plaintext string. Returns "v1:iv_hex:ciphertext_hex:tag_hex".
+// Throws if CREDENTIALS_ENCRYPTION_KEY is not configured — refusing to write
+// plaintext is always safer than silent passthrough.
 function encrypt(plaintext) {
   if (!plaintext) return plaintext;
   var key = getKey();
-  if (!key) return plaintext; // Passthrough if no key configured
+  if (!key) {
+    throw new Error('CREDENTIALS_ENCRYPTION_KEY not configured — refusing to write plaintext');
+  }
 
   var iv = nodeCrypto.randomBytes(IV_BYTES);
   var cipher = nodeCrypto.createCipheriv(ALGO, key, iv);
@@ -36,18 +46,25 @@ function encrypt(plaintext) {
   return PREFIX + iv.toString('hex') + ':' + encrypted.toString('hex') + ':' + tag.toString('hex');
 }
 
-// Decrypt a "v1:iv:ciphertext:tag" string. Returns plaintext or original string if not encrypted.
+// Decrypt a "v1:iv:ciphertext:tag" string. Returns plaintext or original
+// string if not encrypted (passthrough for already-plaintext legacy rows).
+// Throws if the key is missing or decryption fails — error strings must
+// never flow into read-then-write cycles where they would be persisted.
 function decrypt(ciphertext) {
   if (!ciphertext || typeof ciphertext !== 'string') return ciphertext;
   if (!ciphertext.startsWith(PREFIX)) return ciphertext; // Not encrypted, return as-is
 
   var key = getKey();
-  if (!key) return '[encrypted - key not available]';
+  if (!key) {
+    throw new Error('CREDENTIALS_ENCRYPTION_KEY not configured — cannot decrypt');
+  }
+
+  var parts = ciphertext.substring(PREFIX.length).split(':');
+  if (parts.length !== 3) {
+    throw new Error('Malformed ciphertext: expected 3 parts after v1: prefix');
+  }
 
   try {
-    var parts = ciphertext.substring(PREFIX.length).split(':');
-    if (parts.length !== 3) return ciphertext;
-
     var iv = Buffer.from(parts[0], 'hex');
     var encrypted = Buffer.from(parts[1], 'hex');
     var tag = Buffer.from(parts[2], 'hex');
@@ -57,7 +74,7 @@ function decrypt(ciphertext) {
     var decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
     return decrypted.toString('utf8');
   } catch (e) {
-    return '[decryption failed]';
+    throw new Error('Decryption failed: ' + e.message);
   }
 }
 
