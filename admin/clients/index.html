@@ -1289,6 +1289,7 @@
     proposalFollowups: {},
     auditFollowups: [],
     contentPages: [],
+    clientSite: null,
     designSpec: null,
     neoImages: [],
     endorsements: [],
@@ -1465,6 +1466,7 @@
       state.socialPlatforms = [];
       state.directoryListings = [];
       state.contentPages = [];
+      state.clientSite = null;
       state.designSpec = null;
       state.neoImages = [];
       state.endorsements = [];
@@ -5342,6 +5344,42 @@
     });
   };
 
+  window.deployToClientSite = function(cpId) {
+    var cp = state.contentPages.find(function(p) { return p.id === cpId; });
+    if (!cp || !cp.generated_html || !state.clientSite) {
+      toast('Cannot deploy: missing HTML or no site configured', 'error');
+      return;
+    }
+    cp._deploying = true;
+    renderContent();
+    var pagePath = (cp.page_slug || cp.page_name || 'page').replace(/[^a-z0-9-]/gi, '-').toLowerCase();
+    fetch('/api/admin/deploy-to-r2', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        site_id: state.clientSite.id,
+        page_path: pagePath,
+        html: cp.generated_html,
+        content_page_id: cp.id,
+        deployed_by: 'pagemaster'
+      })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      cp._deploying = false;
+      if (res.success) {
+        toast('Deployed to ' + res.live_url, 'success');
+        cp.status = 'delivered';
+        renderContent();
+      } else {
+        toast('Deploy failed: ' + (res.error || 'Unknown'), 'error');
+        renderContent();
+      }
+    }).catch(function(err) {
+      cp._deploying = false;
+      toast('Deploy error: ' + err.message, 'error');
+      renderContent();
+    });
+  };
+
   window.deployEndorsementPage = function() {
     if (!state.contact) return;
     toast('Deploying endorsement form...', 'info');
@@ -5579,6 +5617,17 @@
     var c = state.contact;
     var spec = state.designSpec;
     var pages = state.contentPages;
+
+    // Load client hosting config (once per client)
+    if (!state.clientSite && c && c.id) {
+      state.clientSite = 'loading';
+      fetch(SB + '/rest/v1/client_sites?contact_id=eq.' + c.id + '&hosting_type=eq.moonraker&status=eq.active&limit=1', {
+        headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK }
+      }).then(function(r) { return r.json(); }).then(function(sites) {
+        state.clientSite = (sites && sites.length > 0) ? sites[0] : false;
+        renderContent();
+      }).catch(function() { state.clientSite = false; });
+    }
 
     // -- CMS CONFIG (inside Design and Config card) --
     var plat = (c.website_platform || '').toLowerCase();
@@ -5992,6 +6041,10 @@
         }
         if (cp.generated_html) {
           h += '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); copyGeneratedHtml(\'' + cp.id + '\')">Copy HTML</button>';
+        }
+        if (cp.generated_html && state.clientSite && state.clientSite !== 'loading' && state.clientSite !== false) {
+          var isDeploying = cp._deploying;
+          h += '<button class="btn btn-sm" style="background:rgba(0,212,126,.12);color:#00b86c;border:1px solid rgba(0,212,126,.3);" onclick="event.stopPropagation(); deployToClientSite(\'' + cp.id + '\')"' + (isDeploying ? ' disabled' : '') + '>' + (isDeploying ? 'Deploying...' : '&#9729; Deploy to Site') + '</button>';
         }
         h += '</div></div></div></div>';
       });
