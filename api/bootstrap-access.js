@@ -18,6 +18,7 @@
 //   SUPABASE_SERVICE_ROLE_KEY, GOOGLE_SERVICE_ACCOUNT_JSON, LOCALFALCON_API_KEY
 
 var sb = require('./_lib/supabase');
+var auth = require('./_lib/auth');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -482,7 +483,6 @@ async function getDelegatedToken(saJson, impersonateEmail, scope) {
     var sa = typeof saJson === 'string' ? JSON.parse(saJson) : saJson;
     if (!sa.private_key || !sa.client_email) throw new Error('SA JSON missing private_key or client_email');
     var crypto = require('crypto');
-var auth = require('./_lib/auth');
 
     var header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
     var now = Math.floor(Date.now() / 1000);
@@ -512,3 +512,4 @@ var auth = require('./_lib/auth');
     return { error: e.message || String(e) };
   }
 }
+
