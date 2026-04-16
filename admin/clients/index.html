@@ -1399,10 +1399,13 @@
       }
     } catch(e) {}
 
-    fetch('/api/admin/clients-directory').then(function(r) { return r.json(); }).then(function(data) {
+    fetch('/api/admin/clients-directory').then(function(r) {
+      if (!r.ok) throw new Error('Failed to load directory');
+      return r.json();
+    }).then(function(data) {
       try { sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: data })); } catch(e) {}
       processDirectoryData(data);
-    });
+    }).catch(function(e) { console.error('Directory load error:', e); });
   }
 
   function loadDetailData() {
@@ -2338,10 +2341,13 @@
     });
   };
 
+  var _moveBioLock = false;
   window.moveBio = function(idx, direction) {
+    if (_moveBioLock) return;
     var bios = state.bioMaterials || [];
     var targetIdx = idx + direction;
     if (targetIdx < 0 || targetIdx >= bios.length) return;
+    _moveBioLock = true;
     // Swap in local state
     var temp = bios[idx];
     bios[idx] = bios[targetIdx];
@@ -2354,7 +2360,7 @@
     bios[idx].sort_order = idx;
     bios[targetIdx].sort_order = targetIdx;
     renderBioMaterials();
-    Promise.all(updates).catch(function() { showToast('Error reordering', 'error'); });
+    Promise.all(updates).catch(function() { showToast('Error reordering', 'error'); }).finally(function() { _moveBioLock = false; });
   };
 
   window.addBioClinician = function() {
@@ -4921,7 +4927,9 @@
     var c = state.contact;
     if (!c) return;
     try {
-      await apiAction('/api/action', 'POST', { table: 'contacts', action: 'update', id: c.id, data: { [field]: value } });
+      var r = await fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_record', table: 'contacts', filters: { id: c.id }, data: { [field]: value } }) });
+      var res = await r.json();
+      if (!r.ok || !res.success) throw new Error(res.error || 'Save failed');
       c[field] = value;
       toast('Saved', 'success');
     } catch(e) { toast('Failed to save: ' + e.message, 'error'); }
@@ -4943,9 +4951,9 @@
     var resultDiv = document.getElementById('cmsScoutResult');
 
     try {
-      var resp = await apiAction('/api/trigger-cms-scout', 'POST', {
-        contact_id: c.id
-      });
+      var r = await fetch('/api/trigger-cms-scout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact_id: c.id }) });
+      var resp = await r.json();
+      if (!r.ok) throw new Error(resp.error || 'Scout trigger failed');
       if (resp.task_id) {
         resultDiv.style.display = 'block';
         resultDiv.innerHTML = '<span style="color:var(--color-primary);">&#9679;</span> ' + (resp.platform || 'CMS') + ' scout running (task: ' + resp.task_id.substring(0, 12) + '). Results appear here automatically.';
@@ -4964,7 +4972,9 @@
     var resultDiv = document.getElementById('cmsScoutResult');
     if (!resultDiv) return;
     try {
-      var scouts = await sb('cms_scouts?client_slug=eq.' + slug + '&order=created_at.desc&limit=1&select=id,status,summary,platform,scanned_at,report');
+      var _r = await fetch(SB + '/rest/v1/cms_scouts?client_slug=eq.' + slug + '&order=created_at.desc&limit=1&select=id,status,summary,platform,scanned_at,report', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } });
+      if (!_r.ok) throw new Error(_r.status);
+      var scouts = await _r.json();
       if (scouts && scouts.length > 0) {
         var s = scouts[0];
         if (s.status === 'complete' && s.summary) {
@@ -4989,7 +4999,9 @@
       attempts++;
       if (attempts > maxAttempts) { clearInterval(interval); return; }
       try {
-        var scouts = await sb('cms_scouts?client_slug=eq.' + slug + '&order=created_at.desc&limit=1&select=id,status,summary,scanned_at');
+        var _r2 = await fetch(SB + '/rest/v1/cms_scouts?client_slug=eq.' + slug + '&order=created_at.desc&limit=1&select=id,status,summary,scanned_at', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } });
+        if (!_r2.ok) { clearInterval(interval); return; }
+        var scouts = await _r2.json();
         if (scouts && scouts.length > 0 && scouts[0].status === 'complete') {
           clearInterval(interval);
           var s = scouts[0];
@@ -5646,8 +5658,13 @@
         sHtml += '</div>';
         // Poll for completion
         if (!window._specCapturePoll) {
+          var _specPollFails = 0;
           window._specCapturePoll = setInterval(function() {
-            fetch(SB + '/rest/v1/design_specs?contact_id=eq.' + c.id + '&limit=1', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).then(function(res) {
+            fetch(SB + '/rest/v1/design_specs?contact_id=eq.' + c.id + '&limit=1', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) {
+              if (!r.ok) throw new Error(r.status);
+              return r.json();
+            }).then(function(res) {
+              _specPollFails = 0;
               var updated = res && res[0];
               if (updated && updated.capture_status !== 'capturing') {
                 clearInterval(window._specCapturePoll);
@@ -5655,6 +5672,8 @@
                 state.designSpec = updated;
                 renderContent();
               }
+            }).catch(function() {
+              if (++_specPollFails >= 3) { clearInterval(window._specCapturePoll); window._specCapturePoll = null; }
             });
           }, 5000);
         }
@@ -6014,8 +6033,13 @@
 
       // Poll for updates every 30s while active
       if (!window._batchPollTimer) {
+        var _batchPollFails = 0;
         window._batchPollTimer = setInterval(function() {
-          fetch(SB + '/rest/v1/content_audit_batches?select=*&client_slug=eq.' + state.contact.slug + '&order=created_at.desc&limit=5', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) { return r.json(); }).then(function(res) {
+          fetch(SB + '/rest/v1/content_audit_batches?select=*&client_slug=eq.' + state.contact.slug + '&order=created_at.desc&limit=5', { headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK } }).then(function(r) {
+            if (!r.ok) throw new Error(r.status);
+            return r.json();
+          }).then(function(res) {
+            _batchPollFails = 0;
             state.contentBatches = res || [];
             renderBatchAuditStatus();
             // If no longer active, stop polling and refresh pages
@@ -6029,6 +6053,8 @@
                 renderContent();
               });
             }
+          }).catch(function() {
+            if (++_batchPollFails >= 3) { clearInterval(window._batchPollTimer); window._batchPollTimer = null; }
           });
         }, 30000);
       }
@@ -7628,6 +7654,9 @@
     var targetBtn = document.querySelector('#tabBar .tab-btn[data-tab="' + tabName + '"]');
     var targetPanel = document.getElementById('tab-' + tabName);
     if (!targetBtn || !targetPanel) return;
+    // Clear polling timers from previous tab to prevent ghost fetches
+    if (window._specCapturePoll) { clearInterval(window._specCapturePoll); window._specCapturePoll = null; }
+    if (window._batchPollTimer) { clearInterval(window._batchPollTimer); window._batchPollTimer = null; }
     document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
     document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
     targetBtn.classList.add('active');

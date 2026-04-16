@@ -42,7 +42,8 @@
     "api/content-chat.js": { "maxDuration": 120 },
     "api/proposal-chat.js": { "maxDuration": 120 },
     "api/seed-batch-audits.js": { "maxDuration": 120 },
-    "api/cron/process-queue.js": { "maxDuration": 300, "memory": 1024 }
+    "api/cron/process-queue.js": { "maxDuration": 300, "memory": 1024 },
+    "api/cron/process-batch-pages.js": { "maxDuration": 120, "memory": 1024 }
   },
   "crons": [
     { "path": "/api/cron/enqueue-reports", "schedule": "0 10 1 * *" },
@@ -50,7 +51,8 @@
     { "path": "/api/cron/process-followups", "schedule": "0 14 * * *" },
     { "path": "/api/cron/trigger-quarterly-audits", "schedule": "0 11 * * *" },
     { "path": "/api/cron/process-audit-queue", "schedule": "*/30 * * * *" },
-    { "path": "/api/cron/process-scheduled-sends", "schedule": "*/5 * * * *" }
+    { "path": "/api/cron/process-scheduled-sends", "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/process-batch-pages", "schedule": "*/5 * * * *" }
   ]
 }
 
