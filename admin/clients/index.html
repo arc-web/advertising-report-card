@@ -1921,7 +1921,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       case 'profile': renderProfile(); break;
       case 'rising-tide': renderRisingTide(); break;
       case 'deliverables': renderDeliverables(); break;
-      case 'content': renderContent(); break;
+      case 'content': renderContent(); try { renderBioMaterials(); } catch(e) { console.error('[renderBioMaterials]', e); } break;
       case 'audit': renderAudit(); break;
       case 'reports': renderReports(); break;
       case 'billing': renderBilling(state.contact); break;
@@ -6033,8 +6033,8 @@ strong { font-weight: 600; color: var(--color-heading); }
       });
     }
     listEl.innerHTML = h;
-    renderContentAssets();
-    renderBioMaterials();
+    try { renderContentAssets(); } catch(e) { console.error('[renderContentAssets]', e); }
+    try { renderBioMaterials(); } catch(e) { console.error('[renderBioMaterials]', e); }
   }
 
   function renderBatchAuditStatus() {
