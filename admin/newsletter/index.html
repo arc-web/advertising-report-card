@@ -217,7 +217,7 @@ textarea.form-input { resize: vertical; min-height: 80px; line-height: 1.6; }
 .preview-frame { width: 100%; min-height: 600px; border: 1px solid var(--color-border); border-radius: 8px; background: #fff; }
 
 /* Toast */
-.toast { position: fixed; top: 1.25rem; left: 50%; transform: translateX(-50%); padding: .65rem 1.25rem; border-radius: 10px; font-size: .82rem; font-weight: 500; z-index: 1000; box-shadow: 0 4px 16px rgba(0,0,0,.15); opacity: 0; pointer-events: none; transition: opacity .3s; max-width: 420px; width: max-content; text-align: center; }
+.toast { position: fixed; top: 1.25rem; left: 50%; transform: translateX(-50%); padding: .65rem 1.25rem; border-radius: 10px; font-size: .82rem; font-weight: 500; z-index: 1000; box-shadow: 0 4px 16px rgba(0,0,0,.15); opacity: 0; pointer-events: none; transition: opacity .3s; max-width: 420px; width: max-content; height: auto; text-align: center; }
 .toast.show { opacity: 1; pointer-events: auto; }
 .toast.success { background: var(--color-primary-subtle); color: var(--color-primary); border: 1px solid var(--color-primary); }
 .toast.error { background: rgba(239,68,68,.1); color: var(--color-danger); border: 1px solid var(--color-danger); }
@@ -1667,7 +1667,9 @@ async function saveDraft() {
         content: data.content,
         status: 'draft'
       });
-      if (result && result.length) currentEditionId = result[0].id;
+      var created = result && result.data;
+      if (Array.isArray(created) && created.length) currentEditionId = created[0].id;
+      else if (created && created.id) currentEditionId = created.id;
     }
     document.getElementById('sendBtn').disabled = false;
     toast('Draft saved');
@@ -2219,7 +2221,9 @@ async function runAIResearch() {
         preview_text: document.getElementById('editionPreview').value.trim() || '',
         status: 'researching'
       });
-      if (result && result.length) currentEditionId = result[0].id;
+      var created = result && result.data;
+      if (Array.isArray(created) && created.length) currentEditionId = created[0].id;
+      else if (created && created.id) currentEditionId = created.id;
       else { toast('Failed to create edition', 'error'); return; }
     } catch (e) { toast('Failed to create edition: ' + e.message, 'error'); return; }
   }
@@ -2246,11 +2250,17 @@ async function runAIResearch() {
     var data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'Research failed');
 
-    researchCandidates = data.stories || [];
+    // Reload ALL stories from DB (preserved selected + newly added)
+    try {
+      researchCandidates = await sb('newsletter_stories', 'newsletter_id=eq.' + currentEditionId + '&order=sort_order&limit=30');
+    } catch (e) {
+      researchCandidates = data.stories || [];
+    }
     var dupNote = data.duplicates_removed > 0 ? ' (' + data.duplicates_removed + ' duplicates filtered)' : '';
-    document.getElementById('aiResearchStatus').textContent = (data.search_results_found || '?') + ' results searched, ' + researchCandidates.length + ' stories curated' + dupNote;
+    var newCount = (data.stories || []).length;
+    document.getElementById('aiResearchStatus').textContent = (data.search_results_found || '?') + ' results searched, ' + newCount + ' new stories curated' + dupNote;
     renderCandidates();
-    toast('Found ' + researchCandidates.length + ' candidate stories' + dupNote);
+    toast('Found ' + newCount + ' new stories' + dupNote);
     loadEditions();
   } catch (e) {
     grid.innerHTML = '<div style="padding:1rem;color:var(--color-danger);font-size:.85rem;">Research failed: ' + escHtml(e.message) + '</div>';
@@ -2320,6 +2330,13 @@ function renderCandidates() {
   grid.style.display = 'block';
   grid.innerHTML = h;
   updateGenerateBar();
+
+  // Update research button text based on selections
+  var resBtn = document.getElementById('researchBtn');
+  if (resBtn && !resBtn.disabled) {
+    var anySelected = researchCandidates.some(function(s) { return s.selected; });
+    resBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:.3rem;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>' + (anySelected ? 'Research More' : 'Research Stories');
+  }
 }
 
 async function toggleCandidate(storyId) {
