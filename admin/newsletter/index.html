@@ -821,6 +821,11 @@ function renderEditions() {
         '</div>'
       : '';
 
+    var deleteBtn = '';
+    if (ed.status !== 'sent' && ed.status !== 'sending') {
+      deleteBtn = '<button class="btn btn-sm btn-danger" style="font-size:.7rem;padding:.15rem .5rem;" onclick="event.stopPropagation();deleteEdition(\'' + ed.id + '\',' + ed.edition_number + ')" title="Delete edition and all stories">&times; Delete</button>';
+    }
+
     return '<div class="edition-row" onclick="editEdition(\'' + ed.id + '\')">' +
       '<div class="edition-num">#' + ed.edition_number + '</div>' +
       '<div class="edition-meta">' +
@@ -831,6 +836,7 @@ function renderEditions() {
         schedHtml +
         '<div class="edition-date">' + dateStr + '</div>' +
         statusTag +
+        deleteBtn +
       '</div>' +
       '</div>';
   }).join('');
@@ -2009,6 +2015,29 @@ async function cancelSchedule(newsletterId) {
 }
 window.cancelSchedule = cancelSchedule;
 
+async function deleteEdition(editionId, editionNum) {
+  if (!confirm('Delete Edition #' + editionNum + ' and all its stories? This cannot be undone.')) return;
+  try {
+    // Delete all stories for this edition first
+    await apiAction('delete_record', 'newsletter_stories', null, { newsletter_id: editionId });
+  } catch (e) { /* may have no stories */ }
+  try {
+    // Delete the edition itself
+    await apiAction('delete_record', 'newsletters', null, { id: editionId });
+    toast('Edition #' + editionNum + ' deleted');
+    // If we were editing this edition, clear compose
+    if (currentEditionId === editionId) {
+      currentEditionId = null;
+      newEdition();
+      switchTab('editions');
+    }
+    loadEditions();
+  } catch (e) {
+    toast('Delete failed: ' + e.message, 'error');
+  }
+}
+window.deleteEdition = deleteEdition;
+
 async function executeSend() {
   document.getElementById('sendModal').classList.remove('open');
   toast('Sending newsletter... This will take a moment.');
@@ -2202,7 +2231,11 @@ async function runAIResearch() {
   document.getElementById('aiResearchStatus').textContent = '';
   var grid = document.getElementById('candidatesGrid');
   grid.style.display = 'block';
-  grid.innerHTML = '<div class="research-progress"><div class="research-spinner"></div><div><div style="font-size:.85rem;font-weight:600;color:var(--color-heading);">Searching 8 news categories via SerpAPI...</div><div style="font-size:.78rem;color:var(--color-muted);margin-top:.15rem;">Finding recent stories, then Claude curates the most relevant for therapists. Takes 30-60 seconds.</div></div></div>';
+  var hasSelected = researchCandidates.some(function(s) { return s.selected; });
+  var progressMsg = hasSelected
+    ? 'Searching for more stories (keeping ' + researchCandidates.filter(function(s) { return s.selected; }).length + ' selected)...'
+    : 'Searching 8 news categories via SerpAPI...';
+  grid.innerHTML = '<div class="research-progress"><div class="research-spinner"></div><div><div style="font-size:.85rem;font-weight:600;color:var(--color-heading);">' + progressMsg + '</div><div style="font-size:.78rem;color:var(--color-muted);margin-top:.15rem;">Finding recent stories, then Claude curates the most relevant for therapists. Takes 30-60 seconds.</div></div></div>';
 
   try {
     var resp = await fetch('/api/newsletter-research', {
@@ -2224,7 +2257,8 @@ async function runAIResearch() {
     toast('Research failed: ' + e.message, 'error');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:.3rem;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Research Stories';
+    var hasSelected = researchCandidates.some(function(s) { return s.selected; });
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:.3rem;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>' + (hasSelected ? 'Research More' : 'Research Stories');
   }
 }
 window.runAIResearch = runAIResearch;
@@ -2449,6 +2483,12 @@ async function loadResearchCandidates(newsletterId) {
       renderCandidates();
       updateGenerateBar();
       document.getElementById('aiResearchStatus').textContent = stories.length + ' stories found';
+      // Update button text if some stories are already selected
+      var hasSelected = stories.some(function(s) { return s.selected; });
+      if (hasSelected) {
+        var btn = document.getElementById('researchBtn');
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:.3rem;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Research More';
+      }
     }
   } catch (e) { /* non-fatal */ }
 }

@@ -199,10 +199,20 @@ module.exports = async function handler(req, res) {
 
     console.log('Newsletter research: Claude returned ' + stories.length + ' stories, saving to DB');
 
-    // Delete existing candidates for this newsletter
+    // Delete only unselected candidates for this newsletter (preserve locked/selected stories)
     try {
-      await sb.mutate('newsletter_stories?newsletter_id=eq.' + newsletterId, 'DELETE');
+      await sb.mutate('newsletter_stories?newsletter_id=eq.' + newsletterId + '&selected=eq.false', 'DELETE');
     } catch (e) { /* may not exist */ }
+
+    // Load selected stories to include their URLs in dedup
+    var selectedStories = [];
+    try {
+      selectedStories = await sb.query('newsletter_stories?newsletter_id=eq.' + newsletterId + '&selected=eq.true&select=source_url,headline&order=sort_order');
+    } catch (e) { /* non-fatal */ }
+    // Add selected story URLs to dedup set so we don't get duplicates of our own picks
+    (selectedStories || []).forEach(function(s) {
+      if (s.source_url) existingUrls.add(s.source_url.replace(/\/$/, '').toLowerCase());
+    });
 
     // Save stories to database
     var saved = [];
