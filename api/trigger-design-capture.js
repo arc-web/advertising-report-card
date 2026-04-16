@@ -35,6 +35,7 @@ module.exports = async function(req, res) {
     if (!spec) {
       var created = await sb.mutate('design_specs', 'POST', {
         contact_id: contactId,
+        client_slug: contact.slug,
         capture_status: 'capturing'
       }, 'return=representation');
       spec = Array.isArray(created) ? created[0] : created;
