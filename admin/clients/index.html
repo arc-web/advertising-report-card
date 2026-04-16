@@ -963,6 +963,16 @@
             <div id="notesContent" style="font-size:.84rem;white-space:pre-wrap;"></div>
           </div>
         </div>
+
+        <div style="margin-top:1rem;">
+          <div class="card" id="hostingCard">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+              <h3>Website Hosting</h3>
+              <span id="hostingBadge" class="status-badge" style="font-size:.7rem;"></span>
+            </div>
+            <div id="hostingContent" style="padding:.75rem 1rem;font-size:.84rem;color:var(--color-muted);">Loading...</div>
+          </div>
+        </div>
       </div>
 
 
@@ -1962,7 +1972,137 @@
     notes.textContent = c.notes || 'Click to add notes...';
     if (!c.notes) notes.style.color = 'var(--color-muted)';
     else notes.style.color = '';
+
+    // Hosting card
+    renderHostingCard(c);
   }
+
+  function renderHostingCard(c) {
+    var el = document.getElementById('hostingContent');
+    var badge = document.getElementById('hostingBadge');
+    if (!el || !badge) return;
+
+    // Fetch client_sites for this contact (cached in state)
+    if (!state._hostingSites) state._hostingSites = {};
+    if (state._hostingSites[c.id] === undefined) {
+      state._hostingSites[c.id] = 'loading';
+      fetch(SB + '/rest/v1/client_sites?contact_id=eq.' + c.id + '&select=*&limit=5', {
+        headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK }
+      }).then(function(r) { return r.json(); }).then(function(sites) {
+        state._hostingSites[c.id] = sites || [];
+        renderHostingCard(c);
+      }).catch(function() { state._hostingSites[c.id] = []; renderHostingCard(c); });
+      el.innerHTML = '<span style="color:var(--color-muted);font-size:.8rem;">Loading...</span>';
+      return;
+    }
+
+    if (state._hostingSites[c.id] === 'loading') return;
+
+    var sites = state._hostingSites[c.id];
+    var typeIcons = { moonraker: '&#9729;', wordpress: '&#128214;', squarespace: '&#9632;', wix: '&#9670;', external: '&#127760;', other: '&#127760;' };
+    var typeLabels = { moonraker: 'Moonraker (R2)', wordpress: 'WordPress', squarespace: 'Squarespace', wix: 'Wix', external: 'External', other: 'Other' };
+
+    if (sites.length === 0) {
+      badge.textContent = 'Not configured';
+      badge.style.background = 'rgba(107,117,153,.1)';
+      badge.style.color = 'var(--color-muted)';
+      var domain = (c.website_url || '').replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
+      el.innerHTML = '<p style="margin-bottom:.5rem;">No hosting record for this client.</p>' +
+        '<button class="btn btn-sm btn-primary" onclick="provisionHosting()" style="font-size:.78rem;">+ Set Up Hosting</button>';
+      return;
+    }
+
+    var h = '';
+    sites.forEach(function(site) {
+      var icon = typeIcons[site.hosting_type] || '&#127760;';
+      var label = typeLabels[site.hosting_type] || site.hosting_type;
+      var isMoonraker = site.hosting_type === 'moonraker';
+
+      // Badge
+      if (isMoonraker && site.status === 'active') {
+        badge.textContent = 'Moonraker Hosted';
+        badge.style.background = 'rgba(0,212,126,.1)';
+        badge.style.color = '#00b86c';
+      } else {
+        badge.textContent = label;
+        badge.style.background = 'rgba(107,117,153,.1)';
+        badge.style.color = 'var(--color-muted)';
+      }
+
+      h += '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;">';
+      h += '<span style="font-size:1.1rem;">' + icon + '</span>';
+      h += '<div style="flex:1;">';
+      h += '<div style="font-weight:600;font-size:.85rem;color:var(--color-heading);">' + esc(site.domain) + '</div>';
+      h += '<div style="font-size:.75rem;color:var(--color-muted);">' + label + ' &middot; ' + site.status;
+      if (site.cf_zone_id) h += ' &middot; CF Zone';
+      h += '</div>';
+      h += '</div>';
+
+      // Toggle button
+      if (!isMoonraker) {
+        h += '<button class="btn btn-sm" style="font-size:.72rem;background:rgba(0,212,126,.08);color:#00b86c;border:1px solid rgba(0,212,126,.25);" onclick="event.stopPropagation(); switchToMoonraker(\'' + site.id + '\')">Switch to Moonraker</button>';
+      } else if (site.status === 'active') {
+        h += '<span style="display:inline-flex;align-items:center;gap:.25rem;padding:.25rem .6rem;background:rgba(0,212,126,.08);border-radius:4px;font-size:.72rem;font-weight:600;color:#00b86c;">&#10003; Active</span>';
+      } else if (site.status === 'pending_dns' || site.status === 'pending_verification') {
+        h += '<span style="padding:.25rem .6rem;background:rgba(245,158,11,.08);border-radius:4px;font-size:.72rem;font-weight:600;color:#D97706;">Pending DNS</span>';
+      }
+      h += '</div>';
+
+      // Deployment stats for moonraker sites
+      if (isMoonraker && site.status === 'active') {
+        h += '<div style="margin-top:.4rem;padding:.4rem .6rem;background:var(--color-bg);border-radius:6px;font-size:.75rem;color:var(--color-muted);">';
+        h += 'Live at <a href="https://' + esc(site.domain) + '" target="_blank" style="color:var(--color-primary);">' + esc(site.domain) + '</a>';
+        if (site.cf_zone_id) h += ' &middot; <span style="color:var(--color-success);">Own zone</span>';
+        else if (site.cf_custom_hostname_id) h += ' &middot; Custom hostname';
+        h += '</div>';
+      }
+    });
+
+    el.innerHTML = h;
+  }
+
+  window.switchToMoonraker = function(siteId) {
+    if (!confirm('Switch this site to Moonraker hosting (R2)?\n\nThis updates the hosting type. You will need to deploy pages before the site goes live.')) return;
+    toast('Updating hosting type...', 'info');
+    fetch('/api/admin/manage-site', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update', site_id: siteId, hosting_type: 'moonraker', status: 'active' })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        toast('Switched to Moonraker hosting', 'success');
+        state._hostingSites = {};
+        state.clientSite = null;
+        renderOverview(state.contact, state.practice);
+      } else {
+        toast('Error: ' + (res.error || 'Unknown'), 'error');
+      }
+    }).catch(function(err) { toast('Error: ' + err.message, 'error'); });
+  };
+
+  window.provisionHosting = function() {
+    var c = state.contact;
+    if (!c) return;
+    var domain = (c.website_url || '').replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
+    var plat = (c.website_platform || 'external').toLowerCase();
+    var typeMap = { wordpress: 'wordpress', squarespace: 'squarespace', wix: 'wix' };
+    var hostingType = typeMap[plat] || 'external';
+
+    toast('Setting up hosting record...', 'info');
+    fetch('/api/admin/manage-site', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'provision', contact_id: c.id, domain: domain, hosting_type: hostingType })
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.success) {
+        toast('Hosting configured for ' + domain, 'success');
+        state._hostingSites = {};
+        renderOverview(state.contact, state.practice);
+      } else {
+        toast('Error: ' + (res.error || 'Unknown'), 'error');
+      }
+    }).catch(function(err) { toast('Error: ' + err.message, 'error'); });
+  };
 
   window.setContactStatus = function(newStatus) {
     var c = state.contact;
