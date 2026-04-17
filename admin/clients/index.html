@@ -6189,7 +6189,7 @@
         }
         if (cp.generated_html && state.clientSite && state.clientSite !== 'loading' && state.clientSite !== false) {
           var isDeploying = cp._deploying;
-          h += '<button class="btn btn-sm" style="background:rgba(0,212,126,.12);color:#00b86c;border:1px solid rgba(0,212,126,.3);" onclick="event.stopPropagation(); deployToClientSite(\'' + cp.id + '\')"' + (isDeploying ? ' disabled' : '') + '>' + (isDeploying ? 'Deploying...' : '&#9729; Deploy to Site') + '</button>';
+          h += '<button class="btn btn-sm" style="background:rgba(0,212,126,.12);color:#00b86c;border:1px solid rgba(0,212,126,.3);line-height:1;" onclick="event.stopPropagation(); deployToClientSite(\'' + cp.id + '\')"' + (isDeploying ? ' disabled' : '') + '>' + (isDeploying ? 'Deploying...' : '&#9729; Deploy to Site') + '</button>';
         }
         h += '</div></div></div></div>';
       });
