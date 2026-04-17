@@ -159,7 +159,7 @@ module.exports = async function handler(req, res) {
     if (!aiResp.ok) {
       var errBody = await aiResp.text();
       console.error('Newsletter generate Anthropic error:', aiResp.status, errBody.substring(0, 300));
-      await monitor.logError('newsletter-generate', new Error('Anthropic API error: ' + aiResp.status), {
+      await monitor.logError('newsletter-generate', new Error('Anthropic API non-2xx'), {
         detail: { stage: 'anthropic_http', newsletter_id: newsletterId, status: aiResp.status, body: errBody.substring(0, 500) }
       });
       return res.status(500).json({ error: 'AI service error' });
@@ -179,8 +179,8 @@ module.exports = async function handler(req, res) {
     }
 
     if (!rawText) {
-      await monitor.logError('newsletter-generate', new Error('No text in AI response'), {
-        detail: { stage: 'ai_no_text', newsletter_id: newsletterId, response_shape: aiData ? Object.keys(aiData) : null }
+      await monitor.logError('newsletter-generate', new Error('AI response had no text blocks'), {
+        detail: { stage: 'ai_no_text', newsletter_id: newsletterId, response_keys: Object.keys(aiData || {}), block_count: (aiData && aiData.content) ? aiData.content.length : 0 }
       });
       return res.status(500).json({ error: 'No text response from AI' });
     }
@@ -190,7 +190,7 @@ module.exports = async function handler(req, res) {
     var jsonStart = rawText.indexOf('{');
     var jsonEnd = rawText.lastIndexOf('}');
     if (jsonStart === -1 || jsonEnd === -1) {
-      await monitor.logError('newsletter-generate', new Error('No JSON braces in AI response'), {
+      await monitor.logError('newsletter-generate', new Error('AI response had no JSON braces'), {
         detail: { stage: 'ai_no_json', newsletter_id: newsletterId, preview: rawText.substring(0, 500) }
       });
       return res.status(500).json({ error: 'Could not parse AI response' });
@@ -297,7 +297,7 @@ module.exports = async function handler(req, res) {
   }
   } catch (fatal) {
     console.error('Newsletter generate FATAL:', fatal.message, fatal.stack);
-    try { await monitor.logError('newsletter-generate', fatal, { detail: { stage: 'fatal' } }); } catch (lgErr) {}
+    try { await monitor.logError('newsletter-generate', fatal, { detail: { stage: 'fatal' } }); } catch(e3) {}
     try { return res.status(500).json({ error: 'Generation failed' }); } catch(e2) {}
   }
 };
