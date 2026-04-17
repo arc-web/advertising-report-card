@@ -9,6 +9,7 @@
 
 var sb = require('./_lib/supabase');
 var rateLimit = require('./_lib/rate-limit');
+var fetchT = require('./_lib/fetch-with-timeout');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -122,7 +123,7 @@ module.exports = async function handler(req, res) {
 
     if (AGENT_URL && AGENT_KEY) {
       try {
-        var agentResp = await fetch(AGENT_URL + '/tasks/surge-audit', {
+        var agentResp = await fetchT(AGENT_URL + '/tasks/surge-audit', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -138,7 +139,7 @@ module.exports = async function handler(req, res) {
             gbp_link: gbpLink,
             client_slug: slug
           })
-        });
+        }, 30000);
 
         if (agentResp.ok) {
           var agentResult = await agentResp.json();
@@ -165,7 +166,7 @@ module.exports = async function handler(req, res) {
       try {
         var resendKey = process.env.RESEND_API_KEY;
         if (resendKey) {
-          await fetch('https://api.resend.com/emails', {
+          await fetchT('https://api.resend.com/emails', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + resendKey, 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -178,7 +179,7 @@ module.exports = async function handler(req, res) {
                 '<p><strong>Error:</strong> ' + agentError + '</p>' +
                 '<p><a href="https://clients.moonraker.ai/admin/clients#audit-' + audit.id + '">View in Admin</a></p>'
             })
-          });
+          }, 10000);
         }
       } catch (notifyErr) {
         console.error('Failed to send agent-failure notification:', notifyErr);
@@ -204,3 +205,4 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: msg });
   }
 };
+
