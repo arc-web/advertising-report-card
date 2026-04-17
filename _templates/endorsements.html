@@ -270,6 +270,13 @@ select.form-input { cursor: pointer; }
 (function() {
   'use strict';
 
+  // PAGE_TOKEN is substituted at deploy time by api/deploy-endorsement-page.js.
+  // It's an endorsement-scoped HMAC signed token that binds this page to the
+  // client's contact_id and authorizes submission to /api/submit-endorsement.
+  // If you see the literal placeholder string below, this page was not
+  // deployed through the proper route — redeploy via the admin panel.
+  var PAGE_TOKEN = '{{PAGE_TOKEN}}';
+
   var SB_URL = 'https://ofmmwcjhdrhvxxkhcuww.supabase.co';
   var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9mbW13Y2poZHJodnh4a2hjdXd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzMjM1NTcsImV4cCI6MjA4OTg5OTU1N30.zMMHW0Fk9ixWjORngyxJTIoPOfx7GFsD4wBV4Foqqms';
 
@@ -403,8 +410,7 @@ select.form-input { cursor: pointer; }
     }
 
     var data = {
-      contact_id: contactId,
-      client_slug: CLIENT_SLUG,
+      page_token: PAGE_TOKEN,
       bio_material_id: bioMaterialId,
       endorser_name: name,
       endorser_title: document.getElementById('endorserTitle').value.trim() || null,
@@ -413,8 +419,9 @@ select.form-input { cursor: pointer; }
       source_platform: document.getElementById('endorsementSource').value || null,
       source_url: document.getElementById('endorsementUrl').value.trim() || null,
       content: content,
-      endorsement_type: document.getElementById('endorsementSource').value || 'other',
-      status: 'submitted'
+      endorsement_type: document.getElementById('endorsementSource').value || 'other'
+      // contact_id, client_slug, status are set server-side (contact_id from
+      // token, client_slug from contact lookup, status always 'submitted')
     };
 
     // Collect endorser profile links
@@ -433,15 +440,17 @@ select.form-input { cursor: pointer; }
     btn.disabled = true;
     btn.textContent = 'Submitting...';
 
-    fetch(SB_URL + '/rest/v1/endorsements', {
+    fetch('/api/submit-endorsement', {
       method: 'POST',
-      headers: Object.assign({}, sbHeaders(), { 'Prefer': 'return=representation' }),
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
-    }).then(function(r) { return r.json(); }).then(function(result) {
+    }).then(function(r) {
+      return r.json().then(function(body) { return { ok: r.ok, status: r.status, body: body }; });
+    }).then(function(result) {
       btn.disabled = false;
       btn.textContent = 'Submit Endorsement';
 
-      if (result && (Array.isArray(result) ? result.length > 0 : result.id)) {
+      if (result.ok && result.body && result.body.success) {
         // Show success
         document.getElementById('successMsg').classList.add('show');
         setTimeout(function() { document.getElementById('successMsg').classList.remove('show'); }, 5000);
@@ -465,7 +474,13 @@ select.form-input { cursor: pointer; }
           .then(function(r) { return r.json(); })
           .then(function(endorsements) { renderEndorsements(endorsements || []); });
       } else {
-        alert('Something went wrong. Please try again.');
+        var msg = (result.body && result.body.error) || 'Something went wrong. Please try again.';
+        if (result.status === 429) {
+          msg = 'You\'re submitting a lot of endorsements at once. Please wait a few minutes before adding more.';
+        } else if (result.status === 403) {
+          msg = 'This endorsement page is no longer accepting submissions. Please contact your Moonraker team.';
+        }
+        alert(msg);
       }
     }).catch(function() {
       btn.disabled = false;
