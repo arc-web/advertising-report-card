@@ -1,8 +1,15 @@
 // api/send-newsletter.js
-// Sends a newsletter to active subscribers via Resend.
-// POST { newsletter_id, tier: 'all' | 'hot' | 'warm', override_limit: number (optional) }
-// Chunks into batches of 50, logs each send to newsletter_sends.
-// Warm-up: reads newsletter_warmup setting to limit sends and auto-ramp.
+// Sends a newsletter to active subscribers via Resend's BATCH endpoint.
+// POST { newsletter_id, tier: 'all' | 'hot' | 'warm', override_limit: number (optional), test_email: string (optional) }
+//
+// Uses https://api.resend.com/emails/batch (up to 100 emails per request, one
+// rate-limit unit per request). Previous per-email POST pattern caused 96%
+// rate-limit rejections on the 2026-04-17 inaugural send — see post-mortem
+// in docs/ or commit history.
+//
+// Warm-up: reads newsletter_warmup setting to limit sends. Only auto-advances
+// the step if success rate is >= 80% (so a rate-limited send doesn't burn
+// a ramp step).
 
 var sb = require('./_lib/supabase');
 var auth = require('./_lib/auth');
@@ -11,7 +18,9 @@ var nl = require('./_lib/newsletter-template');
 var RESEND_KEY = process.env.RESEND_API_KEY_NEWSLETTER || process.env.RESEND_API_KEY;
 var FROM_ADDRESS = 'Scott Pope <newsletter@newsletter.moonraker.ai>';
 var REPLY_TO = 'scott@moonraker.ai';
-var BATCH_SIZE = 50;
+var BATCH_SIZE = 100;               // Resend /emails/batch max
+var INTER_BATCH_DELAY_MS = 300;     // keep under 5 rps
+var WARMUP_SUCCESS_THRESHOLD = 0.80;
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -35,7 +44,10 @@ module.exports = async function handler(req, res) {
     if (!newsletters.length) return res.status(404).json({ error: 'Newsletter not found' });
     var newsletter = newsletters[0];
 
-    // TEST SEND: send to specific email with CC to chris, skip all warm-up/subscriber logic
+    // ─────────────────────────────────────────────────────────────
+    // TEST SEND: one-off to a specific email with CC to Chris.
+    // Skips all warm-up/subscriber/tracking logic.
+    // ─────────────────────────────────────────────────────────────
     if (testEmail) {
       var testHtml = nl.build(newsletter, 'test');
       var testResp = await fetch('https://api.resend.com/emails', {
@@ -58,7 +70,9 @@ module.exports = async function handler(req, res) {
     if (newsletter.status === 'sent') return res.status(400).json({ error: 'Newsletter already sent' });
     if (newsletter.status === 'sending') return res.status(400).json({ error: 'Newsletter is currently sending' });
 
-    // Read warm-up settings
+    // ─────────────────────────────────────────────────────────────
+    // Warm-up settings
+    // ─────────────────────────────────────────────────────────────
     var warmup = null;
     var sendLimit = null;
     try {
@@ -71,166 +85,181 @@ module.exports = async function handler(req, res) {
           if (step < schedule.length) {
             sendLimit = schedule[step];
           }
-          // null sendLimit = no limit (past ramp schedule)
+          // null sendLimit = past ramp schedule = no limit
         }
       }
     } catch (e) {
-      // Non-fatal, continue without warmup
       console.error('Failed to read warmup settings:', e.message);
     }
+    if (overrideLimit && overrideLimit > 0) sendLimit = overrideLimit;
 
-    // Override limit takes precedence
-    if (overrideLimit && overrideLimit > 0) {
-      sendLimit = overrideLimit;
-    }
-
-    // Mark as sending (verify transition succeeded — CHECK constraints return [] on failure)
-    var sendingResult = await sb.mutate('newsletters?id=eq.' + newsletterId, 'PATCH', {
-      status: 'sending'
-    });
+    // ─────────────────────────────────────────────────────────────
+    // Claim "sending" state (fail if another run holds it)
+    // ─────────────────────────────────────────────────────────────
+    var sendingResult = await sb.mutate('newsletters?id=eq.' + newsletterId, 'PATCH', { status: 'sending' });
     if (!sendingResult || sendingResult.length === 0) {
       return res.status(409).json({ error: 'Newsletter status transition to sending failed — may already be sending or in invalid state' });
     }
 
-    // Fetch subscribers based on tier
-    // Order: hot engagement first, then warm, then cold; oldest first within each tier
+    // Subscribers
     var subFilter = 'status=eq.active';
-    if (tier === 'hot') {
-      subFilter += '&engagement_tier=eq.hot';
-    } else if (tier === 'warm') {
-      subFilter += '&engagement_tier=in.(hot,warm)';
-    }
+    if (tier === 'hot') subFilter += '&engagement_tier=eq.hot';
+    else if (tier === 'warm') subFilter += '&engagement_tier=in.(hot,warm)';
 
-    // Determine how many to fetch
-    var fetchLimit = sendLimit ? sendLimit + 100 : 5000; // fetch extra for safety
-    var orderBy = 'order=engagement_tier.asc,subscribed_at.asc'; // hot < warm < cold alphabetically
-
+    var fetchLimit = sendLimit ? sendLimit + 100 : 5000;
+    var orderBy = 'order=engagement_tier.asc,subscribed_at.asc';
     var subscribers = await sb.query('newsletter_subscribers?' + subFilter + '&select=id,email,first_name&' + orderBy + '&limit=' + fetchLimit);
 
     if (!subscribers.length) {
-      var draftResult = await sb.mutate('newsletters?id=eq.' + newsletterId, 'PATCH', { status: 'draft' });
-      if (!draftResult || draftResult.length === 0) {
-        console.error('send-newsletter: failed to revert newsletter ' + newsletterId + ' to draft');
-      }
+      await sb.mutate('newsletters?id=eq.' + newsletterId, 'PATCH', { status: 'draft' });
       return res.status(400).json({ error: 'No subscribers match the selected tier' });
     }
 
-    // Check which subscribers already received this newsletter (for re-sends / partial sends)
+    // Already-sent dedup (partial re-sends)
     var alreadySent = {};
     try {
       var existing = await sb.query('newsletter_sends?newsletter_id=eq.' + newsletterId + '&status=eq.sent&select=subscriber_id&limit=5000');
-      for (var e = 0; e < existing.length; e++) {
-        alreadySent[existing[e].subscriber_id] = true;
-      }
-    } catch (e) {
-      // Non-fatal
+      for (var e = 0; e < existing.length; e++) alreadySent[existing[e].subscriber_id] = true;
+    } catch (e) { /* non-fatal */ }
+
+    var eligibleSubscribers = subscribers.filter(function(s) { return !alreadySent[s.id]; });
+    var sendList = sendLimit ? eligibleSubscribers.slice(0, sendLimit) : eligibleSubscribers;
+
+    if (sendList.length === 0) {
+      await sb.mutate('newsletters?id=eq.' + newsletterId, 'PATCH', { status: 'sent' });
+      return res.status(200).json({
+        sent: 0, failed: 0, skipped_already_sent: subscribers.length - eligibleSubscribers.length,
+        message: 'All eligible subscribers have already received this newsletter'
+      });
     }
 
-    // Filter out already-sent subscribers
-    var eligibleSubscribers = subscribers.filter(function(s) {
-      return !alreadySent[s.id];
-    });
-
-    // Apply send limit
-    var sendList = sendLimit ? eligibleSubscribers.slice(0, sendLimit) : eligibleSubscribers;
+    var warmupActive = !!(warmup && warmup.enabled && (warmup.current_step || 0) < (warmup.ramp_schedule || []).length);
 
     var totalSent = 0;
     var totalFailed = 0;
     var errors = [];
+    var insertFailures = 0;
 
-    // Compute warmup-active flag once: true only if warmup is enabled AND we're still in ramp.
-    // When warmup completes (advanced past last step), notice automatically disappears.
-    var warmupActive = !!(warmup && warmup.enabled && (warmup.current_step || 0) < (warmup.ramp_schedule || []).length);
-
-    // Process in batches
+    // ─────────────────────────────────────────────────────────────
+    // Send via Resend batch endpoint.
+    // One API call per batch of up to 100 emails = one rate-limit unit.
+    // Response shape: { data: [{ id }, { id }, ...] } aligned with request order.
+    // ─────────────────────────────────────────────────────────────
     for (var i = 0; i < sendList.length; i += BATCH_SIZE) {
       var batch = sendList.slice(i, i + BATCH_SIZE);
 
-      var sendPromises = batch.map(function(sub) {
-        var emailHtml = nl.build(newsletter, sub.id, { warmupActive: warmupActive });
+      var batchPayload = batch.map(function(sub) {
+        return {
+          from: FROM_ADDRESS,
+          to: [sub.email],
+          reply_to: REPLY_TO,
+          subject: newsletter.subject || 'Moonraker Weekly Newsletter',
+          html: nl.build(newsletter, sub.id, { warmupActive: warmupActive }),
+          headers: {
+            'List-Unsubscribe': '<https://clients.moonraker.ai/api/newsletter-unsubscribe?sid=' + sub.id + '>',
+            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
+          }
+        };
+      });
 
-        return fetch('https://api.resend.com/emails', {
+      var batchResult;
+      try {
+        var batchResp = await fetch('https://api.resend.com/emails/batch', {
           method: 'POST',
           headers: {
             'Authorization': 'Bearer ' + RESEND_KEY,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            from: FROM_ADDRESS,
-            to: [sub.email],
-            reply_to: REPLY_TO,
-            subject: newsletter.subject || 'Moonraker Weekly Newsletter',
-            html: emailHtml,
-            headers: {
-              'List-Unsubscribe': '<https://clients.moonraker.ai/api/newsletter-unsubscribe?sid=' + sub.id + '>',
-              'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
-            }
-          })
-        }).then(async function(r) {
-          var data = await r.json();
-          if (r.ok && data.id) {
-            return { subscriber_id: sub.id, resend_message_id: data.id, status: 'sent' };
-          } else {
-            return { subscriber_id: sub.id, status: 'failed', error: data.message || 'Unknown error' };
-          }
-        }).catch(function(err) {
-          return { subscriber_id: sub.id, status: 'failed', error: err.message };
+          body: JSON.stringify(batchPayload)
         });
-      });
+        batchResult = await batchResp.json();
+        if (!batchResp.ok) {
+          // Whole batch rejected (rate limit, bad payload, etc.)
+          var msg = (batchResult && batchResult.message) || ('HTTP ' + batchResp.status);
+          console.error('send-newsletter batch ' + (i / BATCH_SIZE) + ' rejected:', msg);
+          errors.push('Batch ' + (i / BATCH_SIZE + 1) + ': ' + msg);
+          batchResult = { data: [] }; // so pairing loop treats all as failed
+        }
+      } catch (err) {
+        console.error('send-newsletter batch network error:', err.message);
+        errors.push('Batch ' + (i / BATCH_SIZE + 1) + ' network error: ' + err.message);
+        batchResult = { data: [] };
+      }
 
-      var results = await Promise.all(sendPromises);
+      var responseIds = (batchResult && batchResult.data) || [];
 
-      // Log sends to newsletter_sends
-      var sendRecords = results.map(function(r) {
-        if (r.status === 'sent') {
+      // Pair responses with batch order. responseIds[k] corresponds to batch[k].
+      var sendRecords = batch.map(function(sub, k) {
+        var resp = responseIds[k];
+        if (resp && resp.id) {
           totalSent++;
           return {
             newsletter_id: newsletterId,
-            subscriber_id: r.subscriber_id,
+            subscriber_id: sub.id,
             status: 'sent',
-            resend_message_id: r.resend_message_id,
+            resend_message_id: resp.id,
             sent_at: new Date().toISOString()
           };
         } else {
           totalFailed++;
-          if (r.error) errors.push(r.error);
           return {
             newsletter_id: newsletterId,
-            subscriber_id: r.subscriber_id,
-            status: 'pending'
+            subscriber_id: sub.id,
+            status: 'failed'
           };
         }
       });
 
-      // Batch insert send records
-      if (sendRecords.length) {
+      // Insert send rows (with retry — silent failure here = broken accounting)
+      var insertOK = false;
+      for (var attempt = 0; attempt < 3; attempt++) {
         try {
           await sb.mutate('newsletter_sends', 'POST', sendRecords);
-        } catch (e) {
-          console.error('Failed to log sends:', e.message);
+          insertOK = true;
+          break;
+        } catch (insErr) {
+          console.error('newsletter_sends insert attempt ' + (attempt + 1) + ' failed: ' + insErr.message);
+          if (attempt < 2) await new Promise(function(r) { setTimeout(r, 500 * (attempt + 1)); });
         }
       }
+      if (!insertOK) {
+        insertFailures += sendRecords.length;
+        // Keep going — abandoning mid-run leaves more damage than pressing on
+      }
 
-      // Small delay between batches to avoid rate limits
       if (i + BATCH_SIZE < sendList.length) {
-        await new Promise(function(resolve) { setTimeout(resolve, 200); });
+        await new Promise(function(resolve) { setTimeout(resolve, INTER_BATCH_DELAY_MS); });
       }
     }
 
-    // Update newsletter stats and status (verify — silent failure here means wrong dashboard stats)
-    var finalStatus = totalSent > 0 ? 'sent' : 'failed';
-    var finalResult = await sb.mutate('newsletters?id=eq.' + newsletterId, 'PATCH', {
+    // ─────────────────────────────────────────────────────────────
+    // Update newsletter row: status, stats
+    // ─────────────────────────────────────────────────────────────
+    // 'sent' only when every subscriber has a sent row. Otherwise 'draft'
+    // so the admin can re-send to catch the remaining eligible subs without
+    // re-hitting those already successful.
+    var isComplete = (totalFailed === 0 && insertFailures === 0);
+    var finalStatus = isComplete ? 'sent' : 'draft';
+    var finalUpdate = {
       status: finalStatus,
-      sent_at: new Date().toISOString(),
       stats_total_sent: (newsletter.stats_total_sent || 0) + totalSent,
-      stats_bounced: (newsletter.stats_bounced || 0) + totalFailed
-    });
+      stats_bounced: newsletter.stats_bounced || 0 // real bounces come from webhook events
+    };
+    if (isComplete) finalUpdate.sent_at = new Date().toISOString();
+
+    var finalResult = await sb.mutate('newsletters?id=eq.' + newsletterId, 'PATCH', finalUpdate);
     if (!finalResult || finalResult.length === 0) {
-      console.error('send-newsletter: final status update to ' + finalStatus + ' failed for newsletter ' + newsletterId);
+      console.error('send-newsletter: final status update failed for newsletter ' + newsletterId);
     }
 
-    // Auto-advance warm-up step after successful send
-    if (warmup && warmup.enabled && totalSent > 0 && !overrideLimit) {
+    // ─────────────────────────────────────────────────────────────
+    // Advance warmup only if success rate hit threshold
+    // ─────────────────────────────────────────────────────────────
+    var successRate = totalSent / (totalSent + totalFailed || 1);
+    var canAdvance = warmup && warmup.enabled && !overrideLimit &&
+                     totalSent > 0 && successRate >= WARMUP_SUCCESS_THRESHOLD;
+
+    if (canAdvance) {
       try {
         var nextStep = (warmup.current_step || 0) + 1;
         var newWarmup = {
@@ -248,16 +277,23 @@ module.exports = async function handler(req, res) {
       } catch (e) {
         console.error('Failed to advance warmup:', e.message);
       }
+    } else if (warmup && warmup.enabled && totalSent > 0) {
+      console.error('send-newsletter: warmup NOT advanced — success rate ' +
+        Math.round(successRate * 100) + '% below ' + Math.round(WARMUP_SUCCESS_THRESHOLD * 100) + '% threshold');
     }
 
     return res.status(200).json({
       sent: totalSent,
       failed: totalFailed,
+      insert_failures: insertFailures,
+      success_rate: successRate,
+      warmup_advanced: canAdvance,
       total_subscribers: subscribers.length,
       eligible: eligibleSubscribers.length,
       send_limit: sendLimit,
       warmup_step: warmup ? (warmup.current_step || 0) : null,
       warmup_enabled: warmup ? warmup.enabled : false,
+      newsletter_status: finalStatus,
       errors: errors.slice(0, 5)
     });
 
@@ -265,11 +301,9 @@ module.exports = async function handler(req, res) {
     console.error('send-newsletter error:', e);
     try {
       if (body && body.newsletter_id) {
-        await sb.mutate('newsletters?id=eq.' + body.newsletter_id, 'PATCH', { status: 'failed' });
+        await sb.mutate('newsletters?id=eq.' + body.newsletter_id, 'PATCH', { status: 'draft' });
       }
     } catch (e2) {}
     return res.status(500).json({ error: e.message });
   }
 };
-
-
