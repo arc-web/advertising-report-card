@@ -319,6 +319,9 @@ async function pullGsc(siteUrl, monthBuckets, windowStart, windowEnd) {
     var firstMonth = monthlyRows.find(function(r) { return r.impressions > 0; });
     var lastMonth = monthlyRows.slice().reverse().find(function(r) { return r.impressions > 0; });
 
+    // Striking-distance queries (position 11-20 with meaningful impressions)
+    var strikingDistance = await pullStrikingDistance(token, siteUrl, startForRecent, windowEnd);
+
     return {
       available: true,
       site_url: siteUrl,
@@ -331,6 +334,7 @@ async function pullGsc(siteUrl, monthBuckets, windowStart, windowEnd) {
       by_month: monthlyRows,
       top_queries: topQueries,
       top_pages: topPages,
+      striking_distance: strikingDistance,
       position_first: firstMonth ? firstMonth.position : null,
       position_last: lastMonth ? lastMonth.position : null,
       recent_window: { start: startForRecent, end: windowEnd }
@@ -354,6 +358,302 @@ async function pullLocalFalcon(reportConfig) {
   return { available: false, error: 'No historical LocalFalcon data available yet' };
 }
 
+// ── Cost / unit economics ──────────────────────────────────────────
+//
+// Computes total spend across the engagement. Uses contacts.plan_amount_cents
+// as the monthly retainer, capped at 12 months (the typical contract length)
+// to avoid overstating spend for clients past contract end.
+
+function pullCost(client, monthBuckets) {
+  if (!client.plan_amount_cents) {
+    return { available: false, error: 'No plan_amount_cents set on contact' };
+  }
+  var monthlyCents = Number(client.plan_amount_cents);
+  var contractMonths = 12;
+  var billedMonths = Math.min(monthBuckets.length, contractMonths);
+  var totalCents = monthlyCents * billedMonths;
+  return {
+    available: true,
+    monthly_cents: monthlyCents,
+    monthly_dollars: monthlyCents / 100,
+    total_cents: totalCents,
+    total_dollars: totalCents / 100,
+    billed_months: billedMonths,
+    contract_months: contractMonths
+  };
+}
+
+// ── Striking distance (GSC queries close to page 1) ────────────────
+//
+// Pulls top queries by impressions for the recent window, filters those
+// at position 11-20 (page 2, "striking distance" of page 1). These are
+// the next quarter's wins — already ranking, just need a nudge.
+
+async function pullStrikingDistance(token, siteUrl, startDate, endDate) {
+  if (!token || !siteUrl) return [];
+  try {
+    var resp = await gscQuery(token, siteUrl, {
+      startDate: startDate,
+      endDate: endDate,
+      dimensions: ['query'],
+      rowLimit: 250
+    });
+    var rows = resp.rows || [];
+    return rows
+      .filter(function(r) {
+        var pos = r.position || 0;
+        return pos >= 11 && pos <= 20 && (r.impressions || 0) >= 50;
+      })
+      .map(function(r) {
+        var imps = Math.round(r.impressions || 0);
+        var pos = r.position || 0;
+        // Estimated lift if moved into top 10: assume ~5% CTR at top of page 1
+        // (conservative — actual top-10 CTR in healthcare averages 8-10%).
+        var estTop10Ctr = 0.05;
+        var currentClicks = Math.round(r.clicks || 0);
+        var estimatedTop10Clicks = Math.round(imps * estTop10Ctr);
+        var lift = Math.max(0, estimatedTop10Clicks - currentClicks);
+        return {
+          query: r.keys[0],
+          position: pos,
+          impressions: imps,
+          clicks: currentClicks,
+          ctr: r.ctr || 0,
+          estimated_lift_clicks: lift
+        };
+      })
+      .sort(function(a, b) { return b.impressions - a.impressions; })
+      .slice(0, 12);
+  } catch (e) {
+    console.error('[campaign-summary] striking distance error:', e);
+    return [];
+  }
+}
+
+// ── Deliverables ───────────────────────────────────────────────────
+//
+// Pulls deliverables for the client, grouped by category. Categories
+// roll up the raw deliverable_type into a smaller set of meaningful buckets
+// for client-facing display.
+
+var DELIVERABLE_CATEGORIES = {
+  'Setup & Foundation': ['report_config', 'gsc_setup', 'ga4_setup', 'gtm_setup', 'gbp_setup', 'gbp_optimization', 'livedrive'],
+  'Content & SEO Pages': ['target_page', 'surge_page', 'faq_page', 'location_page', 'instant_page', 'bio_page', 'surge_entity', 'surge_sitewide'],
+  'Authority & Trust Signals': ['social_profiles', 'social_posts', 'press_release', 'citations', 'neo_distribution', 'neo_images', 'entity_veracity_hub', 'endorsement'],
+  'Strategy & Audits': ['proposal', 'audit_diagnosis', 'audit_action_plan', 'audit_progress', 'youtube_video']
+};
+
+function categorize(type) {
+  for (var cat in DELIVERABLE_CATEGORIES) {
+    if (DELIVERABLE_CATEGORIES[cat].indexOf(type) !== -1) return cat;
+  }
+  return 'Other';
+}
+
+async function pullDeliverables(contactId) {
+  if (!contactId) return { available: false, error: 'No contact ID' };
+  try {
+    var rows = await sb.query('deliverables?contact_id=eq.' + encodeURIComponent(contactId)
+      + '&select=deliverable_type,title,status,delivered_at,created_at&order=created_at.asc');
+    if (!rows || rows.length === 0) {
+      return { available: true, total: 0, by_category: [], items: [] };
+    }
+    // Group by category
+    var catCounts = {};
+    rows.forEach(function(r) {
+      var cat = categorize(r.deliverable_type);
+      if (!catCounts[cat]) catCounts[cat] = { category: cat, count: 0, items: [] };
+      catCounts[cat].count++;
+      catCounts[cat].items.push({
+        type: r.deliverable_type,
+        title: r.title,
+        status: r.status,
+        delivered_at: r.delivered_at,
+        created_at: r.created_at
+      });
+    });
+    var byCategory = Object.keys(catCounts).map(function(k) { return catCounts[k]; });
+    // Order: Setup first, then Content, Authority, Strategy, Other
+    var order = ['Setup & Foundation', 'Content & SEO Pages', 'Authority & Trust Signals', 'Strategy & Audits', 'Other'];
+    byCategory.sort(function(a, b) { return order.indexOf(a.category) - order.indexOf(b.category); });
+    return {
+      available: true,
+      total: rows.length,
+      by_category: byCategory,
+      items: rows
+    };
+  } catch (e) {
+    console.error('[campaign-summary] deliverables error:', e);
+    return { available: false, error: e.message };
+  }
+}
+
+// ── Attribution (client-reported YoY data) ────────────────────────
+//
+// Pulls multi-source attribution periods stored by the admin team and
+// computes year-over-year deltas. Source rows live in client_attribution_sources
+// keyed off period_id.
+
+async function pullAttribution(contactId) {
+  if (!contactId) return { available: false };
+  try {
+    var periods = await sb.query('client_attribution_periods?contact_id=eq.'
+      + encodeURIComponent(contactId) + '&select=*&order=period_start.asc');
+    if (!periods || periods.length === 0) {
+      return { available: false, reason: 'No attribution data recorded yet' };
+    }
+
+    // Pull all sources for these periods in one query
+    var periodIds = periods.map(function(p) { return p.id; }).join(',');
+    var sources = await sb.query('client_attribution_sources?period_id=in.('
+      + periodIds + ')&select=*');
+
+    // Group sources by period
+    var byPeriod = {};
+    sources.forEach(function(s) {
+      if (!byPeriod[s.period_id]) byPeriod[s.period_id] = [];
+      byPeriod[s.period_id].push(s);
+    });
+
+    // Enrich periods with their sources + totals
+    var enriched = periods.map(function(p) {
+      var srcs = byPeriod[p.id] || [];
+      var totals = srcs.reduce(function(acc, s) {
+        acc.appointments += Number(s.appointment_count || 0);
+        acc.revenue_cents += Number(s.revenue_cents || 0);
+        return acc;
+      }, { appointments: 0, revenue_cents: 0 });
+      return {
+        id: p.id,
+        period_start: p.period_start,
+        period_end: p.period_end,
+        period_label: p.period_label,
+        is_baseline: p.is_baseline,
+        notes: p.notes,
+        reported_by: p.reported_by,
+        reported_at: p.reported_at,
+        sources: srcs.map(function(s) {
+          return {
+            source_name: s.source_name,
+            source_category: s.source_category,
+            appointment_count: Number(s.appointment_count || 0),
+            revenue_cents: Number(s.revenue_cents || 0),
+            revenue_dollars: Number(s.revenue_cents || 0) / 100
+          };
+        }),
+        totals: {
+          appointments: totals.appointments,
+          revenue_cents: totals.revenue_cents,
+          revenue_dollars: totals.revenue_cents / 100
+        }
+      };
+    });
+
+    // Compute YoY for the most recent baseline + most recent non-baseline period
+    var baseline = enriched.find(function(p) { return p.is_baseline; });
+    var current = enriched.slice().reverse().find(function(p) { return !p.is_baseline; });
+
+    var yoy = null;
+    if (baseline && current) {
+      var pickGoogle = function(p) {
+        return p.sources.find(function(s) {
+          return s.source_name && s.source_name.toLowerCase() === 'google';
+        }) || { appointment_count: 0, revenue_cents: 0 };
+      };
+      var googleBase = pickGoogle(baseline);
+      var googleCurrent = pickGoogle(current);
+
+      var googleRevenueDelta = googleCurrent.revenue_cents - googleBase.revenue_cents;
+      var googleRevenueGrowthPct = googleBase.revenue_cents > 0
+        ? (googleRevenueDelta / googleBase.revenue_cents)
+        : null;
+
+      var totalRevenueDelta = current.totals.revenue_cents - baseline.totals.revenue_cents;
+      var totalRevenueGrowthPct = baseline.totals.revenue_cents > 0
+        ? (totalRevenueDelta / baseline.totals.revenue_cents)
+        : null;
+
+      yoy = {
+        baseline_label: baseline.period_label,
+        current_label: current.period_label,
+        google: {
+          appointments_baseline: googleBase.appointment_count,
+          appointments_current: googleCurrent.appointment_count,
+          revenue_cents_baseline: googleBase.revenue_cents,
+          revenue_cents_current: googleCurrent.revenue_cents,
+          revenue_dollars_baseline: googleBase.revenue_cents / 100,
+          revenue_dollars_current: googleCurrent.revenue_cents / 100,
+          revenue_growth_pct: googleRevenueGrowthPct,
+          revenue_delta_dollars: googleRevenueDelta / 100
+        },
+        total_online: {
+          appointments_baseline: baseline.totals.appointments,
+          appointments_current: current.totals.appointments,
+          revenue_cents_baseline: baseline.totals.revenue_cents,
+          revenue_cents_current: current.totals.revenue_cents,
+          revenue_dollars_baseline: baseline.totals.revenue_cents / 100,
+          revenue_dollars_current: current.totals.revenue_cents / 100,
+          revenue_growth_pct: totalRevenueGrowthPct,
+          revenue_delta_dollars: totalRevenueDelta / 100
+        },
+        avg_revenue_per_appointment_current: current.totals.appointments > 0
+          ? (current.totals.revenue_cents / 100 / current.totals.appointments)
+          : null
+      };
+    }
+
+    return {
+      available: true,
+      periods: enriched,
+      yoy: yoy
+    };
+  } catch (e) {
+    // Most likely cause: tables not yet created. Hide section gracefully.
+    console.error('[campaign-summary] attribution error:', e.message || e);
+    return { available: false, error: e.message };
+  }
+}
+
+// ── Performance guarantee evaluation ──────────────────────────────
+//
+// Compares the threshold (typically 2x investment) against the most recent
+// year's attributed revenue. Returns multiple "reads" (Google-only,
+// total-online) so the page can frame it honestly.
+
+function evaluateGuarantee(reportConfig, attribution) {
+  if (!reportConfig || !reportConfig.performance_guarantee_cents) {
+    return { available: false, reason: 'No performance guarantee configured' };
+  }
+  if (!attribution || !attribution.available || !attribution.yoy) {
+    return {
+      available: true,
+      threshold_cents: Number(reportConfig.performance_guarantee_cents),
+      threshold_dollars: Number(reportConfig.performance_guarantee_cents) / 100,
+      met: null,
+      reason: 'No attribution data to evaluate against threshold'
+    };
+  }
+  var threshold = Number(reportConfig.performance_guarantee_cents);
+  var googleOnly = attribution.yoy.google.revenue_cents_current;
+  var totalOnline = attribution.yoy.total_online.revenue_cents_current;
+
+  return {
+    available: true,
+    threshold_cents: threshold,
+    threshold_dollars: threshold / 100,
+    google_only_cents: googleOnly,
+    google_only_dollars: googleOnly / 100,
+    total_online_cents: totalOnline,
+    total_online_dollars: totalOnline / 100,
+    met_by_google: googleOnly >= threshold,
+    met_by_total: totalOnline >= threshold,
+    multiple_google: threshold > 0 ? googleOnly / threshold : null,
+    multiple_total: threshold > 0 ? totalOnline / threshold : null,
+    over_by_google_dollars: (googleOnly - threshold) / 100,
+    over_by_total_dollars: (totalOnline - threshold) / 100
+  };
+}
+
 // ── Handler ────────────────────────────────────────────────────────
 
 module.exports = async function handler(req, res) {
@@ -375,7 +675,7 @@ module.exports = async function handler(req, res) {
   try {
     // 1. Load client
     var clients = await sb.query('contacts?slug=eq.' + encodeURIComponent(slug)
-      + '&select=slug,first_name,last_name,practice_name,city,state_province,website_url,campaign_start&limit=1');
+      + '&select=id,slug,first_name,last_name,practice_name,city,state_province,website_url,campaign_start,plan_amount_cents&limit=1');
     if (!clients || clients.length === 0) {
       res.status(404).json({ error: 'Client not found' });
       return;
@@ -394,11 +694,46 @@ module.exports = async function handler(req, res) {
     var monthBuckets = buildMonthBuckets(startISO, todayISO);
 
     // 4. Pull all sources in parallel
-    var [bookings, gsc, localfalcon] = await Promise.all([
+    var [bookings, gsc, localfalcon, deliverables, attribution] = await Promise.all([
       pullBookings(client, monthBuckets),
       pullGsc(reportConfig && reportConfig.gsc_property, monthBuckets, startISO, todayISO),
-      pullLocalFalcon(reportConfig)
+      pullLocalFalcon(reportConfig),
+      pullDeliverables(client.id),
+      pullAttribution(client.id)
     ]);
+
+    // Cost + derived unit economics (synchronous)
+    var cost = pullCost(client, monthBuckets);
+
+    // Performance guarantee status (synchronous, depends on attribution)
+    var guarantee = evaluateGuarantee(reportConfig, attribution);
+
+    // Click-to-booking conversion (requires both bookings + gsc)
+    var conversion = null;
+    if (bookings.available && gsc.available && bookings.net > 0 && gsc.totals.clicks > 0) {
+      var rate = bookings.net / gsc.totals.clicks;
+      conversion = {
+        available: true,
+        rate: rate,
+        rate_pct: rate * 100,
+        clicks_per_booking: Math.round(gsc.totals.clicks / bookings.net)
+      };
+    } else {
+      conversion = { available: false };
+    }
+
+    // Cost per consultation
+    var costPerConsultation = null;
+    if (cost.available && bookings.available && bookings.net > 0) {
+      costPerConsultation = {
+        available: true,
+        dollars: cost.total_dollars / bookings.net,
+        total_invested_dollars: cost.total_dollars,
+        consultations: bookings.net
+      };
+    } else {
+      costPerConsultation = { available: false };
+    }
 
     var location = [client.city, client.state_province].filter(Boolean).join(', ');
 
@@ -421,6 +756,12 @@ module.exports = async function handler(req, res) {
       bookings: bookings,
       gsc: gsc,
       localfalcon: localfalcon,
+      cost: cost,
+      conversion: conversion,
+      cost_per_consultation: costPerConsultation,
+      deliverables: deliverables,
+      attribution: attribution,
+      guarantee: guarantee,
       generated_at: new Date().toISOString(),
       duration_ms: Date.now() - t0
     });
