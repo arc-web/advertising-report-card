@@ -7,9 +7,9 @@
 
 ## Where the audit stands
 
-All 9 Criticals closed. **Fifteen Highs closed** (H5, H7, H8, H9, H10, H11, H14, H18, H19, H20, H22, H28, H33, H34, H35). M6, M8, M13, M22, M38 closed; M26 err-leak half closed, prompt-injection half deferred to Group D. **L8**, L14, L26, L27 closed. H21 has scaffolding landed (`api/_lib/google-delegated.js`) but 5 duplicate sites still need migration. `authenticator_secret_key` null-on-all-rows investigation resolved: `SENSITIVE_FIELDS` includes it; the null state just means no 2FA setup has been saved yet through the admin UI. Not a bug.
+All 9 Criticals closed. **Seventeen Highs closed** (H5, H7, H8, H9, H10, H11, H14, H18, H19, H20, H21, H22, H28, H30, H33, H34, H35). M6, M8, M13, M22, M38 closed; M26 err-leak half closed, prompt-injection half deferred to Group D. **L8**, L14, L16, L26, L27 closed. H21 migration is now complete: all 5 duplicate `getDelegatedToken`/`getGoogleAccessToken` sites (bootstrap-access, discover-services, enrich-proposal, generate-proposal, compile-report) migrated to `api/_lib/google-delegated.js` (commits `17d0ae8`, `4e77e55`, `568a868`, `d592381`, `1d9c835`). H30 (Fathom/Gmail token caching) and L16 (dead `getGoogleAccessToken` in compile-report) closed incidentally. `authenticator_secret_key` null-on-all-rows investigation resolved: `SENSITIVE_FIELDS` includes it; the null state just means no 2FA setup has been saved yet through the admin UI. Not a bug.
 
-~82 findings remain. None of them are attack chains of the same severity as C1-C9. Most are hardening, consistency, and observability work. Ordering them linearly doesn't match their actual value; grouping them does.
+~79 findings remain. None of them are attack chains of the same severity as C1-C9. Most are hardening, consistency, and observability work. Ordering them linearly doesn't match their actual value; grouping them does.
 
 ---
 
@@ -35,12 +35,12 @@ All 9 Criticals closed. **Fifteen Highs closed** (H5, H7, H8, H9, H10, H11, H14,
 
 | ID | Issue | Status |
 |---|---|---|
-| H21 + N6 | 7 copies of `getDelegatedToken` → extract `_lib/google-auth.js` with caching | 🔶 helper landed in `7adedb6` (`api/_lib/google-delegated.js` with token caching); 5 duplicate sites still pending migration |
+| H21 + N6 | 7 copies of `getDelegatedToken` → extract `_lib/google-auth.js` with caching | ✅ closed — helper landed `7adedb6`; 5 duplicates migrated in `17d0ae8`, `4e77e55`, `568a868`, `d592381`, `1d9c835` (Group B.1) |
 | H4, H24, M10, M16 | `fetch()` without AbortController — extract `fetchWithTimeout` helper | 1 session |
 | Pattern 12 | Migrate ~30 inline Supabase fetches in 5 big files to `sb.query`/`sb.mutate` | 1-2 sessions |
-| H30, L7, L8, L22 | Duplicated helpers (Fathom dedup, Resend events, sbGet) | L8 ✅ closed; rest open |
+| H30, L7, L8, L22 | Duplicated helpers (Fathom dedup, Resend events, sbGet) | H30 ✅ closed (subsumed by H21 migration — Gmail/Fathom now share token cache); L8 ✅ closed; L7 + L22 open |
 
-**Recommendation:** H21 migration session is cheaper than originally scoped — the helper is already live in `api/_lib/google-delegated.js` with working token caching. Migration reduces to: delete 5 local copies, add require, rename call sites. Then AbortController. Then the Supabase helper migration.
+**Status:** Group B.1 (H21 migration) complete — see retrospective below. Remaining Group B work is AbortController extraction (Group B.2) and Supabase helper migration across the 5 big files (Group B.3).
 
 ### Group C — Template/email escape defaults ✅ COMPLETE
 
@@ -135,205 +135,49 @@ Items I recommend marking "won't fix" or "needs design":
 
 ## Recommended next session
 
-**Group B.1 — H21 google-auth migration.**
+**Group D — AI prompt injection hardening.**
 
 Reasoning:
-- Helper (`api/_lib/google-delegated.js`) is already live with working token caching (commit `7adedb6`). Migration reduces to: delete 5 local copies, add require, rename call sites.
-- Mechanical — near-free session, zero design questions.
-- Closes 2 Highs (H21, H30) plus likely incidental close on L16.
-- Good rhythm break after the heavier Group C atomic-rename session.
+- Group B.1 closed 2026-04-17 (see retrospective below). Remaining Group B work (B.2 AbortController, B.3 Supabase helper) is still mechanical and can slot in anywhere.
+- Group D closes H25, H31, M15, and the deferred prompt-injection half of M26 — all concentrated in the Claude-prompting code paths (`compile-report.js` highlights, `generate-content-page.js` RTPBA, `chat.js` system prompt).
+- Good time to tackle it while the recent rereading of those files from Group A + B.1 is fresh.
 
 After that, the recommended sequence is:
 
-1. **Group B.1 — H21 google-auth migration** (1 session, mechanical) — next
-2. **Group D — AI prompt injection hardening** (1 session) — closes H25, H31, M15, M26-prompt-half
-3. **Group B.2 — AbortController extraction** (1 session) — closes H4, H24 + many Mediums
-4. **Group E — non-transactional state** (1 session) — closes H26, H27, M11, M30
-5. **Group F — public endpoint hardening** (1 session) — closes H12, H15, H32 + validation Mediums
-6. **Group G — operational resilience** (1-2 sessions) — H1, H3, H6, H13, H17, H23, H29 + small Mediums
-7. **Group B.3 — Supabase helper migration** (1-2 sessions)
-8. **Group I — Lows + Nits sweep** (1 session)
-9. **Group H — M1 Stripe metadata** (once dashboard metadata is added)
+1. **Group D — AI prompt injection hardening** (1 session) — closes H25, H31, M15, M26-prompt-half
+2. **Group B.2 — AbortController extraction** (1 session) — closes H4, H24 + many Mediums
+3. **Group E — non-transactional state** (1 session) — closes H26, H27, M11, M30
+4. **Group F — public endpoint hardening** (1 session) — closes H12, H15, H32 + validation Mediums
+5. **Group G — operational resilience** (1-2 sessions) — H1, H3, H6, H13, H17, H23, H29 + small Mediums
+6. **Group B.3 — Supabase helper migration** (1-2 sessions)
+7. **Group I — Lows + Nits sweep** (1 session)
+8. **Group H — M1 Stripe metadata** (once dashboard metadata is added)
 
-Approximately 8-10 sessions to clear the remaining open findings, or we stop earlier once diminishing returns kick in. The call on "when to stop" gets clearer around session 5-6 when what's left is mostly Low/Nit polish.
+Approximately 7-9 sessions to clear the remaining open findings, or we stop earlier once diminishing returns kick in. The call on "when to stop" gets clearer around session 5 when what's left is mostly Low/Nit polish.
 
 ---
 
-## Prompt for next session (Group B.1 — H21 google-auth migration)
+## Group B.1 — H21 google-auth migration ✅ COMPLETE (2026-04-17)
 
-```
-H21 migration session. The helper `api/_lib/google-delegated.js` has been
-live since commit 7adedb6 with working token caching — it's used by
-api/campaign-summary.js today. This session replaces 5 local duplicate
-implementations with the shared helper.
+All 5 route-level duplicates of `getDelegatedToken`/`getGoogleAccessToken` migrated to `api/_lib/google-delegated.js`:
 
-Read docs/api-audit-2026-04.md sections H21 and H30, and the partial-
-progress note under H21 (helper already landed). Then walk through your
-plan before touching code.
+- `api/bootstrap-access.js` — `17d0ae8` (GBP, GA4, GTM delegated tokens)
+- `api/discover-services.js` — `4e77e55` (switched to `getServiceAccountToken` — non-delegated variant with hardcoded scope now passed explicitly)
+- `api/enrich-proposal.js` — `568a868` (Gmail three-mailbox loop; nested try/catch + `continue` preserves original silent-skip semantics; dropped the obsolete `typeof token === 'string'` guard)
+- `api/generate-proposal.js` — `d592381` (Drive-folder creation for new prospects; happy path gated on `if (driveToken)`, `results.drive.error` branch preserved)
+- `api/compile-report.js` — `1d9c835` (GSC + GBP Performance closures inside `safe()`; both local functions deleted, including dead `getGoogleAccessToken` — see L16)
 
-─────────────────────────────────────────────────────────────────────
-Helper signature (pre-verified on main)
-─────────────────────────────────────────────────────────────────────
+Final grep on main: zero matches for `function getDelegatedToken|function getGoogleAccessToken` across `api/`. All 5 files now `require('./_lib/google-delegated')`.
 
-  var google = require('./_lib/google-delegated');
+Net result:
+- H21 fully resolved (was partial).
+- H30 resolved incidentally — Fathom + Gmail calls now share the helper's `_tokenCache`.
+- L16 resolved incidentally — dead `getGoogleAccessToken` deleted.
+- `api/_lib/google-drive.js` left as-is (bespoke signature, module-level cache) — tracked under N6 as a candidate follow-up, not a blocker.
 
-  // Domain-wide delegation (impersonate a Workspace user):
-  await google.getDelegatedAccessToken(mailbox, scope);
-    // → returns access_token string
-    // → THROWS on failure (no more {error} return)
-    // → caches by `${mailbox}|${scope}` with 60s pre-expiry buffer
-
-  // Direct SA token (no impersonation):
-  await google.getServiceAccountToken(scope);
-    // → returns access_token string
-    // → THROWS on failure
-    // → caches by `sa|${scope}`
-
-  // Try a list of mailboxes, return first that passes testFn:
-  await google.getFirstWorkingImpersonation(mailboxes, scope, testFn);
-    // Used in campaign-summary.js for GSC property owner variance.
-
-─────────────────────────────────────────────────────────────────────
-CRITICAL: return contract differs from the local implementations
-─────────────────────────────────────────────────────────────────────
-
-Old local helpers: on failure, return { error: 'msg' }.
-Callers check: if (token.error) { ... } or if (!token || token.error)
-
-New helper: THROWS.
-
-Every call site needs a try/catch wrapper OR the call site must live
-inside an existing try block with a catch that handles the thrown error.
-
-For each migrated site: preserve behavior precisely. If the old branch
-did `results.drive.error = 'Failed to get Drive token: ' + token.error`,
-the new try/catch catches and sets the same field with e.message. If it
-did `return res.status(500).json({error:'Google auth failed: '+token.error})`,
-the catch does the same with e.message.
-
-─────────────────────────────────────────────────────────────────────
-Sites to migrate (current line numbers on main)
-─────────────────────────────────────────────────────────────────────
-
-Site 1 — api/bootstrap-access.js
-  Local impl: `async function getDelegatedToken(saJson, impersonateEmail, scope)` at line 575
-  Callers:
-    line 121:  var gbpToken = await getDelegatedToken(googleSA, IMPERSONATE_USER, scope)
-    line 242:  var ga4Token = await getDelegatedToken(googleSA, IMPERSONATE_USER, scope)
-    line 324:  var gtmToken = await getDelegatedToken(googleSA, IMPERSONATE_USER, scope)
-  Each caller checks `if (token.error)` on the next line (122, 243, 325).
-
-  Migration:
-    - Add `var google = require('./_lib/google-delegated');` at module scope.
-    - Each call becomes:
-        var token;
-        try { token = await google.getDelegatedAccessToken(IMPERSONATE_USER, scope); }
-        catch (e) { <same error-handling branch as current>; }
-    - Drop the googleSA first arg (helper reads env directly).
-    - Delete the local getDelegatedToken function (line 575 onward).
-    - The `if (!googleSA) throw` guards (lines 119, 240, 322) become
-      redundant (helper checks env) but keeping them is fine for early
-      failure — your call.
-
-Site 2 — api/compile-report.js
-  TWO local impls (both need migration):
-    line 909:  `async function getGoogleAccessToken(saJson, scope)`  — no impersonation
-    line 1012: `async function getDelegatedToken(saJson, impersonateEmail, scope)` — with impersonation
-  Callers:
-    line 182: `if (!token || token.error)` — reviewed as GSC path
-    line 257: `if (!gbpToken || gbpToken.error)` — GBP Performance path
-    line 942: separate token exchange (NOT the helper — leave alone, it's
-              inside the helper's own impl loop)
-  Migration:
-    - Both get replaced with the new helper:
-        getGoogleAccessToken → getServiceAccountToken
-        getDelegatedToken    → getDelegatedAccessToken
-    - try/catch wrapping as above. Both callers already have `warnings.push`
-      error-handling that maps cleanly to catch-block behavior.
-    - Delete both local functions.
-
-Site 3 — api/discover-services.js
-  Local impl: `async function getGoogleAccessToken(saJson)` at line 281 (no-impersonation variant, no scope arg — scope hardcoded inside)
-  Callers:
-    line 47: `if (token && token.error) return res.status(500)...`
-  Migration:
-    - Check line 281 for the hardcoded scope — pass it explicitly to
-      google.getServiceAccountToken(scope) at the call site.
-    - Wrap in try/catch, preserve the 500 response shape on error.
-    - Delete local function.
-
-Site 4 — api/enrich-proposal.js
-  Local impl: `async function getDelegatedToken(saJson, impersonateEmail, scope)` at line 414
-  Callers: 1 call (line ~92 range — grep to confirm)
-  Migration: same try/catch pattern; delete local function.
-
-Site 5 — api/generate-proposal.js
-  Local impl: `async function getDelegatedToken(saJson, impersonateEmail, scope)` at line 725
-  Callers: 1 call (line ~704 — it branches on `driveToken.error` for
-           a results.drive.error field)
-  Migration: same try/catch; catch sets results.drive.error with e.message.
-
-─────────────────────────────────────────────────────────────────────
-Out of scope for this session
-─────────────────────────────────────────────────────────────────────
-
-- api/_lib/google-drive.js: has its own getAccessToken() + module-level
-  _cachedToken/_cachedExpiry. Bespoke signature (no-arg — scope hardcoded).
-  Separate design concern. Leaving it alone closes H21 as written (5
-  route-level duplicates) and doesn't add risk. Fold into a follow-up
-  if desired.
-- api/campaign-summary.js: already uses the helper, no action.
-- H30 (Fathom dedup token caching): partially resolves incidentally —
-  enrich-proposal.js's Fathom + Gmail calls now benefit from helper's
-  token cache. Mark H30 resolved alongside H21.
-- L16 (two Google auth functions in compile-report.js with subtle
-  difference): closes incidentally — both are gone after migration.
-  Mark L16 resolved.
-
-─────────────────────────────────────────────────────────────────────
-Testing
-─────────────────────────────────────────────────────────────────────
-
-No new functional behavior — this is a refactor to a pre-existing helper.
-Vercel deploy must go READY for each commit.
-
-Smoke tests if desired (not blocking):
-- discover-services.js: can exercise via admin UI's "Discover Services"
-  button on any onboarding contact.
-- bootstrap-access.js: requires a real Leadsie hand-off to exercise
-  end-to-end — skip unless you have a test client ready.
-- compile-report.js: can exercise via any client's monthly report
-  generation.
-- enrich-proposal.js: runs during proposal generation; needs a lead
-  being promoted to prospect.
-- generate-proposal.js: same path as enrich — they run together.
-
-Grep check after each commit:
-  grep -rn "function getDelegatedToken\|function getGoogleAccessToken" api/
-  — expected: only api/campaign-summary.js (negative) and the helper
-    itself have these names after all migrations.
-
-─────────────────────────────────────────────────────────────────────
-Deliverables
-─────────────────────────────────────────────────────────────────────
-
-5 commits, one per file (in any order — they don't depend on each other):
-  - Migrate bootstrap-access.js to google-delegated helper
-  - Migrate compile-report.js (both getDelegatedToken and getGoogleAccessToken)
-  - Migrate discover-services.js
-  - Migrate enrich-proposal.js
-  - Migrate generate-proposal.js
-
-Final: doc update to api-audit-2026-04.md:
-  - Mark H21 resolved (was partial — now full, all 5 route-level
-    duplicates migrated)
-  - Mark H30 resolved (incidental)
-  - Mark L16 resolved (incidental)
-  - Update running tallies: High 15 → 17 resolved, Low 4 → 5 resolved
-  - Note google-drive.js helper-integration as candidate follow-up
-
-Also update post-phase-4-status.md: mark Group B.1 complete.
-```
+Behavior-preservation notes:
+- The new helper throws on failure rather than returning `{ error }`. Every call site wrapped in try/catch (or nested inside an existing one) so the original error-handling branches map 1:1 — `warnings.push(...)`, `results.drive.error = ...`, `enrichment.sources.gmail.push({ account, error })`, `return null` — all preserved with `e.message || String(e)`.
+- Original warning strings kept verbatim where they differed across sites (e.g. compile-report's `'GBP Performance: delegated token failed - '` kept distinct from `'GSC: token failed - '`).
 
 ## Closing thought on the grouping approach
 
