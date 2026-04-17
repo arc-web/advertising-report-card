@@ -23,6 +23,13 @@ var monitor = require('./_lib/monitor');
 var gh = require('./_lib/github');
 var pageToken = require('./_lib/page-token');
 
+// HTML-escape untrusted values before interpolating into deployed HTML.
+// Mirrors the shape used in email-template.js and newsletter-template.js.
+function esc(s) {
+  if (s === undefined || s === null) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   // Require authenticated admin
@@ -326,10 +333,15 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
   });
   // Add custom pricing card if present
   if (customPricing) {
+    // Guard amount_cents: admin-controlled field, if non-numeric we'd render literal "$NaN" in prospect-facing HTML.
+    var amt = Number(customPricing.amount_cents);
+    var priceHtml = (Number.isFinite(amt) && amt >= 0)
+      ? '$' + (amt / 100).toLocaleString()
+      : '&mdash;';
     investmentCardsHtml += '<div class="investment-card">';
     investmentCardsHtml += '<span class="badge">Custom Arrangement</span>';
-    investmentCardsHtml += '<div class="investment-price">$' + (customPricing.amount_cents / 100).toLocaleString() + '</div>';
-    investmentCardsHtml += '<div class="investment-period">' + (customPricing.label || customPricing.period) + '</div>';
+    investmentCardsHtml += '<div class="investment-price">' + priceHtml + '</div>';
+    investmentCardsHtml += '<div class="investment-period">' + esc(customPricing.label || customPricing.period) + '</div>';
     investmentCardsHtml += '<ul class="investment-features">' + standardFeatures + '</ul>';
     investmentCardsHtml += '<a href="/' + slug + '/checkout" class="cta-btn" target="_blank">Choose Your Plan &#8594;</a>';
     investmentCardsHtml += '</div>';
@@ -359,7 +371,7 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
   }
   steps.forEach(function(s, i) {
     var mb = i < steps.length - 1 ? 'margin-bottom:1.25rem;' : '';
-    nextStepsHtml += '<div style="display:flex;gap:1rem;align-items:flex-start;' + mb + '"><div style="width:28px;height:28px;border-radius:50%;background:var(--color-primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8125rem;flex-shrink:0;">' + (i + 1) + '</div><div><h4>' + (s.title || 'Step ' + (i+1)) + '</h4><p style="margin-bottom:0;">' + (s.desc || s.description || '') + '</p></div></div>';
+    nextStepsHtml += '<div style="display:flex;gap:1rem;align-items:flex-start;' + mb + '"><div style="width:28px;height:28px;border-radius:50%;background:var(--color-primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8125rem;flex-shrink:0;">' + (i + 1) + '</div><div><h4>' + esc(s.title || 'Step ' + (i+1)) + '</h4><p style="margin-bottom:0;">' + esc(s.desc || s.description || '') + '</p></div></div>';
   });
 
   // ─── Build Results Section (practice-type aware) ──────────────
