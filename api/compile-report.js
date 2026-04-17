@@ -697,21 +697,20 @@ module.exports = async function handler(req, res) {
   if (anthropicKey) {
     try {
       highlights = await generateHighlights(snapshot, prevSnap, practiceName, anthropicKey);
-      try {
-        await sb.mutate('report_highlights?client_slug=eq.' + clientSlug + '&report_month=eq.' + reportMonth, 'DELETE');
-      } catch (e) { warnings.push('Highlights DELETE: ' + e.message); }
       if (highlights.length > 0) {
+        // H27: upsert on UNIQUE(client_slug, report_month, sort_order).
+        // Replaces the non-transactional DELETE+POST pair that could leave
+        // zero highlights if the invocation died between the two writes.
         try {
-          await sb.mutate('report_highlights', 'POST', highlights);
-        } catch (e) { warnings.push('Highlights insert: ' + e.message); }
+          await sb.mutate('report_highlights', 'POST', highlights, 'resolution=merge-duplicates,return=minimal');
+        } catch (e) { warnings.push('Highlights upsert: ' + e.message); }
       }
     } catch (e) {
       warnings.push('Highlight generation: ' + e.message);
       // Fallback: generate basic highlights from data
       highlights = buildFallbackHighlights(snapshot, practiceName);
       if (highlights.length > 0) {
-        try { await sb.mutate('report_highlights?client_slug=eq.' + clientSlug + '&report_month=eq.' + reportMonth, 'DELETE'); } catch (_e) {}
-        try { await sb.mutate('report_highlights', 'POST', highlights); } catch (_e) {}
+        try { await sb.mutate('report_highlights', 'POST', highlights, 'resolution=merge-duplicates,return=minimal'); } catch (_e) {}
       }
     }
   }
