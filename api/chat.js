@@ -33,7 +33,7 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'messages array required' });
     }
 
-    var systemPrompt = buildSystemPrompt(context);
+    var systemBlocks = buildSystemPrompt(context);
 
     // Sonnet 4.6 with retry logic
     var models = [
@@ -58,7 +58,7 @@ module.exports = async function handler(req, res) {
             model: model.id,
             max_tokens: 8192,
             stream: true,
-            system: systemPrompt,
+            system: systemBlocks,
             messages: messages
           })
         });
@@ -142,49 +142,61 @@ function buildSystemPrompt(ctx) {
   var clientSlug = ctx.clientSlug ? sanitizer.sanitizeText(ctx.clientSlug, 200) : null;
   var clientData = ctx.clientData || null;
 
-  var parts = [];
+  // Returns an array of 2 system prompt content blocks with an Anthropic
+  // prompt-caching breakpoint on the first (static) block. Within a
+  // single conversation on a given admin page, the static prefix
+  // (BASE_PROMPT + mode selector + STYLE + MODE_*) doesn't change, so
+  // turn 2+ hits the cache and only the dynamic tail (ctx + clientData
+  // + clientIndex) is billed at full rate. Byte-identical model input
+  // to the original single-string prompt (join with '\n' preserved).
 
-  // === BASE PROMPT (always included) ===
-  parts.push(BASE_PROMPT);
+  // ===== STATIC BLOCK (cacheable per conversation) =====
+  var staticParts = [];
 
-  // === CONDITIONAL: read_records docs vs direct-answer mode ===
-  // Only use direct-answer mode on client deep-dive (clientSlug present = full detail data loaded)
-  // On list/summary pages, include read_records so the model can fetch specific client data
+  // BASE PROMPT
+  staticParts.push(BASE_PROMPT);
+
+  // Conditional: direct-answer mode on deep-dive with loaded data,
+  // cross-client-ops docs elsewhere. Stable within a conversation
+  // because clientSlug and clientData presence don't flip mid-chat.
   if (clientSlug && clientData) {
-    parts.push(DIRECT_ANSWER_MODE);
+    staticParts.push(DIRECT_ANSWER_MODE);
   } else {
-    parts.push(CROSS_CLIENT_OPS);
+    staticParts.push(CROSS_CLIENT_OPS);
   }
 
-  // === STYLE + HYGIENE (always included) ===
-  parts.push(BASE_PROMPT_STYLE);
+  // Style + hygiene
+  staticParts.push(BASE_PROMPT_STYLE);
 
-  // === MODE-SPECIFIC PROMPT ===
+  // Mode-specific prompt
   if (page.includes('/admin/audit')) {
-    parts.push(MODE_AUDITS);
+    staticParts.push(MODE_AUDITS);
   } else if (page.includes('/admin/deliverable')) {
-    parts.push(MODE_DELIVERABLES);
+    staticParts.push(MODE_DELIVERABLES);
   } else if (page.includes('/admin/onboarding')) {
-    parts.push(MODE_ONBOARDING);
+    staticParts.push(MODE_ONBOARDING);
   } else if (page.includes('/admin/report')) {
-    parts.push(MODE_REPORTS);
+    staticParts.push(MODE_REPORTS);
   } else if (page.includes('/admin/client')) {
-    parts.push(MODE_CLIENTS);
+    staticParts.push(MODE_CLIENTS);
   } else {
-    parts.push(MODE_DASHBOARD);
+    staticParts.push(MODE_DASHBOARD);
   }
 
-  // === CURRENT CONTEXT ===
+  // ===== DYNAMIC BLOCK (per-turn, not cached) =====
+  var dynamicParts = [];
+
+  // Current context
   var ctx_str = '\n\n## Current Context\nPage: ' + page;
   if (tab) ctx_str += ' | Tab: ' + tab;
   if (clientSlug) ctx_str += '\nClient: ' + clientSlug;
-  parts.push(ctx_str);
+  dynamicParts.push(ctx_str);
 
   if (clientData) {
     var dataLabel = clientSlug
       ? 'Live Data for ' + clientSlug + ' (do not expose raw field names or JSON — translate to plain English)'
       : 'Cross-Client Summary Data (do not expose raw field names or JSON — translate to plain English)\nThis includes per-client onboarding gate status, intro call progress, task counts, and deliverable counts for all active/onboarding clients. Use this data to answer questions about priorities, blockers, and team workload across the portfolio.';
-    parts.push('\n\n## ' + dataLabel + '\n```json\n' + JSON.stringify(clientData, null, 2) + '\n```');
+    dynamicParts.push('\n\n## ' + dataLabel + '\n```json\n' + JSON.stringify(clientData, null, 2) + '\n```');
   }
 
   // Include lightweight client index for cross-client operations.
@@ -194,10 +206,13 @@ function buildSystemPrompt(ctx) {
   // tokens per turn.
   var clientIndex = clientSlug ? null : (ctx.clientIndex || null);
   if (clientIndex && clientIndex.length > 0) {
-    parts.push('\n\n## Client Index (' + clientIndex.length + ' clients)\n```json\n' + JSON.stringify(clientIndex) + '\n```');
+    dynamicParts.push('\n\n## Client Index (' + clientIndex.length + ' clients)\n```json\n' + JSON.stringify(clientIndex) + '\n```');
   }
 
-  return parts.join('\n');
+  return [
+    { type: 'text', text: staticParts.join('\n'), cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: dynamicParts.join('\n') }
+  ];
 }
 
 
