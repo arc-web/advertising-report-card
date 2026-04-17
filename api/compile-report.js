@@ -22,6 +22,7 @@ var email = require('./_lib/email-template');
 var sb = require('./_lib/supabase');
 var auth = require('./_lib/auth');
 var monitor = require('./_lib/monitor');
+var google = require('./_lib/google-delegated');
 
 
 module.exports = async function handler(req, res) {
@@ -178,9 +179,11 @@ module.exports = async function handler(req, res) {
       warnings.push('GSC: skipped (no credentials or property configured)');
       return null;
     }
-    var token = await getDelegatedToken(googleSA, 'support@moonraker.ai', 'https://www.googleapis.com/auth/webmasters.readonly');
-    if (!token || token.error) {
-      warnings.push('GSC: token failed - ' + (token ? token.error : 'unknown'));
+    var token;
+    try {
+      token = await google.getDelegatedAccessToken('support@moonraker.ai', 'https://www.googleapis.com/auth/webmasters.readonly');
+    } catch (tokenErr) {
+      warnings.push('GSC: token failed - ' + (tokenErr.message || String(tokenErr)));
       return null;
     }
 
@@ -253,9 +256,11 @@ module.exports = async function handler(req, res) {
       warnings.push('GBP Performance: skipped (no service account or gbp_location_id configured)');
       return null;
     }
-    var gbpToken = await getDelegatedToken(googleSA, 'support@moonraker.ai', 'https://www.googleapis.com/auth/business.manage');
-    if (!gbpToken || gbpToken.error) {
-      warnings.push('GBP Performance: delegated token failed - ' + (gbpToken ? gbpToken.error : 'unknown'));
+    var gbpToken;
+    try {
+      gbpToken = await google.getDelegatedAccessToken('support@moonraker.ai', 'https://www.googleapis.com/auth/business.manage');
+    } catch (tokenErr) {
+      warnings.push('GBP Performance: delegated token failed - ' + (tokenErr.message || String(tokenErr)));
       return null;
     }
 
@@ -904,51 +909,6 @@ function buildAiKeywordBreakdown(engines) {
 
 
 // ═══════════════════════════════════════════════════════════════════
-// Helper: Google Service Account JWT -> Access Token
-// ═══════════════════════════════════════════════════════════════════
-async function getGoogleAccessToken(saJson, scope) {
-  scope = scope || 'https://www.googleapis.com/auth/webmasters.readonly';
-  try {
-    var sa = typeof saJson === 'string' ? JSON.parse(saJson) : saJson;
-    if (!sa.private_key || !sa.client_email) {
-      throw new Error('Service account JSON missing private_key or client_email');
-    }
-    var crypto = require('crypto');
-
-    var header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
-    var now = Math.floor(Date.now() / 1000);
-    var claims = Buffer.from(JSON.stringify({
-      iss: sa.client_email,
-      scope: scope,
-      aud: 'https://oauth2.googleapis.com/token',
-      iat: now,
-      exp: now + 3600
-    })).toString('base64url');
-
-    var signable = header + '.' + claims;
-    var signer = crypto.createSign('RSA-SHA256');
-    signer.update(signable);
-    var signature = signer.sign(sa.private_key, 'base64url');
-
-    var jwt = signable + '.' + signature;
-
-    var tokenResp = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=' + jwt
-    });
-    var tokenData = await tokenResp.json();
-    if (!tokenData.access_token) {
-      throw new Error('Google OAuth error: ' + (tokenData.error_description || tokenData.error || JSON.stringify(tokenData)));
-    }
-    return tokenData.access_token;
-  } catch (e) {
-    return { error: e.message || String(e) };
-  }
-}
-
-
-// ═══════════════════════════════════════════════════════════════════
 // Helper: Resolve correct GSC property when configured value fails
 // Lists all accessible sites, matches domain, returns best property
 // Preference: sc-domain > https://www. > https:// > http://
@@ -1002,51 +962,6 @@ async function resolveGscProperty(token, currentProp) {
     return matches[0];
   } catch (e) {
     return null;
-  }
-}
-
-
-// ═══════════════════════════════════════════════════════════════════
-// Helper: Get access token via domain-wide delegation
-// ═══════════════════════════════════════════════════════════════════
-async function getDelegatedToken(saJson, impersonateEmail, scope) {
-  try {
-    var sa = typeof saJson === 'string' ? JSON.parse(saJson) : saJson;
-    if (!sa.private_key || !sa.client_email) {
-      throw new Error('SA JSON missing private_key or client_email');
-    }
-    var crypto = require('crypto');
-
-    var header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
-    var now = Math.floor(Date.now() / 1000);
-    var claims = Buffer.from(JSON.stringify({
-      iss: sa.client_email,
-      sub: impersonateEmail,
-      scope: scope,
-      aud: 'https://oauth2.googleapis.com/token',
-      iat: now,
-      exp: now + 3600
-    })).toString('base64url');
-
-    var signable = header + '.' + claims;
-    var signer = crypto.createSign('RSA-SHA256');
-    signer.update(signable);
-    var signature = signer.sign(sa.private_key, 'base64url');
-
-    var jwt = signable + '.' + signature;
-
-    var tokenResp = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=' + jwt
-    });
-    var tokenData = await tokenResp.json();
-    if (!tokenData.access_token) {
-      throw new Error(tokenData.error_description || tokenData.error || JSON.stringify(tokenData));
-    }
-    return tokenData.access_token;
-  } catch (e) {
-    return { error: e.message || String(e) };
   }
 }
 
