@@ -164,7 +164,10 @@ module.exports = async function handler(req, res) {
 
   } catch (err) {
     console.error('send-audit-email error:', err);
-    await monitor.logError('send-audit-email', err, { detail: { stage: 'outer_catch', audit_id: auditId } });
+    await monitor.logError('send-audit-email', err, {
+      client_slug: (typeof slug !== 'undefined' ? slug : null),
+      detail: { stage: 'outer_catch', audit_id: auditId }
+    });
     return res.status(500).json({ ok: false, error: 'Internal server error' });
   }
 };
@@ -281,4 +284,5 @@ function buildEmail3(firstName, practiceName, cres, strongest, weakest, bookingU
 
   return { dayOffset: 14, subject: 'A quick roadmap for ' + (practiceName || 'your practice'), html: wrapFollowup(content) };
 }
+
 
