@@ -1169,8 +1169,24 @@ async function deleteSelectedSubs() {
     var data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'Delete failed');
     toast('Deleted ' + (data.deleted || 0) + ' subscriber' + (data.deleted === 1 ? '' : 's'));
+
+    // Optimistically strip the deleted rows from the current render AND the
+    // in-memory cache before the background re-fetch. Without this, the old
+    // (pre-delete) rows stay on screen while the fetch is in flight — and if
+    // the user has a search term active, the moment the refetch lands the
+    // whole list would briefly flash through the default render path.
+    var deletedSet = {};
+    ids.forEach(function(id) { deletedSet[id] = true; });
+    if (Array.isArray(allLoadedSubs)) {
+      allLoadedSubs = allLoadedSubs.filter(function(s) { return !deletedSet[s.id]; });
+    }
+    ids.forEach(function(id) {
+      var row = document.querySelector('.sub-row[data-sub-id="' + id + '"]');
+      if (row && row.parentNode) row.parentNode.removeChild(row);
+    });
+
     clearSubSelection();
-    await loadSubscribers();
+    refreshSubscriberView();
   } catch (e) {
     toast('Delete failed: ' + e.message, 'error');
     if (btn) { btn.disabled = false; btn.textContent = origText; }
@@ -2456,13 +2472,18 @@ async function postImport(subscribers, resubscribe) {
   return res.json();
 }
 
-// After add/import: re-render the list in a way that preserves the user's
-// current search state. If the search box has content, re-run the server-side
-// search (which will include the just-added row). Otherwise do a full reload.
+// After add/import/delete: re-render the list in a way that preserves the
+// user's current search state. If the search box has content, re-run the
+// server-side search immediately (no debounce — debounce is only for typing).
+// Otherwise do a full reload.
 function refreshSubscriberView() {
   var q = ((document.getElementById('subSearch') || {}).value || '').trim();
-  if (q) filterSubscribers();
-  else loadSubscribers();
+  if (q) {
+    if (_subSearchTimer) { clearTimeout(_subSearchTimer); _subSearchTimer = null; }
+    runSubSearch(q);
+  } else {
+    loadSubscribers();
+  }
 }
 
 var MANUAL_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
