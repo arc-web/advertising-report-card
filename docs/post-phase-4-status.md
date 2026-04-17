@@ -7,9 +7,9 @@
 
 ## Where the audit stands
 
-All 9 Criticals closed. **Twenty Highs closed** (H5, H7, H8, H9, H10, H11, H14, H18, H19, H20, H21, H22, H25, H28, H30, H31, H33, H34, H35, H36). **M6, M8, M13, M15, M22, M26 (now fully resolved), M38 closed.** **L8**, L14, L16, L26, L27 closed. Group C closed the template-escape surface; Group B.1 collapsed the `getDelegatedToken` duplication; Group D hardened every Claude-prompting route with `sanitizer.sanitizeText` at untrusted-input sources plus delimiter framing around large blobs, closing the prompt-injection half of M26 that was deferred from Group A. H36 (8th `getDelegatedToken` copy in `convert-to-prospect.js`, discovered during B.1 verification) closed as Group D pre-task. `authenticator_secret_key` null-on-all-rows investigation resolved: `SENSITIVE_FIELDS` includes it; the null state just means no 2FA setup has been saved yet through the admin UI. Not a bug.
+All 9 Criticals closed. **Twenty-two Highs closed** (H4, H5, H7, H8, H9, H10, H11, H14, H18, H19, H20, H21, H22, H24, H25, H28, H30, H31, H33, H34, H35, H36). **M6, M8, M10, M13, M15, M16, M22, M26 (now fully resolved), M38 closed.** **L8**, L14, L16, L26, L27 closed. Group C closed the template-escape surface; Group B.1 collapsed the `getDelegatedToken` duplication; Group D hardened every Claude-prompting route with `sanitizer.sanitizeText` at untrusted-input sources plus delimiter framing around large blobs, closing the prompt-injection half of M26 that was deferred from Group A. Group B.2 extracted `fetchWithTimeout` into `_lib/` and eliminated every bare `fetch()` call across the four files with the biggest AbortController gap (`_lib/supabase.js`, `compile-report.js`, `submit-entity-audit.js`, `process-entity-audit.js`), closing H4/H24/M10/M16. H36 (8th `getDelegatedToken` copy in `convert-to-prospect.js`, discovered during B.1 verification) closed as Group D pre-task. `authenticator_secret_key` null-on-all-rows investigation resolved: `SENSITIVE_FIELDS` includes it; the null state just means no 2FA setup has been saved yet through the admin UI. Not a bug.
 
-~76 findings remain. None of them are attack chains of the same severity as C1-C9. Most are hardening, consistency, and observability work. Ordering them linearly doesn't match their actual value; grouping them does.
+~72 findings remain. None of them are attack chains of the same severity as C1-C9. Most are hardening, consistency, and observability work. Ordering them linearly doesn't match their actual value; grouping them does.
 
 ---
 
@@ -36,11 +36,11 @@ All 9 Criticals closed. **Twenty Highs closed** (H5, H7, H8, H9, H10, H11, H14, 
 | ID | Issue | Status |
 |---|---|---|
 | H21 + N6 | 7 copies of `getDelegatedToken` → extract `_lib/google-auth.js` with caching | ✅ closed — helper landed `7adedb6`; 5 duplicates migrated in `17d0ae8`, `4e77e55`, `568a868`, `d592381`, `1d9c835` (Group B.1) |
-| H4, H24, M10, M16 | `fetch()` without AbortController — extract `fetchWithTimeout` helper | 1 session |
+| H4, H24, M10, M16 | `fetch()` without AbortController — extract `fetchWithTimeout` helper | ✅ closed — helper landed `12c805f`; H4 `f2a1b70`, H24 `0163f65`, M10 `274f273`, M16 `0d2c56d` + `2512c46` (Group B.2) |
 | Pattern 12 | Migrate ~30 inline Supabase fetches in 5 big files to `sb.query`/`sb.mutate` | 1-2 sessions |
 | H30, L7, L8, L22 | Duplicated helpers (Fathom dedup, Resend events, sbGet) | H30 ✅ closed (subsumed by H21 migration — Gmail/Fathom now share token cache); L8 ✅ closed; L7 + L22 open |
 
-**Status:** Group B.1 (H21 migration) complete — see retrospective below. Remaining Group B work is AbortController extraction (Group B.2) and Supabase helper migration across the 5 big files (Group B.3).
+**Status:** Group B.1 (H21 migration) and Group B.2 (AbortController extraction) complete — see retrospectives below. Remaining Group B work is the repo-wide Supabase helper migration (Group B.3).
 
 ### Group C — Template/email escape defaults ✅ COMPLETE
 
@@ -136,233 +136,211 @@ Items I recommend marking "won't fix" or "needs design":
 
 ## Recommended next session
 
-**Group B.2 — AbortController extraction.**
+**Group E — Non-transactional state & idempotency.**
 
 Reasoning:
-- Group D closed 2026-04-17 (see retrospective below). All Claude-prompting routes now share a consistent `sanitizer.sanitizeText` treatment; H25, H31, M15, M26-prompt-half, and pre-task H36 closed across 5 commits.
-- Group B.2 is mechanical pattern extraction — `fetchWithTimeout` helper + AbortController wrapping across the ~4-6 sites in H4, H24, M10, M16. No behavior change on the happy path; the fix is purely about preventing hung fetches from hitting Vercel's maxDuration ceiling.
-- After B.2 the remaining High-count falls further and the pattern is in place for when Group B.3's Supabase helper migration reaches the same files.
+- Group B.2 closed 2026-04-17 (see retrospective below). Six commits landed across 4 files; all 4 reached zero bare `fetch(` calls; every Vercel deploy READY on first build. `fetchWithTimeout` is now the canonical HTTP client for non-streaming routes.
+- Group E is a clean follow-on. H27 (highlights DELETE+INSERT in `compile-report.js`) is a known pattern that Group B.2 explicitly preserved rather than touched — we left the inner try/catches in place specifically so Group E can swap the pair for an upsert without fighting the sb.mutate error shape. H26 (onboarding seed in `generate-proposal.js`) and M11 (deploy-to-r2) are the same bug class. M30 rounds out the session with the fire-and-forget PATCH sweep.
+- Four findings, all the same template (DELETE+INSERT → PostgREST upsert or RPC), applied in files we now have recent context on.
 
 After that, the recommended sequence is:
 
-1. **Group B.2 — AbortController extraction** (1 session) — closes H4, H24 + many Mediums
-2. **Group E — non-transactional state** (1 session) — closes H26, H27, M11, M30
-3. **Group F — public endpoint hardening** (1 session) — closes H12, H15, H32 + validation Mediums
-4. **Group G — operational resilience** (1-2 sessions) — H1, H3, H6, H13, H17, H23, H29 + small Mediums
-5. **Group B.3 — Supabase helper migration** (1-2 sessions)
-6. **Group I — Lows + Nits sweep** (1 session)
-7. **Group H — M1 Stripe metadata** (once dashboard metadata is added)
+1. **Group E — non-transactional state** (1 session) — closes H26, H27, M11, M30
+2. **Group F — public endpoint hardening** (1 session) — closes H12, H15, H32 + validation Mediums
+3. **Group G — operational resilience** (1-2 sessions) — H1, H3, H6, H13, H17, H23, H29 + small Mediums
+4. **Group B.3 — Supabase helper migration** (1-2 sessions) — remaining files outside the B.2 four
+5. **Group I — Lows + Nits sweep** (1 session)
+6. **Group H — M1 Stripe metadata** (once dashboard metadata is added)
 
-Approximately 6-8 sessions to clear the remaining open findings, or we stop earlier once diminishing returns kick in. The call on "when to stop" gets clearer around session 4 when what's left is mostly Low/Nit polish.
+Approximately 5-7 sessions to clear the remaining open findings, or we stop earlier once diminishing returns kick in. The call on "when to stop" gets clearer around session 3 when what's left is mostly Low/Nit polish.
 
 ---
 
-## Prompt for next session (Group B.2 — AbortController extraction)
+## Prompt for next session (Group E — Non-transactional state & idempotency)
 
 ```
-AbortController extraction session. Four findings around the same class
-of bug: `fetch()` calls with no timeout can hang and burn the full Vercel
-function budget. The existing `fetchT` helper inside `compile-report.js`
-is already the right shape — extract it to `_lib/fetch-with-timeout.js`,
-wire it into `_lib/supabase.js`, then migrate the unwrapped fetch sites
-across the three biggest route files.
+Non-transactional state + idempotency session. Four findings, one
+pattern: DELETE-then-INSERT sequences that leave zero rows if the
+process crashes in between. Standard fix is PostgREST upsert
+(Prefer: resolution=merge-duplicates) or a server-side RPC. Plus one
+bonus finding (M30) about fire-and-forget PATCHes in generate-proposal
+that swallow errors silently — same file as H26, easy sweep.
 
-Read docs/api-audit-2026-04.md sections H4, H24, M10, M16 first. Then
-walk through your plan before touching code.
-
-─────────────────────────────────────────────────────────────────────
-Pre-verified state (current main)
-─────────────────────────────────────────────────────────────────────
-
-| File                          | fetch( total | fetchT wrapped | unwrapped gap |
-|-------------------------------|--------------|----------------|---------------|
-| api/_lib/supabase.js          | 2            | 0              | both raw      |
-| api/compile-report.js         | 21           | 8              | 13 unwrapped  |
-| api/submit-entity-audit.js    | 2            | 0              | both raw      |
-| api/process-entity-audit.js   | 19           | 0              | all unwrapped |
-
-Existing `fetchT(url, opts, timeoutMs)` helper lives inside compile-report.js
-as a handler-scope closure at line 89-101. Default timeout 25s. On abort it
-throws `new Error('Timeout after Xms')`. This is the shape to extract.
+Read docs/api-audit-2026-04.md sections H26, H27, M11, M30 first.
+Then walk through your plan before touching code.
 
 ─────────────────────────────────────────────────────────────────────
-Fix 1: Extract helper — new api/_lib/fetch-with-timeout.js
+The shape of the bug
 ─────────────────────────────────────────────────────────────────────
 
-Module-level helper, single export, no side effects on load:
+Each of H26/H27/M11 looks like this:
 
-  // api/_lib/fetch-with-timeout.js
-  // Wraps the global fetch() with an AbortController-backed timeout.
-  // Drop-in replacement: same signature as fetch() plus a trailing
-  // timeoutMs argument (default 25000).
-  //
-  // Usage:
-  //   var fetchT = require('./_lib/fetch-with-timeout');
-  //   var resp = await fetchT(url, opts, 10000);
-  //
-  // On timeout, throws `new Error('Timeout after Xms: <url>')` — URL
-  // included so Vercel logs tell you which endpoint hung.
+  // 1. Delete the old set
+  await sb.mutate('foo?client_slug=eq.' + slug, 'DELETE');
+  // 2. Insert the new set
+  await sb.mutate('foo', 'POST', rows);
 
-  async function fetchWithTimeout(url, opts, timeoutMs) {
-    timeoutMs = timeoutMs || 25000;
-    var controller = new AbortController();
-    var timer = setTimeout(function() { controller.abort(); }, timeoutMs);
-    try {
-      var mergedOpts = Object.assign({}, opts || {}, { signal: controller.signal });
-      var resp = await fetch(url, mergedOpts);
-      clearTimeout(timer);
-      return resp;
-    } catch (e) {
-      clearTimeout(timer);
-      if (e.name === 'AbortError') {
-        throw new Error('Timeout after ' + timeoutMs + 'ms: ' + url);
-      }
-      throw e;
-    }
-  }
+If the function crashes, times out, or the Vercel invocation is killed
+between lines 1 and 2, the table is left with zero rows for that
+scope. Downstream triggers (auto_promote_to_active for H26) never fire,
+the client loses their state, and re-running needs manual intervention.
 
-  module.exports = fetchWithTimeout;
+Fix template is upsert:
 
-Note: current compile-report fetchT throws `'Timeout after Xms'` without
-URL. Adding URL is a minor improvement for debugging; callers that
-`catch` on `.message.includes('Timeout')` still match. Keep the leading
-"Timeout" prefix stable.
+  await sb.mutate('foo', 'POST', rows, 'resolution=merge-duplicates,return=minimal');
+
+This requires a unique index on the conflict-resolution columns
+(typically (client_slug, sort_order) or (contact_id, key)). Check
+existing indexes with Supabase MCP before assuming; if missing, add
+via apply_migration and ship the migration in the same session.
+
+For rows that need to be REMOVED (not replaced), the upsert doesn't
+help — you need the DELETE+INSERT wrapped in an RPC with
+transactional semantics. Easier path: compute diff client-side and
+issue targeted DELETEs for removed rows + upserts for new/changed rows
+(no all-or-nothing wipe).
 
 ─────────────────────────────────────────────────────────────────────
-Fix 2: H4 — api/_lib/supabase.js use fetchWithTimeout in query + mutate
+Pre-verified state (current main, post-Group-B.2)
 ─────────────────────────────────────────────────────────────────────
 
-Current `query()` and `mutate()` call `fetch()` directly. Swap to the
-helper with a conservative 10-second default for PostgREST queries (they
-should return fast; hanging means the DB is degraded).
+| Finding | File:lines | Current shape |
+|---------|-----------|---------------|
+| H26 | api/generate-proposal.js:573-590 | DELETE all onboarding_steps for contact, POST new set |
+| H27 | api/compile-report.js (primary ~L700, fallback ~L713) | DELETE report_highlights for (slug, month), POST new set |
+| M11 | api/admin/deploy-to-r2.js:71 | DELETE+POST on client_sites |
+| M30 | api/generate-proposal.js:79-81, 273-275, 543-547, 549-557, 563-569 | 5 PATCHes with no await, no catch |
 
-  var fetchT = require('./fetch-with-timeout');
-  // ...
-  var resp = await fetchT(url() + '/rest/v1/' + path, {
-    method: 'GET',
-    headers: headers((opts && opts.prefer) || undefined)
-  }, (opts && opts.timeoutMs) || 10000);
-
-Same pattern for `mutate()`. No new required param. Optionally accept
-`opts.timeoutMs` on both functions so rare slow calls can opt up (bulk
-imports, etc.).
-
-Test consideration: H4's audit note calls out "no retry on 5xx" as a
-separate concern. DO NOT add retry logic in this session. Timeouts
-alone keep the commit atomic. Retry is a Group G item.
+All three DELETE+INSERT pairs currently use sb.mutate (post-B.2 for
+the compile-report pair; H26 + M11 already used sb.mutate before this
+session). Any new DELETE throws on 4xx/5xx — the non-transactional
+gap has always been the concurrency crash, not an HTTP-error
+silent-fail.
 
 ─────────────────────────────────────────────────────────────────────
-Fix 3: H24 — api/compile-report.js use extracted helper for remaining 13
+Fix 1: H27 — compile-report highlights (warm-up, low blast radius)
 ─────────────────────────────────────────────────────────────────────
 
-Strategy: delete the closure-scope `fetchT` definition, `require` the
-module-level helper, and audit every `fetch(` call for wrap status.
+Start here because (a) the file is fresh in recent context from B.2,
+(b) highlights are regenerable from the snapshot data (low blast
+radius if migration is wrong), and (c) report_highlights already has
+natural conflict keys on (client_slug, report_month, sort_order) most
+likely.
 
-Known wrapped sites (stay as-is but now use the module import instead
-of the closure): L199, L200, L201 (GSC), L290 (GBP), L362, L395
-(LocalFalcon), L571 (Supabase via sb.url() direct), plus one more —
-grep to confirm the 8 total.
+First: check the existing unique index on report_highlights via
+Supabase MCP:
 
-Unwrapped sites to migrate (13):
-- The Supabase direct-REST calls at lines like L107, L113, L252, L310,
-  L726 etc. — **migrate to `sb.query`/`sb.mutate`** instead of wrapping
-  in fetchT. This is Pattern 12 territory but the ones that conflict
-  with this session can be done here. If a call is complex enough that
-  sb.query doesn't fit cleanly, fetchT-wrap it as a fallback.
-- The raw Claude call inside generateHighlights retry loop (L1032ish)
-  — fetchT-wrap with 60s timeout (Claude is slow).
-- Resend sends (L824ish). fetchT-wrap with 15s.
+  SELECT indexname, indexdef FROM pg_indexes
+  WHERE tablename = 'report_highlights';
 
-Grep goal: after this commit, `grep -cE "\\bfetch\\(" compile-report.js`
-should show only the ones that are intentionally direct (e.g. the
-`fetchWithTimeout` implementation itself — but that's in _lib now, not
-compile-report). Target: 0 raw `fetch(` calls in compile-report.js.
+If a UNIQUE(client_slug, report_month, sort_order) exists, swap
+DELETE+POST for an upsert with Prefer header resolution=merge-duplicates.
+If not, add the unique index via apply_migration first — and make sure
+the migration is safe on existing data (check for duplicates with
+SELECT client_slug, report_month, sort_order, COUNT(*) ... HAVING > 1).
 
-─────────────────────────────────────────────────────────────────────
-Fix 4: M10 + H24 continuation — api/submit-entity-audit.js
-─────────────────────────────────────────────────────────────────────
-
-Two fetch sites:
-- L125: POST to agent service at `AGENT_URL + '/tasks/surge-audit'`.
-  Wrap with fetchT at 30s — agent endpoint spawns the browser-use
-  session but should return the task_id quickly. If the agent is slow
-  to respond, we'd rather fail fast and requeue than hang 60s.
-- L168: Resend notification fallback (inside agent-failed branch).
-  fetchT-wrap at 10s.
+Apply the same pattern to both the primary path (~L700) and the
+fallback path (~L713). B.2 already wrapped each in try/catch with
+warning-on-error; the warnings become cleaner when there's no
+two-step window to warn about.
 
 ─────────────────────────────────────────────────────────────────────
-Fix 5: M16 — api/process-entity-audit.js 19 fetch calls
+Fix 2: H26 — generate-proposal onboarding seed
 ─────────────────────────────────────────────────────────────────────
 
-Biggest single file. All 19 fetch calls currently unwrapped. Many are
-Supabase direct-REST — fold into sb.query/sb.mutate where practical;
-the rest wrap with fetchT at sensible defaults:
-  - Supabase calls: 10s (should go via sb.* helpers)
-  - Template reads (GitHub API): 15s
-  - Destination checks / pushes (GitHub API): 30s (large payloads)
-  - Claude calls: 60s
-  - Resend sends: 15s
+Higher stakes: if onboarding_steps is empty when auto_promote_to_active
+trigger would normally run on pending→complete transition, the client
+silently never flips to active. User memory explicitly flags this
+trigger's brittleness.
 
-If migrating 19 calls feels too large for one commit, split:
-  commit a: Supabase calls → sb.* helpers (or fetchT if sb.* doesn't fit)
-  commit b: External API calls (GitHub, Claude, Resend) → fetchT
+Steps:
+- Check unique index on (contact_id, step_key) — the likely conflict
+  target.
+- Swap DELETE+POST for upsert.
+- DO NOT move to an RPC/transaction for this one unless the upsert
+  proves insufficient. The proposal flow should be re-runnable
+  (idempotent regeneration) and upsert handles that.
+- Edge case: if a newly-regenerated seed has FEWER steps than before
+  (steps removed from the template), upsert alone won't delete the
+  stale rows. Options: (a) compare step_keys and issue targeted
+  DELETEs for removed ones, (b) accept that stale rows stay until the
+  checklist is re-seeded with a full complement. Recommend (a) — it's
+  5 lines of code, and stale steps block auto-promote.
+
+─────────────────────────────────────────────────────────────────────
+Fix 3: M11 — deploy-to-r2 DELETE+INSERT
+─────────────────────────────────────────────────────────────────────
+
+Smallest of the three. The table is client_sites (check via Supabase
+MCP). Upsert with Prefer: resolution=merge-duplicates. Same index
+check first.
+
+─────────────────────────────────────────────────────────────────────
+Fix 4: M30 — generate-proposal fire-and-forget PATCHes (bonus)
+─────────────────────────────────────────────────────────────────────
+
+Five PATCH sites in the same file as H26. Pattern is:
+
+  sb.mutate('contacts?id=eq.' + id, 'PATCH', { ... });  // no await
+
+Without await, sb.mutate's thrown errors vanish into the void and
+the PATCH may not complete before the function exits (Vercel
+terminates background promises).
+
+Fix template: add await + try/catch that pushes to a warnings[]
+array (or logs via monitor.logError if fatal). Either pattern is
+fine; match the surrounding code's error-handling style per block.
+
+Be careful about ordering: some of these PATCHes may be intentionally
+last-step, where awaiting them adds to end-of-function latency. Read
+each site's context before changing it. None should be truly
+fire-and-forget in a serverless function, though.
 
 ─────────────────────────────────────────────────────────────────────
 Testing
 ─────────────────────────────────────────────────────────────────────
 
-Happy-path behavior is unchanged when requests complete in under
-timeoutMs. The fix only affects the hung-request case.
-
 - After each commit, Vercel deploy must go READY.
-- Grep verification per file:
-    grep -cE "\\bfetch\\(" api/_lib/supabase.js             # → 0 (all wrapped)
-    grep -cE "\\bfetch\\(" api/compile-report.js            # → 0 (all wrapped or via sb)
-    grep -cE "\\bfetch\\(" api/submit-entity-audit.js       # → 0 (both wrapped)
-    grep -cE "\\bfetch\\(" api/process-entity-audit.js      # → 0
-  (false positives: if anywhere uses `fetch` as a string literal or
-  variable name, grep will hit it. Read any remaining matches manually.)
-
-- Optional smoke tests (non-blocking):
-    * Compile a monthly report for sky-therapies — everything still
-      wires up correctly (GSC, LocalFalcon, Claude highlights, Resend).
-    * Trigger a test entity audit via admin UI — agent kicks off,
-      callback processes normally.
+- For the upsert migrations, a local round-trip test is valuable:
+  seed a proposal, re-seed it, check that onboarding_steps has the
+  expected row count with no dupes.
+- Happy-path behavior should be unchanged. The fix only affects the
+  crash-between-DELETE-and-POST window, which is hard to trigger in
+  testing but is the whole point.
+- For M30: every converted PATCH should show up as an awaited call.
+  grep -c "sb.mutate.*PATCH" generate-proposal.js before/after.
 
 ─────────────────────────────────────────────────────────────────────
 Out of scope
 ─────────────────────────────────────────────────────────────────────
 
-- Retry-on-5xx logic (Group G — operational resilience).
-- Migrating ALL inline Supabase fetches repo-wide (Pattern 12 / Group
-  B.3). This session only touches the 4 files in B.2's list, and only
-  migrates Supabase calls IN those files opportunistically where it
-  makes the fetchT migration cleaner. Leave the rest for B.3.
-- Touching `api/_lib/google-drive.js` — has its own fetch + caching
-  (tracked under N6).
-- Chat/streaming endpoints (agreement-chat.js, content-chat.js, etc.)
-  — they use streaming Anthropic fetch with their own retry. Not in
-  B.2's list; don't touch.
+- M19 (webhook race with auto-send audit email) — needs product
+  decision, not code. Tracked in "What's not in the groupings".
+- M37 (auto-schedule doesn't check post-submit status flip) — same.
+- Rewriting the auto_promote_to_active trigger. If the trigger's
+  pending→complete requirement proves brittle after H26 is fixed,
+  that's a separate investigation.
+- Adding RPCs for these — only pivot to that if upsert doesn't fit.
+  Plain PostgREST upsert is the simpler, preferred tool.
 
 ─────────────────────────────────────────────────────────────────────
 Deliverables
 ─────────────────────────────────────────────────────────────────────
 
 Commit shape (suggested — split as you prefer):
-  c1: Create api/_lib/fetch-with-timeout.js module
-  c2: H4 — supabase.js uses fetchT for query + mutate
-  c3: H24 — compile-report.js uses extracted fetchT, delete closure, wrap unwrapped calls
-  c4: M10 — submit-entity-audit.js wrap agent + Resend fetches
-  c5: M16 — process-entity-audit.js wrap 19 fetch calls (may split into 5a/5b)
+  c1: H27 — compile-report highlights upsert (+ migration if needed)
+  c2: H26 — generate-proposal onboarding seed upsert + stale-row
+      cleanup
+  c3: M11 — deploy-to-r2 client_sites upsert
+  c4: M30 — generate-proposal fire-and-forget PATCH sweep
 
 Final: doc update to api-audit-2026-04.md:
-  - Mark H4, H24, M10, M16 resolved
-  - Update tallies: Highs 20 → 22 resolved (H4, H24 add), Mediums 7 → 9 resolved (M10, M16 add)
-  - Note: `fetchWithTimeout` helper is now the canonical HTTP client for
-    all non-streaming routes; future sessions should use it by default.
+  - Mark H26, H27, M11, M30 resolved
+  - Update tallies: Highs 22 → 24 resolved (H26, H27 add), Mediums
+    9 → 11 resolved (M11, M30 add)
 
-Also update post-phase-4-status.md: mark Group B.2 complete, point to
-Group E as next recommendation.
+Also update post-phase-4-status.md: mark Group E complete, point to
+Group F as next recommendation.
 ```
 
 ## Group B.1 — H21 google-auth migration ✅ COMPLETE (2026-04-17)
@@ -386,6 +364,39 @@ Net result:
 Behavior-preservation notes:
 - The new helper throws on failure rather than returning `{ error }`. Every call site wrapped in try/catch (or nested inside an existing one) so the original error-handling branches map 1:1 — `warnings.push(...)`, `results.drive.error = ...`, `enrichment.sources.gmail.push({ account, error })`, `return null` — all preserved with `e.message || String(e)`.
 - Original warning strings kept verbatim where they differed across sites (e.g. compile-report's `'GBP Performance: delegated token failed - '` kept distinct from `'GSC: token failed - '`).
+
+## Group B.2 — AbortController extraction ✅ COMPLETE (2026-04-17)
+
+All four findings closed across six commits. New helper `api/_lib/fetch-with-timeout.js` is now the canonical HTTP client for non-streaming routes.
+
+Commits landed on main:
+
+- `12c805f` — New helper module `api/_lib/fetch-with-timeout.js`. Signature `fetchT(url, opts, timeoutMs)`, 25s default, throws `Error('Timeout after Xms: <url>')` on abort (URL added vs. the original closure for debuggability; leading `Timeout` prefix stable so existing catches matching on `.message.includes('Timeout')` continue to work).
+- `f2a1b70` — **H4.** `_lib/supabase.js` `query()` + `mutate()` use `fetchT` with a 10s default. `query(path, opts)` honors `opts.timeoutMs`; `mutate(path, method, body, prefer, timeoutMs)` added an optional 5th param rather than changing the signature shape, so all existing 4-arg callers keep working unchanged.
+- `0163f65` — **H24.** `compile-report.js` closure-scope `fetchT` deleted; file now imports the shared helper. All 21 `fetch` sites addressed: 16 Supabase direct-REST → `sb.query`/`sb.one`/`sb.mutate`; 3 external (Resend 15s, GSC sites 15s, Claude 60s) wrapped with `fetchT`; 7 pre-existing wrapped sites (3 GSC + GBP + 2 LocalFalcon + closure-wrapped checklist migrated to `sb.query`) now resolve to the module helper via the top `require`. Grep: 0 bare `fetch(`.
+- `274f273` — **M10.** `submit-entity-audit.js` agent POST at 30s, Resend fallback at 10s.
+- `0d2c56d` — **M16 (5a).** `process-entity-audit.js` 6 Supabase direct-REST sites migrated to `sb.*` helpers with try/catch error-shape preservation (see behavior notes below).
+- `2512c46` — **M16 (5b).** `process-entity-audit.js` 13 external calls wrapped at tiered timeouts — Claude 60s, 3 GitHub template reads + 3 file-exists checks 15s each, 3 GitHub PUTs 30s each, internal `/api/send-audit-email` POST 30s, 2 Resend notifications 15s each.
+
+Final grep on main across the four files: zero matches for `\bfetch\(` in any of `api/_lib/supabase.js`, `api/compile-report.js`, `api/submit-entity-audit.js`, `api/process-entity-audit.js`. All six commits READY on first Vercel build.
+
+Net result:
+- H4, H24, M10, M16 fully resolved.
+- `fetchWithTimeout` is the canonical HTTP client for non-streaming routes going forward; future sessions should use it by default.
+- Tallies: **Highs 22 / 36 resolved (14 open). Mediums 9 / 38 resolved. Total ≥45 resolved / ≤72 open across 117 findings.**
+
+Behavior-preservation notes:
+- `sb.mutate` throws on PostgREST 4xx/5xx; raw `fetch` did not. On sites that were previously silent-fail (highlights DELETE+POST in `compile-report.js`, checklist_items DELETE in `process-entity-audit.js`), inner try/catches were added around `sb.mutate` to preserve the original swallow-and-warn or swallow-and-continue semantics. This prevents the fallback branch in `compile-report.js`'s highlight-generation block from firing on a failed DELETE, which was not the intended trigger.
+- For the 3 Supabase sites that previously threw custom error strings (`PATCH failed: …`, `INSERT failed: …`, `Status flip failed: …` in `compile-report.js`; `Supabase update failed:` in `process-entity-audit.js`), the user-facing 500 / error-step shape stays identical (still a `send`/throw with `e.message` inside). Only the interior detail text differs, now prefixed `Supabase mutate error:` from the shared helper. Watch the first few real errors post-deploy; if the interior format matters for any downstream log parser, replace the generic prefix with a custom message inside the catch block at that site.
+- On `process-entity-audit.js` L409 (checklist_items POST bulk), the original had an `if (!ok) send(warning) / else send(success)` pair. Migrated to `try { send(success) } catch (e) { send(warning + e.message) }` — mirrors the original two-branch semantic but now the success `send` only fires after the mutate resolves, which is stricter and correct.
+- The non-transactional DELETE+INSERT patterns in `compile-report.js` (H27) and `process-entity-audit.js` (M18 + M19) were intentionally preserved. Those are Group E territory and shouldn't ship in a "timeout wrapping" session. The added try/catches specifically avoid coupling Group E's fix to B.2's commits — Group E can swap the pair for an upsert without fighting the `sb.mutate` error shape.
+- The `fetchT` closure in `compile-report.js` threw `Error('Timeout after Xms')` without URL; the new module helper throws `Error('Timeout after Xms: <url>')` with URL. Searched existing catch blocks in all four files — none match on the message content (they re-throw or log as-is), so the shape change is safe. The leading `Timeout` prefix is stable so any future catch matching on `.message.includes('Timeout')` still works.
+
+Out of scope for Group B.2 (flagged for future):
+- Retry-on-5xx logic — Group G (operational resilience).
+- Repo-wide Pattern 12 Supabase helper migration across the files outside B.2's list — Group B.3.
+- `api/_lib/google-drive.js` (has bespoke fetch + caching) — tracked under N6.
+- Chat/streaming endpoints (`agreement-chat.js`, `content-chat.js`, `proposal-chat.js`, `report-chat.js`, `generate-content-page.js` NDJSON) — they stream with their own retry; not in B.2's list.
 
 ## Group D — AI prompt injection hardening ✅ COMPLETE (2026-04-17)
 
