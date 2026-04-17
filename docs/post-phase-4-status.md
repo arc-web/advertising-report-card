@@ -163,7 +163,7 @@ Items marked "won't fix" or "needs design":
 **The audit is at a natural stopping point.** All Criticals closed, all non-deferred Highs closed, the Lows + Nits tail walked end-to-end. What remains falls into four categories, none of which require urgency:
 
 1. **Group J — Medium-tier reconciliation sweep** (≤1 session). ~22 open Mediums with the same "plausibly stale after Groups A–G" profile as the Lows had before Group I. Worth a single classify-first pass mirroring Group I's shape: bucket (a) doc-only closures for findings already resolved incidentally, bucket (b) small code fixes for those that survived, bucket (c) notes on anything that needs product sign-off. Likely bucket (a) candidates based on Group I reading: M1 (awaits dashboard metadata — see Group H), M3 (action.js tightening probably overlaps post-P4S5 state), M4 (github.js path validation — worth verifying against post-Group-B state), M7 (supabase error detail — same-class as N3 CR/LF sanitization), several process-entity-audit Mediums (M17/M21/M25/M29/etc.) that may have been swept by Group B.2's work on that file. M19/M37/M39 stay (c) pending product decisions.
-2. **L6 close-out** — Chris signed off 2026-04-18: submit-side failure path flips to `'queued'`, cron auto-retries indefinitely (existing `agent_error` cron transition preserved), team notification downgraded to internal FYI. Now a mandatory pre-task inside Group J's prompt, not a separate session.
+2. **L6 close-out** — Chris signed off 2026-04-18 on a richer design than the original one-line fix: preserve the real error reason (`status='agent_error'` + `last_agent_error` + `last_agent_error_at` columns) AND auto-retry indefinitely (cron flips `agent_error` → `queued` with 5-min backoff). Three-part fix: Supabase migration (new columns + partial index) + `submit-entity-audit.js` agent-failure branch + `cron/process-audit-queue.js` new step 0.5. Now a mandatory pre-task inside Group J's prompt, not a separate session.
 3. **H29 design session** (whenever ready). Waits on the 4 design decisions captured in the Group G batch 2 retrospective (JSONB encryption + read-path + migration + rotation). No code session will move it forward until those land.
 4. **Group H M1 Stripe metadata** (10 min code + 30-day observation window). Blocked on dashboard-side `metadata: { product: ... }` addition.
 
@@ -1325,70 +1325,183 @@ decide bucket (b) or (c) for this session vs a future one.
 Pre-task — L6 (sign-off landed 2026-04-18, execute first)
 ─────────────────────────────────────────────────────────────────────
 
-Chris signed off on the L6 state-machine change on 2026-04-18:
-failed agent triggers at submit time should flip to 'queued' so the
-existing cron auto-retries them indefinitely; team notification email
-stays but is information-only, not a call-to-action for manual
-intervention.
+Chris signed off on the L6 state-machine change on 2026-04-18 with a
+richer shape than the original one-line fix: every agent failure must
+preserve its real status/reason (admins need to see what happened),
+AND the failed row must auto-retry indefinitely (getting lost audits
+back into the pipeline matters more than why they failed). Full design
+rationale in L6's Current state + Product decision blocks in
+api-audit-2026-04.md.
 
-Scope of the fix (kept intentionally narrow):
-  - api/submit-entity-audit.js: on the agent-trigger failure branch
-    (where `agentError` is set, around L165), add a PATCH flipping
-    the just-inserted entity_audits row to status='queued' before
-    returning the success response to the prospect. Use sb.mutate
-    with 'return=minimal' to match the adjacent success-path PATCH
-    style. Wrap in its own try/catch so a failed status flip doesn't
-    mask the prospect-facing 200.
-  - Leave the team-notification email intact, but retune its
-    subject + first-paragraph body to reflect the new semantics
-    (it's now an FYI, not a call-to-action for manual intervention).
-  - Leave the initial INSERT at status='pending' as-is — simpler
-    than renaming the initial state, and the transient 'pending'
-    window between INSERT and the success/failure PATCH is already
-    the current behavior on the happy path.
+Three-part fix: schema migration + submit-side change + cron change.
 
-Exact code shape to land (inside the existing
-`if (!agentTriggered && agentError) { ... }` block, after the
-notification-email fetchT, before the outer 200 return):
+─── Part 1: Supabase migration ──────────────────────────────────────
 
-    try {
-      await sb.mutate('entity_audits?id=eq.' + audit.id, 'PATCH', {
-        status: 'queued'
-      }, 'return=minimal');
-    } catch (patchErr) {
-      console.error('[submit-entity-audit] queue flip on agent-failure failed:', patchErr.message);
-    }
+Apply via the Supabase MCP `apply_migration` tool (NOT via PostgREST
+— this is DDL).
 
-Email tweaks on the same commit:
+  Migration name: `entity_audits_last_agent_error`
+  SQL:
+    ALTER TABLE entity_audits
+      ADD COLUMN IF NOT EXISTS last_agent_error TEXT,
+      ADD COLUMN IF NOT EXISTS last_agent_error_at TIMESTAMPTZ;
+
+    CREATE INDEX IF NOT EXISTS idx_entity_audits_agent_error
+      ON entity_audits (last_agent_error_at)
+      WHERE status = 'agent_error';
+
+The partial index supports the cron's new "find agent_error rows
+older than 5 min" lookup without scanning the whole table. That's
+the reason to do this as DDL rather than just-add-columns.
+
+Verify via `execute_sql` after apply:
+  SELECT column_name, data_type
+  FROM information_schema.columns
+  WHERE table_name = 'entity_audits'
+    AND column_name IN ('last_agent_error', 'last_agent_error_at');
+
+─── Part 2: api/submit-entity-audit.js ──────────────────────────────
+
+Inside the `if (!agentTriggered && agentError) { ... }` block
+(currently ~L164-188), after the team-notification email fetch and
+before the outer 200 return, add:
+
+  try {
+    await sb.mutate('entity_audits?id=eq.' + audit.id, 'PATCH', {
+      status: 'agent_error',
+      last_agent_error: String(agentError || 'Unknown error').substring(0, 500),
+      last_agent_error_at: new Date().toISOString()
+    }, 'return=minimal');
+  } catch (patchErr) {
+    console.error('[submit-entity-audit] agent_error flip failed:', patchErr.message);
+  }
+
+Note: the row was inserted at `status='pending'` at L106; this PATCH
+flips to `agent_error`. The `pending` state is now a brief transient
+state that exists only between INSERT and the first agent trigger
+outcome.
+
+Also update the notification email text to reflect the new semantics
+— it's an FYI that auto-retry is in progress, not an action-required
+signal:
+
   subject: 'Entity Audit Agent Failed - ...'
-    → 'Entity Audit Agent Retry Queued - ...'
+    → 'Entity Audit Agent Error (auto-retrying) - ...'
+
   body p1: 'A new entity audit was submitted but the agent could not be triggered.'
-    → 'A new entity audit was submitted; the agent was not reachable on first try. The cron will auto-retry every 30 min.'
+    → 'A new entity audit was submitted; the agent errored on first try. Cron will auto-retry every 30 min until it succeeds.'
 
-Node --check before pushing. One commit, one file. Suggested
-commit subject: 'L6: flip failed audits to queued on agent-trigger
-failure; cron auto-retries indefinitely, notification email now FYI
-only'.
+Leave the existing `<strong>Error:</strong> <agent_error_msg>` line
+in the email body. Do NOT change the 200 response shape — prospect
+still sees `agent_triggered: false`. Prospect-facing UX unchanged.
 
-Explicitly out of scope (do NOT change):
-  - cron/process-audit-queue.js agent_error terminal state. The
-    existing behavior where the cron parks a row at 'agent_error'
-    after the agent explicitly rejects it (agent was reached, agent
-    returned non-2xx) is intentional — that's a signal something's
-    actually wrong with the row (bad brand_query, content policy,
-    etc.), distinct from agent-unreachable transient failures.
-    Preserve as-is.
-  - L9 admin URL fragment. Still cosmetic, still harmless. The L6
-    fix means the team-notification email is now information-only;
-    prospects get their audit processed automatically without
-    requiring the fragment link to work.
+─── Part 3: api/cron/process-audit-queue.js ─────────────────────────
 
-After the L6 commit lands and verifies READY in Vercel:
-  - Mark L6 ✅ RESOLVED in api-audit-2026-04.md with a Resolution
-    block referencing the commit SHA and a one-paragraph summary
-    including the explicit scope decision above.
-  - Update the Lows running tally (13 → 14 resolved, 15 → 14 open).
-  - Then proceed to the Medium reconciliation sweep starting at M1.
+Two changes:
+
+(a) Add a new STEP 0.5 between the existing Step 0 (stale
+    agent_running requeue) and Step 1 (pick oldest queued). It
+    flips `agent_error` rows older than 5 min back to `queued`:
+
+      // STEP 0.5: Flip agent_error rows back to queued for retry.
+      // 5-min backoff is a safety rail against a submit-time
+      // failure being immediately retried in the same cron tick
+      // that's about to dispatch; well below the cron interval so
+      // no real throttling happens in practice.
+      var errorBackoffCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      var errorRows = await sb.query(
+        'entity_audits?status=eq.agent_error' +
+        '&last_agent_error_at=lt.' + encodeURIComponent(errorBackoffCutoff) +
+        '&select=id'
+      );
+      var agentErrorRequeued = 0;
+      if (errorRows && errorRows.length > 0) {
+        for (var i = 0; i < errorRows.length; i++) {
+          await sb.mutate('entity_audits?id=eq.' + errorRows[i].id, 'PATCH', {
+            status: 'queued',
+            agent_task_id: null
+          }, 'return=minimal');
+          agentErrorRequeued++;
+        }
+      }
+
+    Do NOT clear `last_agent_error` / `last_agent_error_at` when
+    flipping. Admins want to see "this row errored N minutes ago,
+    now retrying." Those fields stay until the next successful
+    `agent_running` → completion, at which point they're stale
+    history and can be left (cheap) or cleared in a later follow-up.
+
+(b) Update the existing Step 1 task-dispatch-failure PATCH
+    (currently L207-209). Instead of just setting status, also
+    populate the error columns:
+
+      await sb.mutate('entity_audits?id=eq.' + audit.id, 'PATCH', {
+        status: 'agent_error',
+        last_agent_error: ('Agent returned ' + agentResp.status + ': ' +
+          errText.substring(0, 400)).substring(0, 500),
+        last_agent_error_at: new Date().toISOString()
+      }, 'return=minimal');
+
+    Include `agentErrorRequeued` in the response JSON alongside
+    `staleRequeued` at all three return sites in the cron (no-queue
+    early exit, agent-busy early exit, dispatch-success). Same
+    shape as existing counters.
+
+Do NOT touch the agent-unreachable branch at Step 0 or the
+agent-health-check logic. Those stay exactly as-is.
+
+─── Commits, in order ───────────────────────────────────────────────
+
+  1. Migration via `apply_migration` (no commit SHA — appears in
+     Supabase migration history).
+  2. `api/submit-entity-audit.js` — Part 2 code change. Commit
+     subject: 'L6.1: submit-side agent failures flip to agent_error
+     with detail; cron auto-retries'.
+  3. `api/cron/process-audit-queue.js` — Part 3 code change. Commit
+     subject: 'L6.2: cron flips agent_error→queued with 5min
+     backoff; populate error detail at dispatch failure'.
+
+`node --check` each file before pushing. Between commits 2 and 3,
+verify commit 2 is READY in Vercel before continuing.
+
+─── Verification after L6 lands ─────────────────────────────────────
+
+  - Run `execute_sql` to verify both new columns and the partial
+    index exist.
+  - Check recent entity_audits for pre-L6 pending rows:
+      SELECT id, client_slug, created_at FROM entity_audits
+      WHERE status = 'pending' AND created_at < '2026-04-19';
+    Any rows returned are the exact set of lost audits L6 exists
+    to recover. Backfill them:
+      UPDATE entity_audits SET status = 'queued'
+      WHERE status = 'pending' AND created_at < '2026-04-19';
+    Safe — the `pending` status is now vestigial under L6. Record
+    the backfill UPDATE row count in L6's Resolution block.
+  - On next cron run, `agentErrorRequeued` in the response JSON
+    should be 0 initially. Over time, as real failures happen, it
+    should bounce up on failures and back to 0 after successful
+    retries.
+
+─── Explicitly out of scope ─────────────────────────────────────────
+
+  - L9 admin URL fragment. Still cosmetic, still harmless under
+    L6 (email is now FYI, not action-required).
+  - Admin UI surfacing of `last_agent_error`. File as M40 if Group J
+    wants to track it; don't land it as part of L6.
+
+─── Doc update ──────────────────────────────────────────────────────
+
+After all three parts ship, in the large doc commit that finalizes
+Group J, update L6 in api-audit-2026-04.md:
+  - Header → ✅ RESOLVED.
+  - Add Resolution block at end of L6's section citing both code
+    commit SHAs, the migration name, and the backfill UPDATE row
+    count (or "0 rows" if none existed). Date 2026-04-19.
+  - Increment Lows tally: 13/28 → 14/28 resolved, 15 open → 14
+    open (and total resolved bumps accordingly).
+
+If M40 filed, cross-reference it in L6's Resolution block so the
+follow-up thread stays discoverable.
 
 ─────────────────────────────────────────────────────────────────────
 Session theme check
