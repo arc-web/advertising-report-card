@@ -16,6 +16,15 @@ function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// Validate an image URL's scheme. Returns the URL unchanged if it starts with
+// http:// or https://, else returns '' (which causes the <img> to render with
+// empty src and no image — safer than letting javascript:/data:/file: through).
+function validateImageUrl(url) {
+  if (!url) return '';
+  var s = String(url).trim();
+  return /^https?:\/\//i.test(s) ? s : '';
+}
+
 var C = {
   navy: '#141C3A', white: '#FFFFFF', bg: '#F5F5F0', primary: '#00D47E',
   heading: '#1E2A5E', body: '#333F70', muted: '#6B7599', border: '#E2E8F0',
@@ -38,7 +47,7 @@ function storyBlock(story, index) {
   var imageHtml = '';
   if (story.image_url) {
     imageHtml = '<tr><td style="padding:0 0 16px;">' +
-      '<img src="' + esc(story.image_url) + '" alt="' + esc(story.image_alt || story.headline) + '" ' +
+      '<img src="' + esc(validateImageUrl(story.image_url)) + '" alt="' + esc(story.image_alt || story.headline) + '" ' +
       'width="536" style="display:block;width:100%;max-width:536px;height:auto;border-radius:8px;" />' +
       '</td></tr>';
   }
@@ -50,12 +59,12 @@ function storyBlock(story, index) {
       var lines = items.split('\n').filter(function(l) { return l.trim(); });
       actionHtml = lines.length > 1
         ? '<div style="margin:0;padding:0;">' + lines.map(function(item) {
-            return '<p style="font-family:' + F.body + ';font-size:15px;color:' + C.body + ';line-height:1.6;margin:0 0 6px;">\u{1F449} ' + item + '</p>';
+            return '<p style="font-family:' + F.body + ';font-size:15px;color:' + C.body + ';line-height:1.6;margin:0 0 6px;">\u{1F449} ' + esc(item) + '</p>';
           }).join('') + '</div>'
-        : '<p style="font-family:' + F.body + ';font-size:15px;color:' + C.body + ';line-height:1.7;margin:0;">' + items + '</p>';
+        : '<p style="font-family:' + F.body + ';font-size:15px;color:' + C.body + ';line-height:1.7;margin:0;">' + esc(items) + '</p>';
     } else if (Array.isArray(items)) {
       actionHtml = '<div style="margin:0;padding:0;">' + items.map(function(item) {
-        return '<p style="font-family:' + F.body + ';font-size:15px;color:' + C.body + ';line-height:1.6;margin:0 0 6px;">\u{1F449} ' + item + '</p>';
+        return '<p style="font-family:' + F.body + ';font-size:15px;color:' + C.body + ';line-height:1.6;margin:0 0 6px;">\u{1F449} ' + esc(item) + '</p>';
       }).join('') + '</div>';
     }
   }
@@ -63,7 +72,7 @@ function storyBlock(story, index) {
   return '<tr><td style="padding:0 0 8px;"><table cellpadding="0" cellspacing="0" border="0" width="100%">' +
     imageHtml +
     '<tr><td style="padding:0 0 12px;"><h2 style="font-family:' + F.heading + ';font-size:22px;font-weight:700;color:' + C.heading + ';margin:0;line-height:1.3;">' +
-      num + '. ' + (story.headline || '') + '</h2></td></tr>' +
+      num + '. ' + esc(story.headline || '') + '</h2></td></tr>' +
     '<tr><td style="padding:0 0 16px;"><div style="font-family:' + F.body + ';font-size:15px;color:' + C.body + ';line-height:1.7;">' +
       (story.body || '') + '</div></td></tr>' +
     (actionHtml ? '<tr><td style="padding:14px 20px;background:' + C.subtleBg + ';border-left:3px solid ' + C.primary + ';border-radius:0 8px 8px 0;">' +
@@ -80,7 +89,7 @@ function quickWinsBlock(items) {
   return '<tr><td style="padding:0 0 8px;">' +
     '<h2 style="font-family:' + F.heading + ';font-size:22px;font-weight:700;color:' + C.heading + ';margin:0 0 14px;">\u2705 Quick Wins for This Week</h2>' +
     '<ul style="margin:0;padding:0 0 0 20px;">' + items.map(function(item) {
-      return '<li style="font-family:' + F.body + ';font-size:15px;color:' + C.body + ';line-height:1.7;margin:0 0 6px;">' + item + '</li>';
+      return '<li style="font-family:' + F.body + ';font-size:15px;color:' + C.body + ';line-height:1.7;margin:0 0 6px;">' + esc(item) + '</li>';
     }).join('') + '</ul></td></tr>' +
     '<tr><td style="padding:16px 0;"><table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>' +
       '<td style="border-top:1px solid ' + C.border + ';font-size:0;height:1px;line-height:0;">&nbsp;</td>' +
@@ -100,12 +109,12 @@ function spotlightBlock(spotlight) {
   if (spotlight && spotlight.headline) {
     headline = spotlight.headline;
     body = '<div style="font-family:' + F.body + ';font-size:15px;color:' + C.body + ';line-height:1.7;">' + (spotlight.body || '') + '</div>';
-    cta = spotlight.cta_text ? '<p style="font-family:' + F.body + ';font-size:15px;color:' + C.heading + ';line-height:1.7;margin:12px 0 0;font-weight:600;">' + spotlight.cta_text + '</p>' : '';
+    cta = spotlight.cta_text ? '<p style="font-family:' + F.body + ';font-size:15px;color:' + C.heading + ';line-height:1.7;margin:12px 0 0;font-weight:600;">' + esc(spotlight.cta_text) + '</p>' : '';
   }
 
   return '<tr><td style="padding:0 0 8px;"><table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:' + C.lightGreen + ';border-radius:8px;">' +
     '<tr><td style="padding:24px;">' +
-      '<h2 style="font-family:' + F.heading + ';font-size:22px;font-weight:700;color:' + C.heading + ';margin:0 0 14px;">' + headline + '</h2>' +
+      '<h2 style="font-family:' + F.heading + ';font-size:22px;font-weight:700;color:' + C.heading + ';margin:0 0 14px;">' + esc(headline) + '</h2>' +
       body + cta +
     '</td></tr></table></td></tr>' +
     '<tr><td style="padding:16px 0;"><table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>' +
@@ -157,7 +166,7 @@ function build(newsletter, subscriberId, opts) {
   var finalThoughts = content.final_thoughts || '';
   var spotlight = content.spotlight || null;
   var year = new Date().getFullYear();
-  var unsubUrl = UNSUBSCRIBE_BASE + (subscriberId ? '?sid=' + subscriberId : '');
+  var unsubUrl = UNSUBSCRIBE_BASE + (subscriberId ? '?sid=' + encodeURIComponent(subscriberId) : '');
   var storiesHtml = stories.map(function(s, i) { return storyBlock(s, i); }).join('');
   var warmupActive = !!opts.warmupActive;
 
@@ -239,24 +248,24 @@ function buildBlog(newsletter) {
 
   var storiesHtml = stories.map(function(s, i) {
     var num = i + 1;
-    var img = s.image_url ? '<img src="' + esc(s.image_url) + '" alt="' + esc(s.image_alt || s.headline) + '" style="width:100%;border-radius:8px;margin-bottom:1rem;" />' : '';
+    var img = s.image_url ? '<img src="' + esc(validateImageUrl(s.image_url)) + '" alt="' + esc(s.image_alt || s.headline) + '" style="width:100%;border-radius:8px;margin-bottom:1rem;" />' : '';
     var actionHtml = '';
     if (s.action_items || s.actions) {
       var raw = s.action_items || s.actions;
       var items = typeof raw === 'string' ? raw.split('\n').filter(function(l) { return l.trim(); }) : (raw || []);
-      actionHtml = '<div class="action-box"><p><strong>Action:</strong></p><ul>' + items.map(function(item) { return '<li>' + item + '</li>'; }).join('') + '</ul></div>';
+      actionHtml = '<div class="action-box"><p><strong>Action:</strong></p><ul>' + items.map(function(item) { return '<li>' + esc(item) + '</li>'; }).join('') + '</ul></div>';
     }
     return '<article class="story">' + img + '<h2>' + num + '. ' + esc(s.headline) + '</h2><div class="story-body">' + (s.body || '') + '</div>' + actionHtml + '</article>';
   }).join('');
 
-  var quickWinsHtml = quickWins.length ? '<section class="quick-wins"><h2>\u2705 Quick Wins for This Week</h2><ul>' + quickWins.map(function(w) { return '<li>' + w + '</li>'; }).join('') + '</ul></section>' : '';
+  var quickWinsHtml = quickWins.length ? '<section class="quick-wins"><h2>\u2705 Quick Wins for This Week</h2><ul>' + quickWins.map(function(w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul></section>' : '';
   var finalHtml = finalThoughts ? '<section class="final-thoughts"><h2>\u{1F64F} Final Thoughts</h2><div>' + finalThoughts + '</div></section>' : '';
 
   return storiesHtml + quickWinsHtml + finalHtml +
     '<p class="signature">To your growth and success,<br><em>Scott Pope, Director of Growth &amp; Operations, Moonraker.AI</em></p>';
 }
 
-module.exports = { build: build, buildBlog: buildBlog, esc: esc, C: C, F: F };
+module.exports = { build: build, buildBlog: buildBlog, esc: esc, validateImageUrl: validateImageUrl, C: C, F: F };
 
 
 
