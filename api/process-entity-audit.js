@@ -14,6 +14,22 @@ var gh = require('./_lib/github');
 var fetchT = require('./_lib/fetch-with-timeout');
 var sanitizer = require('./_lib/html-sanitizer');
 
+// Prepare GitHub Contents API file content: decode base64 input,
+// apply any {{KEY}} replacements, re-encode to base64. Matches the
+// pattern in generate-proposal.js:560 — keeps the structure ready for
+// placeholder substitution even though no templates use placeholders
+// today.
+function prepTemplate(base64Content, replacements) {
+  var raw = Buffer.from(base64Content, 'base64').toString('utf-8');
+  if (replacements) {
+    Object.keys(replacements).forEach(function(key) {
+      raw = raw.split(key).join(String(replacements[key]));
+    });
+  }
+  return Buffer.from(raw, 'utf-8').toString('base64');
+}
+
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   // Require authenticated admin
@@ -440,7 +456,7 @@ ${surgeData}`;
       // Push the template as the scorecard page
       var pushBody = {
         message: 'Deploy entity audit scorecard for ' + slug,
-        content: tmplData.content.replace(/\n/g, ''),
+        content: prepTemplate(tmplData.content),
         branch: BRANCH
       };
       if (sha) pushBody.sha = sha;
@@ -470,7 +486,7 @@ ${surgeData}`;
         }
         var checkoutPush = {
           message: 'Deploy entity audit checkout for ' + slug,
-          content: checkoutTmplData.content.replace(/\n/g, ''),
+          content: prepTemplate(checkoutTmplData.content),
           branch: BRANCH
         };
         if (checkoutSha) checkoutPush.sha = checkoutSha;
@@ -519,7 +535,7 @@ ${surgeData}`;
 
           var stPush = {
             message: 'Deploy audit ' + st.template.replace('.html', '') + ' for ' + slug,
-            content: stTmplData.content.replace(/\n/g, ''),
+            content: prepTemplate(stTmplData.content),
             branch: BRANCH
           };
           if (stSha) stPush.sha = stSha;
