@@ -138,12 +138,16 @@ module.exports = async function handler(req, res) {
     var totalFailed = 0;
     var errors = [];
 
+    // Compute warmup-active flag once: true only if warmup is enabled AND we're still in ramp.
+    // When warmup completes (advanced past last step), notice automatically disappears.
+    var warmupActive = !!(warmup && warmup.enabled && (warmup.current_step || 0) < (warmup.ramp_schedule || []).length);
+
     // Process in batches
     for (var i = 0; i < sendList.length; i += BATCH_SIZE) {
       var batch = sendList.slice(i, i + BATCH_SIZE);
 
       var sendPromises = batch.map(function(sub) {
-        var emailHtml = nl.build(newsletter, sub.id);
+        var emailHtml = nl.build(newsletter, sub.id, { warmupActive: warmupActive });
 
         return fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -267,4 +271,5 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: e.message });
   }
 };
+
 
