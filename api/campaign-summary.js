@@ -438,7 +438,7 @@ async function pullStrikingDistance(token, siteUrl, startDate, endDate) {
 
 var DELIVERABLE_CATEGORIES = {
   'Setup & Foundation': ['report_config', 'gsc_setup', 'ga4_setup', 'gtm_setup', 'gbp_setup', 'gbp_optimization', 'livedrive'],
-  'Content & SEO Pages': ['target_page', 'surge_page', 'faq_page', 'location_page', 'instant_page', 'bio_page', 'surge_entity', 'surge_sitewide'],
+  'Content & SEO Pages': ['target_page', 'surge_page', 'faq_page', 'location_page', 'instant_page', 'bio_page', 'surge_entity', 'surge_sitewide', 'blog_post'],
   'Authority & Trust Signals': ['social_profiles', 'social_posts', 'press_release', 'citations', 'neo_distribution', 'neo_images', 'entity_veracity_hub', 'endorsement'],
   'Strategy & Audits': ['proposal', 'audit_diagnosis', 'audit_action_plan', 'audit_progress', 'youtube_video']
 };
