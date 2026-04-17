@@ -33,7 +33,6 @@ module.exports = async function handler(req, res) {
   }
 
   var CLIENTS_FOLDER_ID = '1dymrrowTe1szsOJJPf45x4qDUit6J5jB';
-  var sbHeaders = sb.headers('return=representation');
 
   var results = { supabase: {}, drive: {} };
 
@@ -41,27 +40,20 @@ module.exports = async function handler(req, res) {
     // ============================================================
     // STEP 0: Fetch contact for practice_name + existing drive_folder_id
     // ============================================================
-    var contactResp = await fetch(sb.url() + '/rest/v1/contacts?id=eq.' + contactId + '&select=practice_name,drive_folder_id', {
-      headers: sb.headers()
-    });
-    var contactData = await contactResp.json();
-    var practiceName = (contactData && contactData[0] && contactData[0].practice_name) || slug;
-    var existingDriveFolder = contactData && contactData[0] && contactData[0].drive_folder_id;
+    var contactData = await sb.one('contacts?id=eq.' + contactId + '&select=practice_name,drive_folder_id');
+    var practiceName = (contactData && contactData.practice_name) || slug;
+    var existingDriveFolder = contactData && contactData.drive_folder_id;
 
     // ============================================================
     // STEP 1: Flip contact status to prospect
     // ============================================================
-    var patchResp = await fetch(sb.url() + '/rest/v1/contacts?id=eq.' + contactId, {
-      method: 'PATCH',
-      headers: sbHeaders,
-      body: JSON.stringify({
+    try {
+      await sb.mutate('contacts?id=eq.' + contactId, 'PATCH', {
         status: 'prospect',
         converted_from_lead_at: new Date().toISOString()
-      })
-    });
-    if (!patchResp.ok) {
-      var patchErr = await patchResp.json();
-      return res.status(500).json({ error: 'Failed to update contact', detail: patchErr });
+      });
+    } catch (e) {
+      return res.status(500).json({ error: 'Failed to update contact', detail: e.message });
     }
     results.supabase.status = 'prospect';
 
@@ -80,17 +72,18 @@ module.exports = async function handler(req, res) {
       { contact_id: contactId, step_key: 'performance_guarantee', label: 'Performance Guarantee', status: 'pending', sort_order: 9 }
     ];
 
-    await fetch(sb.url() + '/rest/v1/onboarding_steps?contact_id=eq.' + contactId, {
-      method: 'DELETE',
-      headers: sbHeaders
-    });
+    try {
+      await sb.mutate('onboarding_steps?contact_id=eq.' + contactId, 'DELETE', null, 'return=minimal');
+    } catch (e) {
+      console.error('[convert-to-prospect] onboarding_steps delete failed:', e.message);
+    }
 
-    var seedResp = await fetch(sb.url() + '/rest/v1/onboarding_steps', {
-      method: 'POST',
-      headers: sbHeaders,
-      body: JSON.stringify(steps)
-    });
-    results.supabase.onboarding_steps = seedResp.ok ? 9 : 'failed';
+    try {
+      await sb.mutate('onboarding_steps', 'POST', steps, 'return=minimal');
+      results.supabase.onboarding_steps = 9;
+    } catch (e) {
+      results.supabase.onboarding_steps = 'failed';
+    }
 
     // ============================================================
     // STEP 3: Create Google Drive folder hierarchy (skip if exists)
@@ -144,13 +137,9 @@ module.exports = async function handler(req, res) {
             results.drive.subfolders = createdSubs;
 
             if (creativeFolderId) {
-              await fetch(sb.url() + '/rest/v1/contacts?id=eq.' + contactId, {
-                method: 'PATCH',
-                headers: sbHeaders,
-                body: JSON.stringify({
-                  drive_folder_id: creativeFolderId,
-                  drive_folder_url: 'https://drive.google.com/drive/folders/' + creativeFolderId
-                })
+              await sb.mutate('contacts?id=eq.' + contactId, 'PATCH', {
+                drive_folder_id: creativeFolderId,
+                drive_folder_url: 'https://drive.google.com/drive/folders/' + creativeFolderId
               });
               results.drive.creative_folder = 'https://drive.google.com/drive/folders/' + creativeFolderId;
             }
