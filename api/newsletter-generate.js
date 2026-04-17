@@ -9,15 +9,17 @@
 
 var sb = require('./_lib/supabase');
 var auth = require('./_lib/auth');
+var imgq = require('./_lib/image-query');
 
 var PEXELS_KEY = process.env.PEXELS_API_KEY || '';
 
-// Newsletter stories use Pexels for image sourcing. Larger pool of compliance-relevant
-// imagery than the internal stock library (which is reserved for client sites).
-async function searchPexelsImage(query) {
-  if (!PEXELS_KEY || !query) return null;
+// Newsletter stories use Pexels for image sourcing. The image_suggestion from Claude
+// is run through imgq.cleanQuery to strip brand/initialism terms Pexels cannot parse
+// and to append a topical anchor when the query is thin.
+async function searchPexelsImage(rawSuggestion, seed) {
+  if (!PEXELS_KEY || !rawSuggestion) return null;
   try {
-    var searchTerms = query.replace(/[^a-zA-Z0-9 ]/g, '').trim();
+    var searchTerms = imgq.cleanQuery(rawSuggestion, seed);
     if (!searchTerms) return null;
     var resp = await fetch('https://api.pexels.com/v1/search?query=' + encodeURIComponent(searchTerms) + '&per_page=1&orientation=landscape', {
       headers: { 'Authorization': PEXELS_KEY }
@@ -35,7 +37,7 @@ async function searchPexelsImage(query) {
       };
     }
   } catch (e) {
-    console.error('Pexels search failed for "' + query + '":', e.message);
+    console.error('Pexels search failed:', e.message);
   }
   return null;
 }
@@ -218,7 +220,7 @@ module.exports = async function handler(req, res) {
 
       if (PEXELS_KEY) {
         var suggestion = content.stories[p].image_suggestion || content.stories[p].headline || '';
-        var img = await searchPexelsImage(suggestion);
+        var img = await searchPexelsImage(suggestion, p);
         if (img) {
           content.stories[p].image_url = img.url;
           content.stories[p].image_alt = img.alt;
@@ -285,6 +287,7 @@ module.exports = async function handler(req, res) {
     try { return res.status(500).json({ error: 'Fatal: ' + fatal.message }); } catch(e2) {}
   }
 };
+
 
 
 
