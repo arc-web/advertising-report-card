@@ -492,23 +492,20 @@ section { padding: 4.5rem 0; }
   // Charts capture borderColor at creation time, so a theme toggle that
   // doesn't repaint leaves dark navy lines invisible on the dark surface
   // (and vice versa).
+  // Repaint chart line colors and legend swatches for the current theme.
+  // Chart.js doesn't reliably repaint point markers via dataset mutation +
+  // update(), so we destroy and recreate both charts. renderBookings and
+  // renderGsc are idempotent — they call chart.destroy() before creating
+  // a new instance.
   function applyChartTheme() {
     var color = lineColor();
-    [bookingsChart, gscChart].forEach(function(ch) {
-      if (!ch) return;
-      ch.data.datasets.forEach(function(d) {
-        if (d.type === 'line') {
-          d.borderColor = color;
-          d.backgroundColor = color;
-          d.pointBackgroundColor = color;
-          d.pointBorderColor = color;
-        }
-      });
-      ch.update('none');
-    });
     document.querySelectorAll('.line-swatch').forEach(function(el) {
       el.style.color = color;
     });
+    if (_currentData) {
+      renderBookings(_currentData);
+      renderGsc(_currentData);
+    }
   }
   function showError(msg) {
     document.getElementById('loadingState').classList.add('hidden');
@@ -528,8 +525,14 @@ section { padding: 4.5rem 0; }
       showError(err.message || 'Unknown error');
     });
 
+  // Stash for theme-toggle re-renders. Chart.js doesn't reliably repaint
+  // point markers via update() when only dataset properties change, so we
+  // destroy and recreate both charts on theme switch.
+  var _currentData = null;
+
   // ── Render ──────────────────────────────────────────────────────
   function render(data) {
+    _currentData = data;
     document.getElementById('loadingState').classList.add('hidden');
     document.getElementById('content').classList.remove('hidden');
 
