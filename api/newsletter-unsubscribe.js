@@ -37,10 +37,19 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-      await sb.mutate('newsletter_subscribers?id=eq.' + encodeURIComponent(sid), 'PATCH', {
-        status: 'unsubscribed',
-        unsubscribed_at: new Date().toISOString()
-      });
+      // M20: existence check before PATCH. A valid-UUID-but-nonexistent
+      // sid previously hit sb.mutate and logged '[sb.mutate] PATCH
+      // returned 0 rows' — an oracle for probing valid subscriber IDs
+      // by diff'ing server logs or timing. Check first, PATCH only if
+      // found. Return success either way so the response shape
+      // doesn't reveal existence.
+      var existing = await sb.one('newsletter_subscribers?id=eq.' + encodeURIComponent(sid) + '&select=id&limit=1');
+      if (existing) {
+        await sb.mutate('newsletter_subscribers?id=eq.' + encodeURIComponent(sid), 'PATCH', {
+          status: 'unsubscribed',
+          unsubscribed_at: new Date().toISOString()
+        });
+      }
       // Return simple confirmation for one-click, or redirect for form
       var accept = req.headers && req.headers.accept || '';
       if (accept.indexOf('text/html') >= 0) {
