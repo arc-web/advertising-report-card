@@ -541,8 +541,23 @@ Follow-up sequence scheduled even if contact has since flipped to `lost`/`onboar
 
 ## Low
 
-### L1. Inconsistent use of `_lib/supabase.js`
+### L1. Inconsistent use of `_lib/supabase.js` ✅ RESOLVED
 Many routes mix `sb.query`/`sb.mutate` helper calls with inline `fetch(sb.url() + '/rest/v1/...')`. The inline form bypasses the PATCH-zero-rows warning.
+
+**Resolution (2026-04-18, Group B.3 — 22 commits):** Full repo-wide sweep of every server-side bare `fetch(sb.url() + '/rest/v1/...')` call site. Migrated across 21 files / ~88 sites (17 files / 72 sites pre-verified + 6 files / 16 sites discovered mid-session via a multi-line follow-up sweep after the single-line grep completed; see "process note" below). All landed READY on first Vercel build.
+
+Per-file commits: `5af2619` generate-content-page (12 sites); `bbf19a7` seed-content-pages (9, also collapsed duplicate `var sb = require()`); `1a2b78c` activate-reporting (6); `c530220` bootstrap-access (5); `1004858` convert-to-prospect (5); `25d7f99` discover-services (5, **fixed latent `ReferenceError: headers is not defined` in `upsertReportConfig` — every save path had been 500'ing silently**); `f54ee19` + `1f78fa2` enrich-proposal (4+3 sites, split across two commits due to multi-line miss in first pass); `4fca6e2` cron/enqueue-reports (4); `994dc7f` cron/process-queue (5, incl. one multi-line); `0a0fc1a` generate-followups (4); `d4955c5` generate-proposal (3 server-side; see exception below); `d634663` content-chat (4 in `fetchPageContext` helper, stream loop untouched); `48d44ec` trigger-batch-audit (4); `a48df07` delete-client (2); `5495019` process-batch-synthesis (2); `aa53037` generate-audit-followups (3); `be72b93` cron/process-followups (5, simplified `patchRecord(sbUrl, sbHeaders, ...)` signature by dropping two dead params); `2464454` digest (4 call sites + deleted `sbGet` helper — **closes L22**); `c9a7759` proposal-chat (2 in `fetchProposalByContactId` helper); `1759a55` ingest-surge-content (2, dropped unused `sbHeaders`); `8e523ce` cron/process-batch-pages (3).
+
+**Exception intentionally preserved:** `generate-proposal.js:532` — the `track_proposal_view` IIFE embedded inside a template literal that gets deployed as inline client-side `<script>` in the generated proposal HTML. Runs in the browser with the anon-key JWT, not in Node; cannot use `sb.query`. Adjacent to L15 (long-exp anon key baked into deployed pages) and out of scope.
+
+**Process note for future Pattern-12-style sweeps:** The session-prompt pre-verification used the single-line regex `fetch(sb.url()\|fetch(.*rest/v1/\|SUPABASE_URL.*rest/v1` which returned 74 matches across 18 files. That grep systematically undercounted because many call sites split the `fetch(` and the `sb.url() + '/rest/v1/...'` argument across two lines — these don't match a single-line pattern. A follow-up multi-line sweep (pair `await fetch(` with `sb.url() + '/rest/v1/'` on the next 1–4 lines, exclude `fetchT`) surfaced **16 additional sites** missed by the single-line grep: 1 in `cron/process-queue`, 1 in `content-chat`, 2 in `trigger-batch-audit`, 1 in `process-batch-synthesis`, 2 in `generate-audit-followups`, 4 in `cron/process-followups`, 3 in `enrich-proposal`, 2 in `proposal-chat`, 2 in `ingest-surge-content`, 3 in `cron/process-batch-pages`. Future sweeps should run both patterns; the Python multi-line walker used in this session is captured in the session transcripts.
+
+**Behavior-preservation notes:**
+- `sb.mutate` throws on PostgREST 4xx/5xx; raw `fetch` did not. Every migrated site was inspected for its prior error shape: sites that previously silent-failed (fire-and-forget PATCHes, status flips, decorative `activity_log` writes) got wrapped in inner `try/catch`; sites that previously threw custom error strings kept their outer throw shape with only the interior prefix changing to `Supabase mutate error:`.
+- `seed-content-pages.js` had silent-partial-failure semantics (a mid-loop `createDel` returned a non-array on error, `result[0]` was undefined, loop continued). Migration makes it strict: any error aborts with 500. Idempotent seed (pageExists/findDel dedup on retry) makes this correct.
+- `activate-reporting.js` "campaigns created but failed to store keys" 500 path now surfaces `sb.mutate`'s error-prefix instead of the raw PostgREST response body; same Pattern-7 leak shape, no worse, kept for behavior preservation.
+- Several files had unused `var headers = sb.headers(...)` / `var sbHeaders = ...` locals after migration; cleaned up as incidental non-semantic tidying.
+- `content-chat.js` and `proposal-chat.js` are scope-fenced streaming endpoints — only the data-loader helpers outside their stream retry loops were touched.
 
 ### L2. `api/stripe-webhook.js:37-63` — bare block wrapping signature check
 Probably refactor artifact.
@@ -600,7 +615,9 @@ RLS is the only control. Consider rotating to a shorter-exp anon key.
 
 ### L21. `api/enrich-proposal.js:337` — `User-Agent: 'Moonraker-Bot/1.0'` may be blocked
 
-### L22. `api/digest.js:128-131` — `sbGet` helper redefines `sb.query`
+### L22. `api/digest.js:128-131` — `sbGet` helper redefines `sb.query` ✅ RESOLVED
+
+**Resolution (2026-04-18, commit `2464454`, Group B.3):** Inlined all 4 callers (L60/63/66/69) directly to `sb.query('activity_log?...')` / `sb.query('contacts?...')`, deleted the `sbGet(url, headers, path)` helper function, removed the now-unused `var headers = sb.headers()` local. Behavior preserved (sb.query throws on 4xx/5xx; callers are inside the outer try/catch which already handled errors).
 
 ### L23. `api/newsletter-generate.js:191-205` — `stripEmDashes` six-step replace chain
 
@@ -670,7 +687,7 @@ Preview domains fail CORS when testing.
 
 11. **Helpers that insert HTML raw default to unsafe.** `_lib/email-template.js` and `_lib/newsletter-template.js` `p()` and body inserters require callers to escape. Rename raw variants to `.raw()`; make default escape.
 
-12. **`process-entity-audit.js`, `compile-report.js`, `generate-proposal.js`, `bootstrap-access.js`, `enrich-proposal.js` have double-digit inlined Supabase fetches.** Mechanical migration to `sb.query`/`sb.mutate` — the single biggest code-quality win available.
+12. **`process-entity-audit.js`, `compile-report.js`, `generate-proposal.js`, `bootstrap-access.js`, `enrich-proposal.js` have double-digit inlined Supabase fetches.** Mechanical migration to `sb.query`/`sb.mutate` — the single biggest code-quality win available. ✅ **RESOLVED** via Group B.2 (`compile-report`, `process-entity-audit`; 2026-04-17) and Group B.3 (all five named files + 16 additional files discovered in repo-wide sweep; 2026-04-18). See L1 Resolution for the full 22-commit landing list. Repo-wide grep confirms zero remaining server-side bare `fetch(sb.url() + '/rest/v1/…')` call sites; only `generate-proposal.js:532` preserved (client-side IIFE inside a template literal, not migratable).
 
 13. **`validatePath` in `_lib/github.js` is bypassed by `process-entity-audit.js` GitHub deploys.** Enforce an allowed-prefix list when migrating (pattern 12).
 
@@ -724,7 +741,7 @@ Before coding Phase 3+:
 8g. ✅ **L8** — commits `994f51a` + `bd0e195` (2026-04-17). Newsletter webhook now logs every unhandled type via `logEvent('unhandled_type', …)`; added explicit no-op handlers for `email.sent` and `email.delivery_delayed`.
 8h. ✅ **H21 + H30 + L16** — commits `7adedb6` (helper) + `17d0ae8`, `4e77e55`, `568a868`, `d592381`, `1d9c835` (migrations) — 2026-04-17. All 5 duplicate call sites migrated to `_lib/google-delegated.js`; Fathom/Gmail calls now share a cached token per mailbox+scope (H30); dead `getGoogleAccessToken` in `compile-report.js` deleted (L16).
 10. **H4 + H24 + M10 + M16 + the many AbortController gaps** — extract `fetchWithTimeout`, apply everywhere.
-11. **Pattern 12** — migrate inline Supabase fetches to helper in the five big files. Mechanical, test-with-deploy.
+11. ✅ **Pattern 12 + L1 + L22** — Group B.3 (commits `5af2619` → `8e523ce`, 2026-04-18). 22 file-level commits covering 21 files and ~88 call sites. Full resolution summary in L1 Resolution block.
 
 ### Phase 6 — Rate limiting ✅ COMPLETE
 12. ✅ **H5 + H14** — Session P4S4. `api/_lib/rate-limit.js` backed by Supabase table + atomic RPC. Applied: chat endpoints (agreement/content/proposal/report) at 20/min/IP; `submit-entity-audit` at 3/hr/IP (replacing global H14 limit); `newsletter-unsubscribe` at 30/min/IP. Daily cleanup cron registered.
@@ -751,10 +768,10 @@ _(Brought forward from Phase 7 since Chris chose "ship now" over "wait for traff
 - **Critical:** 9 total (C1–C9). **Resolved: 9 ✅** (all).
 - **High:** 36 total (H1–H36). **Resolved: 35** (H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H30, H31, H32, H33, H34, H35, H36). **Open: 1** (H29, deferred on design). **All non-deferred Highs closed.**
 - **Medium:** 39 total (M1–M39; M39 added by Group F). **Resolved: 17** (M2, M6, M8, M9, M10, M11, M12, M13, M14, M15, M16, M18, M20, M22, M26, M30, M38; several more likely closed via Phase 4 action-schema work — needs verification sweep). **Open: ~22.**
-- **Low:** 28 total (L1–L28). **Resolved: 5** (L8, L14, L16, L26, L27-documented-only). **Open: 23.**
+- **Low:** 28 total (L1–L28). **Resolved: 7** (L1, L8, L14, L16, L22, L26, L27-documented-only). **Open: 21.**
 - **Nit:** 6 total (N1–N6). **Open: 6.**
 
-**Total: 118 findings. Resolved: ≥66. Open: ≤52.**
+**Total: 118 findings. Resolved: ≥68. Open: ≤50.**
 
 ### Resolution log
 | Finding | Commit / Session | Date |
@@ -815,6 +832,7 @@ _(Brought forward from Phase 7 since Chris chose "ship now" over "wait for traff
 | H13 | `fba6183` (agreement-chat.js — buildSystemPrompt returns 2-block array with cache_control ephemeral on static CSA+guidelines block, byte-identical concatenation preserves model behavior, Group G batch 2) | 2026-04-18 |
 | H16 | `2eb09dba` (process-entity-audit.js — prepTemplate helper + 3 deploy sites converted, H16+H23 mini-session) | 2026-04-18 |
 | H23 | `484dc8e5` (part 1: scope reduction — drop clientIndex on deep-dive) + `052f2245` (part 2: prompt caching — 2-block system array with ephemeral cache_control on static prefix, H16+H23 mini-session) | 2026-04-18 |
+| L1 + L22 | Group B.3 — 22 commits (`5af2619` generate-content-page, `bbf19a7` seed-content-pages, `1a2b78c` activate-reporting, `c530220` bootstrap-access, `1004858` convert-to-prospect, `25d7f99` discover-services (+ latent `headers`-undefined bugfix), `f54ee19`+`1f78fa2` enrich-proposal, `4fca6e2` cron/enqueue-reports, `994dc7f` cron/process-queue, `0a0fc1a` generate-followups, `d4955c5` generate-proposal, `d634663` content-chat, `48d44ec` trigger-batch-audit, `a48df07` delete-client, `5495019` process-batch-synthesis, `aa53037` generate-audit-followups, `be72b93` cron/process-followups, `2464454` digest (closes L22), `c9a7759` proposal-chat, `1759a55` ingest-surge-content, `8e523ce` cron/process-batch-pages) — 21 files, ~88 call sites, all READY on first build | 2026-04-18 |
 
 Audit was performed across five sessions reading ~11,000 lines of API route code, the eight `_lib/` modules, relevant templates, and git history for secret leakage. Unread in detail: chat system prompt bodies (low-risk content), several `send-*-email.js` / `trigger-*` / `ingest-*` routes (expected to follow already-catalogued patterns), most `api/admin/*` read-only dashboard routes. The audit is considered comprehensive for Critical and High findings; Medium/Low/Nit counts would grow modestly with further reading.
 
