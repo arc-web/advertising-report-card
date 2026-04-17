@@ -534,8 +534,7 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
     { dest: slug + '/proposal/index.html', content: html },
     { template: '_templates/router.html', dest: slug + '/index.html' },
     { template: '_templates/checkout.html', dest: slug + '/checkout/index.html' },
-    { template: '_templates/onboarding.html', dest: slug + '/onboarding/index.html', replacements: { '{{PAGE_TOKEN}}': signedOnboardingToken } },
-    { template: '_templates/campaign-summary.html', dest: slug + '/campaign-summary/index.html' }
+    { template: '_templates/onboarding.html', dest: slug + '/onboarding/index.html', replacements: { '{{PAGE_TOKEN}}': signedOnboardingToken } }
   ];
 
   for (var p of pagesToDeploy) {
@@ -609,19 +608,24 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
   results.conversion = {};
   try {
     // Flip status to prospect
-    var convResp = await fetch(sb.url() + '/rest/v1/contacts?id=eq.' + contact.id, {
-      method: 'PATCH', headers: sb.headers(),
-      body: JSON.stringify({
+    try {
+      await sb.mutate('contacts?id=eq.' + contact.id, 'PATCH', {
         status: 'prospect',
         converted_from_lead_at: new Date().toISOString()
-      })
-    });
-    results.conversion.status = convResp.ok ? 'prospect' : 'failed';
+      });
+      results.conversion.status = 'prospect';
+    } catch (e) {
+      results.conversion.status = 'failed';
+      results.conversion.status_error = e.message || String(e);
+    }
 
-    // Seed 9 onboarding steps (delete existing first for idempotency)
-    await fetch(sb.url() + '/rest/v1/onboarding_steps?contact_id=eq.' + contact.id, {
-      method: 'DELETE', headers: sb.headers()
-    });
+    // Seed onboarding steps. H26: previously DELETE-then-POST which left a
+    // zero-step window if the invocation died between the two calls — the
+    // auto_promote_to_active trigger (pending→complete) would then never fire.
+    // Fix: upsert on UNIQUE(contact_id, step_key) so a re-run is idempotent,
+    // and do a targeted DELETE of any *stale* steps whose keys aren't in the
+    // current template (e.g. if the template shrank between regenerations).
+    // No all-or-nothing wipe; no zero-row window.
     var onboardingSteps = [
       { contact_id: contact.id, step_key: 'confirm_info', label: 'Confirm Info', status: 'pending', sort_order: 1 },
       { contact_id: contact.id, step_key: 'sign_agreement', label: 'Sign Agreement', status: 'pending', sort_order: 2 },
@@ -633,11 +637,28 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
       { contact_id: contact.id, step_key: 'checkins_and_drive', label: 'Google Drive', status: 'pending', sort_order: 8 },
       { contact_id: contact.id, step_key: 'performance_guarantee', label: 'Performance Guarantee', status: 'pending', sort_order: 9 }
     ];
-    var seedResp = await fetch(sb.url() + '/rest/v1/onboarding_steps', {
-      method: 'POST', headers: sb.headers(),
-      body: JSON.stringify(onboardingSteps)
-    });
-    results.conversion.onboarding_steps = seedResp.ok ? 9 : 'failed';
+    var currentKeys = onboardingSteps.map(function (s) { return s.step_key; }).join(',');
+    // Stale-row cleanup: remove only steps whose keys are NOT in the new template.
+    // Scoped by contact_id so it can never touch another contact's rows.
+    try {
+      await sb.mutate(
+        'onboarding_steps?contact_id=eq.' + contact.id + '&step_key=not.in.(' + currentKeys + ')',
+        'DELETE',
+        null,
+        'return=minimal'
+      );
+    } catch (e) {
+      // Non-fatal: stale rows don't block the upsert itself, they just leave extra
+      // rows the client will see. Surface in results so it's visible in admin UI.
+      results.conversion.stale_cleanup_error = e.message || String(e);
+    }
+    try {
+      await sb.mutate('onboarding_steps', 'POST', onboardingSteps, 'resolution=merge-duplicates,return=minimal');
+      results.conversion.onboarding_steps = onboardingSteps.length;
+    } catch (e) {
+      results.conversion.onboarding_steps = 'failed';
+      results.conversion.onboarding_error = e.message || String(e);
+    }
   } catch (convErr) {
     results.conversion.error = convErr.message || String(convErr);
   }
@@ -747,7 +768,6 @@ async function createDriveFolder(name, parentId, headers) {
     return { error: e.message || String(e) };
   }
 }
-
 
 
 
