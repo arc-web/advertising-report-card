@@ -4,6 +4,7 @@
 // POST ?sid=subscriber_id  -> processes unsubscribe (also handles List-Unsubscribe-Post)
 
 var sb = require('./_lib/supabase');
+var rateLimit = require('./_lib/rate-limit');
 
 module.exports = async function handler(req, res) {
   var sid = (req.query && req.query.sid) || '';
@@ -11,6 +12,20 @@ module.exports = async function handler(req, res) {
   // POST = one-click unsubscribe (from email header) or form submit
   if (req.method === 'POST') {
     if (!sid) return res.status(400).json({ error: 'Missing subscriber ID' });
+
+    // Rate limit: 30/min per IP, fail-OPEN. Fail-open matters here because a
+    // Supabase outage must not trap users in the list — blocking unsubscribes
+    // during an outage is worse than letting a burst through. GET (confirmation
+    // page render) is not limited.
+    var ip = rateLimit.getIp(req);
+    var rl = await rateLimit.check('ip:' + ip + ':newsletter-unsubscribe', 30, 60, { failClosed: false });
+    rateLimit.setHeaders(res, rl, 30);
+    if (!rl.allowed) {
+      if (rl.reset_at) {
+        res.setHeader('Retry-After', String(Math.max(1, Math.ceil((rl.reset_at - new Date()) / 1000))));
+      }
+      return res.status(429).json({ error: 'Too many requests. Please try again shortly.' });
+    }
 
     // Validate UUID format (test sends use 'test' or 'preview' which aren't real UUIDs)
     var uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
