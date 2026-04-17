@@ -534,7 +534,8 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
     { dest: slug + '/proposal/index.html', content: html },
     { template: '_templates/router.html', dest: slug + '/index.html' },
     { template: '_templates/checkout.html', dest: slug + '/checkout/index.html' },
-    { template: '_templates/onboarding.html', dest: slug + '/onboarding/index.html', replacements: { '{{PAGE_TOKEN}}': signedOnboardingToken } }
+    { template: '_templates/onboarding.html', dest: slug + '/onboarding/index.html', replacements: { '{{PAGE_TOKEN}}': signedOnboardingToken } },
+    { template: '_templates/campaign-summary.html', dest: slug + '/campaign-summary/index.html' }
   ];
 
   for (var p of pagesToDeploy) {
@@ -746,6 +747,7 @@ async function createDriveFolder(name, parentId, headers) {
     return { error: e.message || String(e) };
   }
 }
+
 
 
 
