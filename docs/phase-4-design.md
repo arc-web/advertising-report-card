@@ -5,6 +5,22 @@
 **Date:** 2026-04-17
 **Author:** Claude (drafted during audit remediation planning)
 
+## Decisions (locked 2026-04-17)
+
+| # | Decision | Choice |
+|---|---|---|
+| 1 | Page token design | **Option A** — Stateless HMAC |
+| 2 | Rate-limit backing store | **Option A** — Supabase table |
+| 3 | `action.js` direction | **Option C** — Shape-aware manifest |
+| — | C9 urgency | **Ship now**, don't wait for real endorsements |
+
+**Open questions still pending (Q1, Q2):**
+- Q1 (onboarding token lifetime): defer to session-1 implementation. Default: 90 days fixed. Easy to change later.
+- Q2 (chat rate-limit ceiling): defer to session-4 implementation when we touch the chat endpoints. Default: 20 req/min per IP, re-evaluate after observing real traffic.
+
+---
+
+
 **Status check (current state, not audit-time state):**
 - 86 active contacts in lifecycle.
 - 0 endorsements ever submitted (C9 is purely theoretical right now — no attack surface exploited, and no rush if we want to prioritize other work first).
@@ -331,11 +347,9 @@ Each step is ~1 focused session. Total time-to-all-criticals-closed: 6-7 session
 
 ---
 
-## Open questions for Chris
+## Open questions for Chris (all resolved or deferred)
 
-1. **Page token lifetime for onboarding:** I suggested 90 days. Is that comfortable, or should it tie to the onboarding status flip (token invalidates when contact transitions to `active`)?
-2. **Rate limit for chat endpoints:** 20 req/min per IP is conservative — a real user clicking "ask again" a few times hits this. Is that the right ceiling, or do you want more headroom? (I can also key by contact_id where we have a token, which permits real users more while limiting casual attackers.)
+1. **Page token lifetime for onboarding:** Defer to implementation. Start at 90 days fixed; if real usage shows issues, revisit.
+2. **Rate limit for chat endpoints:** Defer to implementation. Start at 20 req/min per IP; observe and tune.
 3. **Manifest `role` distinction:** ✅ **Confirmed.** `admin_profiles` already has Chris=`owner` and Scott/support=`admin`. `require_role: 'owner'` works as-designed. No migration needed.
-4. **C9 urgency:** zero endorsements today means we have flexibility. Do you want to ship C9 before the endorsement feature gets real usage, or park it until endorsements start coming in? (Parking is fine; just noting the feature exists and is unused.)
-
-Once Q1, Q2, Q4 are answered, we have enough to start Phase 4.
+4. **C9 urgency:** ✅ **Ship now.** Don't wait for real endorsements; close the exploit chain before the feature sees traffic.
