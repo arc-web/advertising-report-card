@@ -9,7 +9,11 @@
 
 All 9 Criticals closed. **Thirty-five Highs closed** (H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11, H12, H13, H14, H15, H16, H17, H18, H19, H20, H21, H22, H23, H24, H25, H26, H27, H28, H30, H31, H32, H33, H34, H35, H36). **All non-deferred Highs closed.** H29 deferred on design (JSONB encryption + read-path + migration + rotation). **M2, M6, M8, M9, M10, M11, M12, M13, M14, M15, M16, M18, M20, M22, M26 (fully resolved), M30, M38 closed.** **L1**, **L8**, L14, L16, **L22**, L26, L27 closed. Group C closed the template-escape surface; Group B.1 collapsed the `getDelegatedToken` duplication; Group D hardened every Claude-prompting route with `sanitizer.sanitizeText` at untrusted-input sources plus delimiter framing around large blobs, closing the prompt-injection half of M26. Group B.2 extracted `fetchWithTimeout` into `_lib/` and eliminated every bare `fetch()` call across the four files with the biggest AbortController gap. **Group B.3 swept the entire rest of the repo: 22 commits, 21 files, ~88 inline `fetch(sb.url() + '/rest/v1/…')` call sites migrated to `sb.query`/`sb.mutate`/`sb.one`, closing L1, L22, and the long-running Pattern 12 systemic finding; also fixed a latent `ReferenceError` bug in `discover-services.js :: upsertReportConfig` as a side-effect.** Group E converted every non-transactional DELETE+INSERT pair into a PostgREST `resolution=merge-duplicates` upsert (with stale-row cleanup on onboarding_steps) and converted `generate-proposal.js` fire-and-forget PATCHes into awaited try/catch + monitor.logError. Group F hardened every public-facing input validation surface: UUID regex + encodeURIComponent at concat sites on `content-chat.js`, require-Origin on `submit-entity-audit.js` + `content-chat.js`, FQDN validation on `admin/manage-site.js`, recipient allowlist on `digest.js`, existence check before PATCH on `newsletter-unsubscribe.js`, and TOCTOU pre-check removal on `submit-entity-audit.js`. Group G batch 1 closed the operational-resilience cherry-picks: 60s TTL + last_login_at throttle in `_lib/auth.js`, `rawToDer` dead-code removal, hard-required `AGENT_API_KEY` plus `sanitizer.sanitizeText` on team notification emails in `process-entity-audit.js`, full-UUID composite `checklist_items` id across both writer sites, and H2 doc-marked after verifying the P4S5 `postgrest-filter` extraction had already closed it. Group G batch 2 closed H6 (stripe-webhook fire-and-forget replaced with awaited `fetchT` + `monitor.critical`, results tracking, nested try/catch so alert failure doesn't mask Stripe's 200) and H13 (agreement-chat CSA prompt caching via 2-block `system:` array with `cache_control: { type: 'ephemeral' }`). The H16 + H23 mini-session closed the last two actionable Highs: H16 with a `prepTemplate` helper on `process-entity-audit.js` aligning all three deploy sites with the `generate-proposal.js` decode/substitute/re-encode pattern, and H23 with chat.js scope reduction (drop clientIndex on deep-dive) plus a 2-block system-prompt array with `cache_control: { type: 'ephemeral' }` on the static prefix. H29 infra-check surfaced 4 unresolved design questions and was deferred. H36 (8th `getDelegatedToken` copy in `convert-to-prospect.js`, discovered during B.1 verification) closed as Group D pre-task. `authenticator_secret_key` null-on-all-rows investigation resolved: `SENSITIVE_FIELDS` includes it; the null state just means no 2FA setup has been saved yet through the admin UI. Not a bug.
 
-~50 findings remain. None of them are attack chains of the same severity as C1-C9, no actionable Highs are left, and the entire Group B shared-library extraction is now closed. What's left is 21 open Lows (several plausibly stale after Groups A-G), 6 Nits, ~22 Mediums (many also plausibly stale), and H29 waiting on design.
+**Group I (2026-04-18) closed the Lows + Nits tail.** Classify-first reconciliation pass across 27 open findings produced: 4 small code commits (L12 `62e6ec3` fmtDelta block-function hoisting fix, L28 `be6ad05` chat.js Anthropic upstream error → monitor pattern, N3 `e694dce` monitor.js CR/LF log sanitization, N4 `d53a1fa` onboarding-action header comment rewrite); 7 doc-only reconciliations marking findings already-closed-incidentally by earlier groups (L10 conditional-concern-doesn't-apply, L17 via H22/Group C, L18 intentional scaffolding, L20 via H24/Group B.2, N1 obsolete after supabase.js throws, N2 via C2+M8 rewrite, N6 via H21/Group B.1); and "Current state (2026-04-18)" notes on the 16 remaining open findings (15 Lows + N5) explaining why each stays open so the next reader doesn't re-diagnose. **Tallies after Group I: Lows 13/28 resolved (was 7), Nits 5/6 resolved (was 0), total ≥79 resolved of 118, ≤39 open.**
+
+~39 findings remain. None of them are attack chains of the same severity as C1-C9, no actionable Highs are left, the entire Group B shared-library extraction is closed, and the Lows/Nits tail has been walked end-to-end. What's left is 15 open Lows (all documented with current-state notes), 1 open Nit (N5 — CORS preview-domain workflow concern), ~22 Mediums (several plausibly stale — see Group J below if filed), and H29 waiting on design.
+
+**One new finding flagged during Group I: L6 state-machine gap is real.** `submit-entity-audit.js:112` creates audit rows with `status='pending'` and flips to `'agent_running'` only on successful agent trigger — on agent failure, status stays `'pending'` forever and `cron/process-audit-queue.js` only picks up `status='queued'`. No auto-retry path exists; only the team-notification email fires (and its admin-URL fragment from L9 doesn't scroll anywhere). One-line fix (flip to `'queued'` on failure) was deliberately not landed in reconciliation scope — it's a state-machine change on a public-facing endpoint and warrants Chris/Scott product sign-off. Captured in L6's Current state note.
 
 ---
 
@@ -117,21 +121,38 @@ All 9 Criticals closed. **Thirty-five Highs closed** (H1, H2, H3, H4, H5, H6, H7
 
 Documented plan in M1 section. Blocked on you adding `metadata: { product: ... }` to the Stripe payment links dashboard-side. After that's done, code change is 10 minutes + a 30-day observation window before removing the amount fallback.
 
-### Group I — Lows + Nits (1 sweep session)
+### Group I — Lows + Nits reconciliation sweep ✅ COMPLETE (2026-04-18)
 
-25 Lows + 6 Nits still listed; several are likely stale after Phase 4. Worth a 1-session sweep: reconcile what's actually still present vs what got closed incidentally, then fix the remaining in-scope items (≤10 lines each).
+| ID | Outcome | Commit / Note |
+|---|---|---|
+| L12 | ✅ closed — `fmtDelta` → var function expression | `62e6ec3` |
+| L28 | ✅ closed — chat.js Anthropic upstream error → monitor pattern | `be6ad05` |
+| N3 | ✅ closed — monitor.js CR/LF sanitization | `e694dce` |
+| N4 | ✅ closed — onboarding-action header comment rewritten | `d53a1fa` |
+| L10 | ✅ closed — doc-only, conditional concern doesn't apply | doc commit |
+| L17 | ✅ closed — doc-only, via H22/Group C `aabdac1` | doc commit |
+| L18 | ✅ closed — doc-only, intentional single-model scaffolding | doc commit |
+| L20 | ✅ closed — doc-only, via H24/Group B.2 `0163f65` | doc commit |
+| N1 | ✅ closed — doc-only, obsolete after supabase.js throws | doc commit |
+| N2 | ✅ closed — doc-only, via C2+M8 `5263aa5` | doc commit |
+| N6 | ✅ closed — doc-only, via H21/Group B.1 | doc commit |
+| L2, L3, L4, L5, L6, L7, L9, L11, L13, L15, L19, L21, L23, L24, L25, N5 | Open with "Current state (2026-04-18)" note | doc commit |
+
+**Group I done.** 11 findings closed (4 code + 7 doc-only reconciliations), 16 stay open with explicit current-state notes. See retrospective below.
 
 ---
 
 ## What's **not** in the groupings
 
-Items I recommend marking "won't fix" or "needs design":
+Items marked "won't fix" or "needs design":
 
-- **L3** (`var` everywhere): cosmetic. Skip.
-- **L13** (hardcoded asset URLs): single-domain app. Skip.
-- **L15** (anon key exp 2089): RLS is the control. Either leave as-is (accept the risk profile) or plan a migration — not both half-measures.
-- **L16** (two Google auth functions in compile-report.js): closes with H21.
-- **L19** (personal-email blocklist): add as data, not a code change.
+- **L3** (`var` everywhere): cosmetic. Skip. Confirmed-unchanged per Group I Current state note.
+- **L13** (hardcoded asset URLs): single-domain app. Skip. Confirmed per Group I.
+- **L15** (anon key exp 2089): RLS is the control; since C3/C7 landed the page_token gate, public writes are all token-gated and the anon-key surface is now read-only RLS. Confirmed per Group I.
+- **L16** (two Google auth functions in compile-report.js): closed with H21 (`1d9c835`).
+- **L19** (personal-email blocklist): data-quality nit, low-value without telemetry. Confirmed per Group I.
+- **L24** (two calendar URLs): needs Chris/Scott sign-off on which is canonical — flagged during Group I.
+- **L6** (agent-failure requeue gap): one-line fix pending product sign-off on state-machine change. Flagged during Group I.
 - **M19** (webhook race with auto-send): needs a design — what's the desired behavior when Stripe lands after the free tier email already sent? Hold and refund? Upgrade anyway? Product decision, not a code decision.
 - **M37** (auto-schedule doesn't check post-submit status flip): same — is this a bug or intended?
 
@@ -139,22 +160,14 @@ Items I recommend marking "won't fix" or "needs design":
 
 ## Recommended next session
 
-**Group I — Lows + Nits reconciliation sweep.**
+**The audit is at a natural stopping point.** All Criticals closed, all non-deferred Highs closed, the Lows + Nits tail walked end-to-end. What remains falls into four categories, none of which require urgency:
 
-Reasoning:
-- All non-deferred Highs are closed. H29 waits on the 4 design decisions captured in the Group G batch 2 retrospective; no code session will move it forward until those land.
-- All three Group B sub-sessions (B.1 google-auth, B.2 fetchWithTimeout, B.3 Supabase helper migration) are closed. The audit is now out of attack-chain *and* out of shared-library-extraction territory.
-- What remains is 21 open Lows (several plausibly stale after Phase 4 + Groups A–G) and 6 Nits. A single reconciliation sweep can mark stale entries as verified-fine, fix the ≤10-line remainders, and leave a clean tail.
-- Group H (M1 Stripe metadata) still waits on product decision; same for M19 / M37 / M39.
+1. **Group J — Medium-tier reconciliation sweep** (≤1 session). ~22 open Mediums with the same "plausibly stale after Groups A–G" profile as the Lows had before Group I. Worth a single classify-first pass mirroring Group I's shape: bucket (a) doc-only closures for findings already resolved incidentally, bucket (b) small code fixes for those that survived, bucket (c) notes on anything that needs product sign-off. Likely bucket (a) candidates based on Group I reading: M1 (awaits dashboard metadata — see Group H), M3 (action.js tightening probably overlaps post-P4S5 state), M4 (github.js path validation — worth verifying against post-Group-B state), M7 (supabase error detail — same-class as N3 CR/LF sanitization), several process-entity-audit Mediums (M17/M21/M25/M29/etc.) that may have been swept by Group B.2's work on that file. M19/M37/M39 stay (c) pending product decisions.
+2. **L6 state-machine sign-off** (≤15 min with Chris/Scott). One-line code change + one-line verification once the "do failed agent triggers auto-retry via cron?" product answer is settled. Flagged during Group I.
+3. **H29 design session** (whenever ready). Waits on the 4 design decisions captured in the Group G batch 2 retrospective (JSONB encryption + read-path + migration + rotation). No code session will move it forward until those land.
+4. **Group H M1 Stripe metadata** (10 min code + 30-day observation window). Blocked on dashboard-side `metadata: { product: ... }` addition.
 
-Recommended sequence:
-
-1. **Group I Lows + Nits sweep** (1 session) — reconcile stale Lows, close ≤10-line remainders
-2. **H29 design session** (whenever ready to make the 4 decisions) closes H29
-3. **Group H M1 Stripe metadata** (once dashboard metadata is added)
-4. **M19, M37, M39** product-decision items, fold in when ready
-
-Approximately 1-2 sessions to fully clear the audit, or stop here with "every non-deferred High closed + Pattern 12 fully swept" as a clean finish line.
+Or stop here with **"every non-deferred High closed + every actionable Low/Nit closed or explicitly-noted"** as the clean finish line. The audit docs now read cleanly top-to-bottom: every C/H is resolved or deferred-with-rationale, every L/N is resolved or has a Current-state note explaining why it stays open. That's a defensible resting state.
 
 ## Executed prompt — Group G batch 1 (historical, for reference)
 
@@ -562,6 +575,53 @@ Out of scope for Group B.3 (flagged for future):
 - `fetchT(sb.url() + '/rest/v1/...')` sites — a handful of files already have the timeout wrapper from B.2 but still construct direct PostgREST URLs instead of using `sb.query`/`sb.mutate`. Final repo-wide sweep shows zero of these remain in scope: `analyze-design-spec.js`, `search-stock-images.js`, `onboarding-action.js`, `action.js` all legitimately use `sb.url() + '/rest/v1/'` as URL construction for their own custom routing layers (action.js / onboarding-action.js are the generic mutation-API handlers themselves). No separate L29 filing needed.
 - `api/_lib/google-drive.js` bespoke fetch + caching — tracked under N6, untouched.
 - Chat/streaming endpoints' stream loops (`agreement-chat.js`, `report-chat.js`) — no Supabase fetches to migrate inside those loops.
+
+## Group I — Lows + Nits reconciliation sweep ✅ COMPLETE (2026-04-18)
+
+Classify-first reconciliation pass across all 27 open Lows + Nits. The theme was verification over shipping: read each finding against current `main`, classify into bucket (a) already-closed-doc-only, (b) small ≤10-line fix, or (c) non-trivial/product-gated with a note. Final outcome: 11 closed (4 code + 7 doc-only), 16 stay open with Current-state notes.
+
+**Bucket (a) — doc-only reconciliations (7 findings):**
+
+- **L10** — conditional concern ("if reused as etag across many sites") doesn't apply; repo-wide grep for `content_hash` shows only change-detection uses.
+- **L17** — closed incidentally by H22/Group C `aabdac1`; `generate-proposal.js:355-358` now uses `Number.isFinite(amt) && amt >= 0`.
+- **L18** — the one-element `models` array at `chat.js:39-41` is intentional single-model scaffolding; the loop runs once correctly and the `if (false)` guard at L110 confirms the structure is future-proofing.
+- **L20** — closed by H24/Group B.2 `0163f65`; repo-wide grep confirms zero inline Supabase fetches remain in `compile-report.js`.
+- **N1** — concern obsolete after H4/H7 made `query()` throw on non-ok; error shape never reaches `one()` — would throw inside `query()` first.
+- **N2** — closed by C2+M8 `5263aa5`; current parse at `stripe-webhook.js:56-63` uses `indexOf+substring`, no `parts[kv[0].trim()] = kv[1]` pattern exists.
+- **N6** — closed by Group B.1 H21 commits + H36 `221bfbc`; all 8 `getDelegatedToken` copies gone.
+
+**Bucket (b) — small code fixes (4 findings, 4 commits):**
+
+- `62e6ec3` — **L12** process-entity-audit.js `fmtDelta` converted from block-scoped function declaration to `var` function expression. Non-strict mode hoisting is engine-inconsistent; explicit var makes semantics deterministic. One-line change.
+- `be6ad05` — **L28** chat.js Anthropic upstream error routed to `monitor.logError('chat', new Error('anthropic_upstream'), { detail: { status, body: substring(0, 500) } })`; response body reduced to `{ error: userMsg, status }` without `detail`. Mirrors H28 pattern from bootstrap-access.js. Also dropped the redundant `console.error` in favor of the monitor call (detail now survives in `error_log`).
+- `e694dce` — **N3** monitor.js CR/LF sanitization before `console.error`. One-line `message.replace(/[\r\n]+/g, ' \\n ')` prevents log-forging via user-sourced content echoed in `error.message` (e.g. PostgREST 4xx bodies). DB-stored `error_log.message` is unchanged (JSONB-safe).
+- `d53a1fa` — **N4** onboarding-action.js header comment rewritten. Old "No admin JWT required — uses service role key for writes" reads as intentional-no-auth against post-Phase-4-S2 reality. New comment: "Authenticates via page_token (not admin JWT); service role key is the write identity but the page_token gate and verified contact_id below constrain what any given request can touch." Pairs with the existing multi-line security-model block that was already correct.
+
+All 4 code commits went straight to READY on first Vercel build. Doc-only reconciliation commit `fbd7c04` also READY.
+
+**Bucket (c) — open with Current state notes (16 findings):**
+
+Grouped by why they stay open:
+
+- **Intentional design, not a bug** (3): L2 (bare block scopes sig-verification locals — defensible post-C2), L3 (var-throughout, won't-fix-now), L13 (hardcoded asset URLs, single-domain app).
+- **RLS/token-gated risk profile, won't-fix-now** (1): L15 (anon key exp 2089 — page_token gate means anon key is read-only now).
+- **Small refactor, but in a sensitive path** (2): L5 (auth.js JWT verify duplicate — wants its own scoped commit), L7 (report-chat.js retry duplicate — scope-fenced streaming endpoint).
+- **Product decision required** (3): L6 (agent-failure requeue state-machine change — flagged explicitly), L24 (two calendar URLs in production — Scott vs generic strategy call), N5 (CORS preview-domain allowlist — workflow concern, wants shared helper).
+- **Low value / cosmetic** (6): L9 (admin `#audit-` fragment doesn't scroll — harmless), L11 (markdown fence strip nested-fence risk — same class as M25, parked for shared-parser session), L19 (personal-email blocklist — data-quality nit), L21 (User-Agent may be blocked — needs telemetry), L23 (stripEmDashes 5-step chain — works as-is), L25 (VERIFY regex stops at `<` — low-value).
+- **Caller-responsibility by design** (1): L4 (github.js no auto-retry on 409 — docs explicitly push caller ownership).
+
+**Key discovery flagged: L6 is a real gap, not stale.** `submit-entity-audit.js:112` creates audit rows with `status='pending'` and flips to `'agent_running'` only on successful agent trigger. On agent failure, status stays at `'pending'` forever — and `cron/process-audit-queue.js:138` only picks up `status='queued'`. So agent-trigger failures at submit time have no auto-retry path; team notification email is the sole fallback, and its admin-URL fragment (L9) doesn't even scroll. The one-line fix (flip to `'queued'` on agent failure so cron picks it up) was deliberately not landed — state-machine change on a public-facing endpoint warrants Chris/Scott sign-off first. L6's Current state note captures the full diagnosis for whoever picks this up.
+
+**Side-finding: stray text in L27.** During the L25 edit, found a one-line orphan "Cuts off flags mid-sentence with HTML brackets." at the end of the L27 section — it belonged to L25 (VERIFY regex) but had drifted. Moved to L25's section as part of L25's Current state note, deleted the orphan.
+
+**Process note — the classify phase was the session.** Per the session prompt's guidance ("Don't force (b) if the fix isn't actually small"), the reconciliation into (a) and the Current state notes for (c) were the primary deliverable; code changes were a small bonus. Typical ratio: ~30 lines of code shipped across 4 files vs ~100 lines of doc content documenting 23 findings' current state. The right balance for a sweep session on a mature audit.
+
+Net result:
+- **Lows: 13/28 resolved (was 7). 15 open, all with Current-state notes.**
+- **Nits: 5/6 resolved (was 0). 1 open (N5) with Current-state note.**
+- **Total ≥79 resolved of 118 findings, ≤39 open.**
+
+Remaining work is either Medium-tier reconciliation (Group J candidate — same profile as Lows had before this sweep), product-decision items (L6/L24/M19/M37/M39), or H29 design session. The audit reads cleanly top-to-bottom now: every finding is resolved, deferred-with-rationale, or has an explicit current-state note.
 
 ## Group D — AI prompt injection hardening ✅ COMPLETE (2026-04-17)
 
