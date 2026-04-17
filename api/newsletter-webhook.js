@@ -255,8 +255,9 @@ module.exports = async function handler(req, res) {
   } catch (e) {
     console.error('newsletter-webhook error:', e);
     await logEvent('db_error', { headers: hdrs, detail: { error: e.message, stack: (e.stack || '').slice(0, 500) } });
-    // Always return 200 to prevent Resend retries on our errors
-    return res.status(200).json({ ok: false, error: e.message });
+    // Always return 200 to prevent Resend retries on our errors. Detail is in
+    // webhook_log via logEvent above — do not leak it in the response body.
+    return res.status(200).json({ ok: false });
   }
 };
 
@@ -277,3 +278,4 @@ async function incrementStat(newsletterId, column) {
     console.error('incrementStat RPC error:', e.message);
   }
 }
+
