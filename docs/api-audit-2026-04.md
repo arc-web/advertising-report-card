@@ -584,7 +584,17 @@ Memory says `process-audit-queue.js` handles this. Verify.
 
 **Current state (2026-04-18, Group I reconciliation):** Verification shows the gap is real, not resolved. `submit-entity-audit.js:112` inserts rows with `status='pending'` and flips to `'agent_running'` only on successful agent trigger (L149); on agent failure, status stays at `'pending'` forever, and `cron/process-audit-queue.js:138` only picks up `status='queued'`. Team notification email at L170-184 is the sole fallback — and the admin URL fragment in that email is itself broken (see L9).
 
-**Product decision (Chris, 2026-04-18):** Flip failed audits to `'queued'` on agent-trigger failure so the cron auto-retries indefinitely; team notification stays as an internal FYI (no manual intervention expected). Scope reminder for the fix session: submit-side only. The cron's existing `agent_error` terminal transition (when the agent is alive but returns non-2xx on dispatch) is desirable and should not be touched — "indefinite" means "as long as the agent is unreachable," which is exactly what causes submit-time failures. **Queued for Group J as a mandatory pre-task** before the Medium classify sweep begins.
+**Product decision (Chris, 2026-04-18):** Every failed audit should auto-retry regardless of why the run failed — losing audits to silent `pending` is unacceptable. But the *reason* for the failure must be preserved so admins can see what happened, not just "it retried." The fix therefore has two parts:
+
+1. **Preserve the error reason.** Every agent failure site records a real status (`'agent_error'`) and a human-readable detail string. Team notification email continues as an internal FYI.
+2. **Auto-retry anyway.** The cron periodically flips `agent_error` rows back to `'queued'` (with a small backoff so a submit-time failure isn't immediately retried in the same cron tick) so dispatch is re-attempted. The existing cron agent-unreachable and stale-task requeue logic is untouched.
+
+Implementation shape (planned for Group J as a mandatory pre-task):
+- **Supabase migration:** add `last_agent_error TEXT` and `last_agent_error_at TIMESTAMPTZ` columns to `entity_audits`, plus a partial index on `(last_agent_error_at)` where `status='agent_error'` for the cron's backoff lookup.
+- **`submit-entity-audit.js`** agent-failure branch: PATCH `status='agent_error'`, `last_agent_error=<msg>`, `last_agent_error_at=now()` (was: row stays at `pending`).
+- **`cron/process-audit-queue.js`:** new step 0.5 flips `agent_error → queued` where `last_agent_error_at < now() - 5 minutes`; existing task-dispatch-failure PATCH at the cron's L207 also populates the detail columns.
+
+Backoff choice (5 min) is a safety rail against same-tick self-retries and an operator window to manually stop a retry loop on a specific audit, well below the 30-min cron interval so it's meaningless as a throttle. Admin UI surfacing of `last_agent_error` is a separate follow-up (will be filed as M40 during Group J if the session wants to track it). **Queued for Group J as a mandatory pre-task** before the Medium classify sweep begins.
 
 ### L7. `api/report-chat.js:62, 68` — retry logic duplicated between catch and 529 handler
 
