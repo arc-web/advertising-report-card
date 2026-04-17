@@ -149,23 +149,13 @@ async function fetchProposalByContactId(contactId) {
 
   try {
     // Look up the contact by verified id
-    var cResp = await fetch(
-      sb.url() + '/rest/v1/contacts?id=eq.' + encodeURIComponent(contactId) + '&select=id,first_name,last_name,credentials,practice_name,email,website_url,city,state_province&limit=1',
-      { headers: sb.headers() }
-    );
-    var contacts = await cResp.json();
-    if (!contacts || contacts.length === 0) return null;
-    var contact = contacts[0];
+    var contact = await sb.one('contacts?id=eq.' + encodeURIComponent(contactId) + '&select=id,first_name,last_name,credentials,practice_name,email,website_url,city,state_province&limit=1');
+    if (!contact) return null;
 
     // Get the latest deployed proposal for this contact
-    var pResp = await fetch(
-      sb.url() + '/rest/v1/proposals?contact_id=eq.' + contact.id + '&status=in.(ready,sent,viewed)&order=created_at.desc&select=campaign_lengths,custom_pricing,billing_options,proposal_content&limit=1',
-      { headers: sb.headers() }
-    );
-    var proposals = await pResp.json();
-    if (!proposals || proposals.length === 0) return null;
+    var proposal = await sb.one('proposals?contact_id=eq.' + contact.id + '&status=in.(ready,sent,viewed)&order=created_at.desc&select=campaign_lengths,custom_pricing,billing_options,proposal_content&limit=1');
+    if (!proposal) return null;
 
-    var proposal = proposals[0];
     proposal._contact = contact;
     return proposal;
   } catch(e) {
