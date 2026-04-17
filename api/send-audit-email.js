@@ -118,7 +118,7 @@ module.exports = async function handler(req, res) {
     var emailResult = await emailResp.json();
     if (!emailResp.ok) {
       console.error('Resend error:', emailResult);
-      await monitor.logError('send-audit-email', new Error('Resend send failed: HTTP ' + emailResp.status), {
+      await monitor.logError('send-audit-email', new Error('Resend API non-2xx'), {
         client_slug: slug,
         detail: { stage: 'resend_send', audit_id: auditId, status: emailResp.status, resend_response: emailResult }
       });
@@ -164,10 +164,7 @@ module.exports = async function handler(req, res) {
 
   } catch (err) {
     console.error('send-audit-email error:', err);
-    await monitor.logError('send-audit-email', err, {
-      client_slug: (typeof slug !== 'undefined' ? slug : null),
-      detail: { stage: 'outer_catch', audit_id: auditId }
-    });
+    await monitor.logError('send-audit-email', err, { detail: { stage: 'outer_catch', audit_id: auditId } });
     return res.status(500).json({ ok: false, error: 'Internal server error' });
   }
 };
