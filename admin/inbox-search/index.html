@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<script>try{var st=localStorage.getItem('moonraker-theme');if(st){document.documentElement.setAttribute('data-theme',st)}}catch(e){}</script>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="/assets/logo.png">
+<title>Inbox Search - Moonraker Admin</title>
+<link rel="stylesheet" href="/assets/admin-base.css">
+<style>
+.shell { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+h1 { font-family: 'Outfit', sans-serif; font-size: 1.6rem; font-weight: 700; color: var(--color-heading); margin: 0 0 .25rem; }
+.subhead { color: var(--color-muted); font-size: .88rem; margin-bottom: 1.75rem; }
+.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; padding: 1.5rem; margin-bottom: 1.25rem; }
+.card-title { font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 600; color: var(--color-heading); margin: 0 0 1rem; }
+.form-row { display: grid; grid-template-columns: 1fr 2fr 130px; gap: .75rem; margin-bottom: .75rem; }
+.form-row label { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); margin-bottom: .35rem; display: block; }
+.form-input { width: 100%; padding: .55rem .75rem; font-size: .88rem; font-family: inherit; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-bg); color: var(--color-heading); transition: border-color .2s; box-sizing: border-box; }
+.form-input:focus { outline: none; border-color: var(--color-primary); }
+.actions { display: flex; gap: .5rem; align-items: center; margin-top: .5rem; }
+.btn { display: inline-flex; align-items: center; gap: .5rem; padding: .55rem 1.1rem; border-radius: 8px; font-size: .88rem; font-weight: 600; border: none; cursor: pointer; transition: all .15s; font-family: inherit; }
+.btn-primary { background: var(--color-primary); color: #fff; }
+.btn-primary:hover { filter: brightness(1.05); }
+.btn-secondary { background: transparent; border: 1px solid var(--color-border); color: var(--color-body); }
+.btn-secondary:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.preset { display: inline-block; padding: .3rem .65rem; background: var(--color-primary-subtle); color: var(--color-primary); border-radius: 6px; font-size: .76rem; cursor: pointer; margin: .15rem .25rem .15rem 0; border: 1px solid transparent; }
+.preset:hover { border-color: var(--color-primary); }
+.muted { color: var(--color-muted); font-size: .82rem; }
+
+.hist-row { display: grid; grid-template-columns: 60px 1fr 80px; gap: .75rem; align-items: center; padding: .55rem 0; border-bottom: 1px solid var(--color-border); }
+.hist-row:last-child { border-bottom: none; }
+.hist-count { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1rem; color: var(--color-primary); text-align: right; }
+.hist-label { font-size: .85rem; color: var(--color-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-action { text-align: right; }
+.hist-action button { background: none; border: 1px solid var(--color-border); border-radius: 6px; padding: .25rem .55rem; font-size: .72rem; color: var(--color-muted); cursor: pointer; }
+.hist-action button:hover { color: var(--color-primary); border-color: var(--color-primary); }
+
+.msg-row { padding: .65rem 0; border-bottom: 1px solid var(--color-border); display: grid; grid-template-columns: 130px 220px 1fr; gap: .75rem; font-size: .82rem; }
+.msg-row:last-child { border-bottom: none; }
+.msg-date { color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.msg-from { color: var(--color-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg-subject { color: var(--color-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg-snippet { grid-column: 2 / span 2; color: var(--color-muted); font-size: .78rem; padding-top: .15rem; display: none; }
+.msg-row.expanded .msg-snippet { display: block; }
+.msg-row { cursor: pointer; }
+
+.stats { display: flex; gap: 1.5rem; margin-bottom: 1rem; }
+.stat-box { font-size: .82rem; color: var(--color-muted); }
+.stat-box b { color: var(--color-heading); font-family: 'Outfit', sans-serif; font-size: 1.2rem; display: block; }
+
+.empty { text-align: center; padding: 2.5rem 1rem; color: var(--color-muted); font-size: .88rem; }
+.error { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3); color: var(--color-danger, #ef4444); padding: .75rem 1rem; border-radius: 8px; font-size: .85rem; margin-bottom: 1rem; }
+.notice { background: var(--color-primary-subtle); color: var(--color-primary); padding: .55rem .85rem; border-radius: 8px; font-size: .82rem; margin-bottom: 1rem; }
+
+.filter-pill { display: inline-flex; align-items: center; gap: .35rem; background: var(--color-primary-subtle); color: var(--color-primary); border-radius: 999px; padding: .25rem .65rem; font-size: .76rem; margin-left: .5rem; }
+.filter-pill button { background: none; border: none; color: inherit; cursor: pointer; padding: 0; font-size: 1rem; line-height: 1; }
+
+.tabs { display: flex; gap: .35rem; margin-bottom: 1rem; }
+.tab { padding: .45rem .9rem; font-size: .82rem; font-weight: 500; border-radius: 6px; cursor: pointer; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-body); }
+.tab.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <h1>Inbox Search</h1>
+  <div class="subhead">Search any Workspace mailbox via service account delegation. Read-only.</div>
+
+  <div class="card">
+    <div class="card-title">Query</div>
+    <div class="form-row">
+      <div>
+        <label>Mailbox</label>
+        <input type="email" id="mailbox" class="form-input" value="calls@moonraker.ai">
+      </div>
+      <div>
+        <label>Gmail Search Query</label>
+        <input type="text" id="query" class="form-input" placeholder="from:noreply@greminders.com newer_than:6m" value="from:greminders.com newer_than:1y">
+      </div>
+      <div>
+        <label>Max Messages</label>
+        <input type="number" id="maxMessages" class="form-input" value="250" min="1" max="500">
+      </div>
+    </div>
+    <div style="margin-top: .5rem;">
+      <span class="muted" style="margin-right: .5rem;">Presets:</span>
+      <span class="preset" onclick="setQuery('from:greminders.com newer_than:1y')">All Greminders 1y</span>
+      <span class="preset" onclick="setQuery('from:greminders.com')">All Greminders</span>
+      <span class="preset" onclick="setQuery('from:noreply@greminders.com')">Greminders no-reply</span>
+      <span class="preset" onclick="setQuery('subject:(consultation OR booking OR appointment) newer_than:1y')">Booking subjects</span>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" id="runBtn" onclick="runSearch()">Run search</button>
+      <button class="btn btn-secondary" onclick="clearResults()">Clear</button>
+      <span id="status" class="muted"></span>
+    </div>
+  </div>
+
+  <div id="errorBox"></div>
+
+  <div id="resultsBox" style="display:none;">
+    <div class="card">
+      <div class="stats">
+        <div class="stat-box"><b id="statTotal">0</b>messages</div>
+        <div class="stat-box"><b id="statSubjects">0</b>distinct subjects</div>
+        <div class="stat-box"><b id="statSenders">0</b>distinct senders</div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" data-view="subjects" onclick="setView('subjects')">Subjects</div>
+        <div class="tab" data-view="senders" onclick="setView('senders')">Senders</div>
+        <div class="tab" data-view="messages" onclick="setView('messages')">Messages</div>
+      </div>
+
+      <div id="subjectFilter"></div>
+
+      <div id="subjectsView">
+        <div id="subjectsList"></div>
+      </div>
+      <div id="sendersView" style="display:none;">
+        <div id="sendersList"></div>
+      </div>
+      <div id="messagesView" style="display:none;">
+        <div id="messagesList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<script src="/shared/admin-auth.js"></script>
+<script>
+var _state = {
+  messages: [],
+  subjectHistogram: [],
+  senderHistogram: [],
+  filters: { subject: null, sender: null }
+};
+
+function setQuery(q) {
+  document.getElementById('query').value = q;
+}
+
+function setView(v) {
+  var tabs = document.querySelectorAll('.tab');
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].classList.toggle('active', tabs[i].dataset.view === v);
+  }
+  document.getElementById('subjectsView').style.display = v === 'subjects' ? '' : 'none';
+  document.getElementById('sendersView').style.display = v === 'senders' ? '' : 'none';
+  document.getElementById('messagesView').style.display = v === 'messages' ? '' : 'none';
+}
+window.setView = setView;
+window.setQuery = setQuery;
+
+async function runSearch() {
+  var btn = document.getElementById('runBtn');
+  var status = document.getElementById('status');
+  var errBox = document.getElementById('errorBox');
+  errBox.innerHTML = '';
+
+  var mailbox = document.getElementById('mailbox').value.trim();
+  var query = document.getElementById('query').value.trim();
+  var maxMessages = parseInt(document.getElementById('maxMessages').value, 10) || 250;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Searching';
+  status.textContent = 'This can take 30 to 60 seconds for large result sets...';
+
+  try {
+    var resp = await fetch('/api/gmail-delegated-search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mailbox: mailbox, query: query, maxMessages: maxMessages })
+    });
+    var data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+
+    _state.messages = data.messages || [];
+    _state.subjectHistogram = data.subjectHistogram || [];
+    _state.senderHistogram = data.senderHistogram || [];
+    _state.filters = { subject: null, sender: null };
+
+    if (data.capped) {
+      errBox.innerHTML = '<div class="notice">Results capped at ' + maxMessages + '. Increase the cap or refine the query if you need more.</div>';
+    }
+
+    render();
+    document.getElementById('resultsBox').style.display = '';
+    status.textContent = '';
+  } catch (e) {
+    errBox.innerHTML = '<div class="error">' + escapeHtml(e.message) + '</div>';
+    status.textContent = '';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Run search';
+  }
+}
+window.runSearch = runSearch;
+
+function clearResults() {
+  _state.messages = [];
+  _state.subjectHistogram = [];
+  _state.senderHistogram = [];
+  _state.filters = { subject: null, sender: null };
+  document.getElementById('resultsBox').style.display = 'none';
+  document.getElementById('errorBox').innerHTML = '';
+}
+window.clearResults = clearResults;
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, function(c) {
+    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+  });
+}
+
+function normalizeSubject(s) {
+  return (s || '').replace(/^(re|fwd|fw):\s*/i, '').trim();
+}
+
+function getFilteredMessages() {
+  var msgs = _state.messages;
+  if (_state.filters.subject) {
+    msgs = msgs.filter(function(m) { return normalizeSubject(m.subject) === _state.filters.subject; });
+  }
+  if (_state.filters.sender) {
+    msgs = msgs.filter(function(m) { return m.from === _state.filters.sender; });
+  }
+  return msgs;
+}
+
+function render() {
+  document.getElementById('statTotal').textContent = _state.messages.length;
+  document.getElementById('statSubjects').textContent = _state.subjectHistogram.length;
+  document.getElementById('statSenders').textContent = _state.senderHistogram.length;
+
+  // Filter pill
+  var fbox = document.getElementById('subjectFilter');
+  fbox.innerHTML = '';
+  if (_state.filters.subject) {
+    fbox.innerHTML = '<div style="margin-bottom: .75rem;">Filtered by subject: <span class="filter-pill">'
+      + escapeHtml(_state.filters.subject)
+      + ' <button onclick="clearFilter(\'subject\')">x</button></span></div>';
+  }
+  if (_state.filters.sender) {
+    fbox.innerHTML += '<div style="margin-bottom: .75rem;">Filtered by sender: <span class="filter-pill">'
+      + escapeHtml(_state.filters.sender)
+      + ' <button onclick="clearFilter(\'sender\')">x</button></span></div>';
+  }
+
+  // Subjects
+  var subjHtml = _state.subjectHistogram.map(function(e) {
+    return '<div class="hist-row">'
+      + '<div class="hist-count">' + e.count + '</div>'
+      + '<div class="hist-label" title="' + escapeHtml(e.subject) + '">' + escapeHtml(e.subject) + '</div>'
+      + '<div class="hist-action"><button onclick="filterBySubject(' + JSON.stringify(e.subject).replace(/"/g, '&quot;') + ')">view</button></div>'
+      + '</div>';
+  }).join('') || '<div class="empty">No subjects.</div>';
+  document.getElementById('subjectsList').innerHTML = subjHtml;
+
+  // Senders
+  var sendHtml = _state.senderHistogram.map(function(e) {
+    return '<div class="hist-row">'
+      + '<div class="hist-count">' + e.count + '</div>'
+      + '<div class="hist-label" title="' + escapeHtml(e.from) + '">' + escapeHtml(e.from) + '</div>'
+      + '<div class="hist-action"><button onclick="filterBySender(' + JSON.stringify(e.from).replace(/"/g, '&quot;') + ')">view</button></div>'
+      + '</div>';
+  }).join('') || '<div class="empty">No senders.</div>';
+  document.getElementById('sendersList').innerHTML = sendHtml;
+
+  // Messages
+  var filtered = getFilteredMessages();
+  var msgsHtml = filtered.map(function(m, i) {
+    var dt = m.internalDate ? new Date(m.internalDate).toISOString().slice(0, 10) : (m.date || '').slice(0, 16);
+    return '<div class="msg-row" onclick="toggleMsg(' + i + ')" id="msg-' + i + '">'
+      + '<div class="msg-date">' + escapeHtml(dt) + '</div>'
+      + '<div class="msg-from" title="' + escapeHtml(m.from) + '">' + escapeHtml(m.from) + '</div>'
+      + '<div class="msg-subject" title="' + escapeHtml(m.subject) + '">' + escapeHtml(m.subject) + '</div>'
+      + '<div class="msg-snippet">' + escapeHtml(m.snippet) + '</div>'
+      + '</div>';
+  }).join('') || '<div class="empty">No messages match.</div>';
+  document.getElementById('messagesList').innerHTML = msgsHtml;
+}
+
+function filterBySubject(subject) {
+  _state.filters.subject = subject;
+  setView('messages');
+  render();
+}
+window.filterBySubject = filterBySubject;
+
+function filterBySender(sender) {
+  _state.filters.sender = sender;
+  setView('messages');
+  render();
+}
+window.filterBySender = filterBySender;
+
+function clearFilter(type) {
+  _state.filters[type] = null;
+  render();
+}
+window.clearFilter = clearFilter;
+
+function toggleMsg(i) {
+  var el = document.getElementById('msg-' + i);
+  if (el) el.classList.toggle('expanded');
+}
+window.toggleMsg = toggleMsg;
+</script>
+</body>
+</html>
