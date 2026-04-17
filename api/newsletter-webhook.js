@@ -149,7 +149,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ ok: true, skipped: 'no message id' });
     }
 
-    var sends = await sb.query('newsletter_sends?resend_message_id=eq.' + encodeURIComponent(messageId) + '&select=id,subscriber_id,newsletter_id,status,bounce_count');
+    var sends = await sb.query('newsletter_sends?resend_message_id=eq.' + encodeURIComponent(messageId) + '&select=id,subscriber_id,newsletter_id,status');
     if (!sends.length) {
       await logEvent('send_not_found', { eventType: type, emailId: messageId, headers: hdrs });
       return res.status(200).json({ ok: true, skipped: 'send record not found' });
@@ -184,7 +184,14 @@ module.exports = async function handler(req, res) {
       case 'email.bounced':
         updates.status = 'bounced';
         subUpdates.status = 'bounced';
-        subUpdates.bounce_count = (send.bounce_count || 0) + 1;
+        // Read current bounce_count from subscriber (not send) and increment
+        try {
+          var subRows = await sb.query('newsletter_subscribers?id=eq.' + encodeURIComponent(send.subscriber_id) + '&select=bounce_count');
+          var currentBounces = (subRows[0] && subRows[0].bounce_count) || 0;
+          subUpdates.bounce_count = currentBounces + 1;
+        } catch (e) {
+          subUpdates.bounce_count = 1;
+        }
         await incrementStat(send.newsletter_id, 'stats_bounced');
         break;
 
