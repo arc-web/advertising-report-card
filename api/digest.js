@@ -26,6 +26,22 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'from, to, and recipients required' });
     }
 
+    // H32: recipient allowlist. The digest sends from
+    // notifications@clients.moonraker.ai (trusted internal identity);
+    // without this guard, a compromised admin JWT or CRON_SECRET could
+    // spam arbitrary addresses with a trusted-identity From. Keep it
+    // strict: all recipients must be @moonraker.ai.
+    var ALLOWED_DOMAIN = '@moonraker.ai';
+    var invalidRecipients = recipients.filter(function(r) {
+      return String(r || '').toLowerCase().indexOf(ALLOWED_DOMAIN) === -1;
+    });
+    if (invalidRecipients.length > 0) {
+      return res.status(400).json({
+        error: 'Recipients must be @moonraker.ai addresses',
+        invalid: invalidRecipients
+      });
+    }
+
     var headers = sb.headers();
 
     var fromStart = from + 'T00:00:00Z';
