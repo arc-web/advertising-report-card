@@ -17,8 +17,6 @@ module.exports = async function handler(req, res) {
 
   if (!sb.isConfigured()) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
 
-  var headers = sb.headers('return=representation');
-
   try {
     // Determine report month (default: PREVIOUS month since cron runs on the 1st)
     var now = new Date();
@@ -33,27 +31,19 @@ module.exports = async function handler(req, res) {
     var dryRun = req.query && req.query.dry_run === 'true';
 
     // Fetch all active report configs
-    var configResp = await fetch(sb.url() + '/rest/v1/report_configs?active=eq.true&select=client_slug,gsc_property', {
-      headers: sb.headers()
-    });
-    var configs = await configResp.json();
+    var configs = await sb.query('report_configs?active=eq.true&select=client_slug,gsc_property');
 
     if (!configs || configs.length === 0) {
       // Prune error logs older than 30 days (monthly housekeeping)
     try {
-      await fetch(sb.url() + '/rest/v1/rpc/prune_old_errors', {
-        method: 'POST', headers: sb.headers()
-      });
+      await sb.mutate('rpc/prune_old_errors', 'POST', null);
     } catch (e) { /* non-critical */ }
 
     return res.status(200).json({ success: true, message: 'No active report configs found', queued: 0 });
     }
 
     // Check which clients already have a queue entry for this month
-    var existingResp = await fetch(sb.url() + '/rest/v1/report_queue?report_month=eq.' + reportMonth + '&select=client_slug,status', {
-      headers: sb.headers()
-    });
-    var existing = await existingResp.json();
+    var existing = await sb.query('report_queue?report_month=eq.' + reportMonth + '&select=client_slug,status');
     var existingMap = {};
     if (existing && Array.isArray(existing)) {
       existing.forEach(function(e) { existingMap[e.client_slug] = e.status; });
@@ -96,17 +86,11 @@ module.exports = async function handler(req, res) {
     // Insert queue entries
     var inserted = 0;
     if (queued.length > 0) {
-      var insertResp = await fetch(sb.url() + '/rest/v1/report_queue', {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(queued)
-      });
-      if (insertResp.ok) {
-        var result = await insertResp.json();
+      try {
+        var result = await sb.mutate('report_queue', 'POST', queued);
         inserted = Array.isArray(result) ? result.length : queued.length;
-      } else {
-        var errText = await insertResp.text();
-        return res.status(500).json({ error: 'Failed to insert queue entries', detail: errText });
+      } catch (e) {
+        return res.status(500).json({ error: 'Failed to insert queue entries', detail: e.message });
       }
     }
 
