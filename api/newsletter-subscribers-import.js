@@ -156,7 +156,7 @@ module.exports = async function handler(req, res) {
 
     // ── Apply mutations ───────────────────────────────────────────────
     if (toInsert.length) {
-      await sb.mutate('newsletter_subscribers', 'POST', toInsert, 'return=minimal');
+      await sb.mutate('newsletter_subscribers', 'POST', toInsert, 'return=representation');
     }
     if (toResubscribeIds.length) {
       await sb.mutate(
@@ -168,7 +168,7 @@ module.exports = async function handler(req, res) {
           bounce_count: 0,
           subscribed_at: new Date().toISOString()
         },
-        'return=minimal'
+        'return=representation'
       );
     }
 
