@@ -159,128 +159,207 @@ Approximately 10-12 sessions to clear the remaining open findings, or we stop ea
 
 ---
 
-## Prompt for next session (Group A pattern fix — err.message leaks)
+## Prompt for next session (Group C — template escape defaults)
 
 ```
-Error-leak pattern session. Five findings, one shape: response bodies
-(and one NDJSON stream) leak raw err.message, provider response bodies,
-or raw AI output on 5xx paths. Same fix pattern as H28 we just shipped
-(commit 0c9bc85): route detail to monitor.logError server-side, return
-generic messages to the caller.
+Template escape defaults session. Six findings in one pass, across three
+template modules and ~10 caller files. Pattern: make the default helper
+names (`p`, `footerNote`, body inserters) escape by default, add explicit
+`.raw` variants for the HTML-building cases that exist today, don't break
+any existing caller on the way through.
 
-Read docs/api-audit-2026-04.md sections H33, H34, H35, M13, M26 first.
-Then walk through your plan before touching code.
+Read docs/api-audit-2026-04.md sections H18, H19, H20, H22, M6, M22
+first. Then walk through your plan before touching code.
 
-Reference pattern from H28 (api/bootstrap-access.js commit 0c9bc85):
-    var monitor = require('./_lib/monitor');
-    // ...in catch:
-    await monitor.logError('route-name', err, {
-      client_slug: slug,  // if available
-      detail: { stage: 'parse_ai_response', raw: errBody }
-    });
-    return res.status(500).json({ error: 'Generic user-facing message' });
+Reference pattern for the overall approach: two-part rollout in a single
+atomic commit per module.
+  Step A: rename current raw helpers to explicit `.raw` names
+  Step B: add new safe defaults that escape
+  Step C: migrate every existing caller to the `.raw` variant so behavior
+          is byte-for-byte preserved. Future sessions can opportunistically
+          upgrade plain-text callers to the new safe defaults.
 
-────────────────────────────────────────────────────────────────────
-Fix 1: H33 — api/newsletter-generate.js (pre-verified on current main)
-────────────────────────────────────────────────────────────────────
-Sites (current line numbers on main, not audit-time numbers):
-  L64   'Failed to load newsletter: ' + e.message
-  L78   'Failed to load stories: ' + e.message
-  L159  detail: errBody.substring(0, 500)   (Anthropic response body)
-  L176  raw: aiData                          (entire AI response object)
-  L184  raw: rawText.substring(0, 500)       (raw Claude output)
-  L283  'Generation failed: ' + e.message
-  L287  'Fatal: ' + fatal.message            (fatal-handler path)
+─────────────────────────────────────────────────────────────────────
+Fix 1: H18 + H19 + M22 — api/_lib/newsletter-template.js (single commit)
+─────────────────────────────────────────────────────────────────────
 
-Fix: require monitor at top; at each site, call monitor.logError with
-provider/stage detail and return a generic error string. Preserve the
-fatal-handler shape at L287 (it's wrapped in try/catch for stream-
-closed cases) — just replace the body.
+Current state (pre-verified on main):
 
-────────────────────────────────────────────────────────────────────
-Fix 2: H34 — api/send-audit-email.js (pre-verified)
-────────────────────────────────────────────────────────────────────
-Sites:
-  L120  detail: emailResult                  (entire Resend response)
-  L162  error: err.message                   (outer catch)
+  Line 14:  esc(s) helper already exists — reuse, don't duplicate.
+  Line 160: `UNSUBSCRIBE_BASE + (subscriberId ? '?sid=' + subscriberId : '')`
+            → M22: wrap subscriberId with encodeURIComponent()
 
-Fix: both sites get monitor.logError routing; response returns generic
-'Email send failed' / 'Internal server error'. The L120 site should
-preserve the console.error('Resend error:', emailResult) at L119 that
-already runs — just strip the detail from the response.
+H18 sites (unescaped interpolation of potentially-untrusted fields):
+  Line 54   `+ item +`               in storyBlock actionHtml (array map)   → esc
+  Line 55   `+ items +`              in storyBlock actionHtml (string case) → esc
+  Line 58   `+ item +`               in storyBlock actionHtml (array case)  → esc
+  Line 66   `(story.headline || '')`                                        → esc
+  Line 83   `+ item +`               in quickWinsBlock                      → esc
+  Line 103  `spotlight.cta_text`                                            → esc
+  Line 108  `+ headline +`           spotlight headline var                 → esc
 
-────────────────────────────────────────────────────────────────────
-Fix 3: H35 — api/generate-content-page.js (pre-verified, NDJSON stream)
-────────────────────────────────────────────────────────────────────
-Sites (these stream via send({step:'error',...}), not res.json):
-  L146  detail: errText.substring(0, 500)    (Anthropic response body)
-  L168  raw_preview: responseText.substring(0, 500)  (raw Claude HTML)
-  L248  message: err.message                 (outer catch)
+KEEP RAW (these are AI-generated HTML by design, not plain text):
+  Line 68   `(story.body || '')`      — AI generates <p> tags
+  Line 102  `(spotlight.body || '')`  — AI generates HTML
+  Line 120  `+ text +`                in finalThoughtsBlock — AI-generated HTML
 
-Fix: require monitor; at each send({step:'error',...}) site, call
-monitor.logError server-side with the raw detail, and stream only a
-safe/generic message. Keep the NDJSON shape — callers of this route
-expect `step: 'error', message: '...'` to appear in the stream.
+If you feel strongly the design is wrong (AI shouldn't generate HTML, should
+generate markdown-like markers we render), flag it for Chris but don't
+change it this session. Scope fence.
 
-────────────────────────────────────────────────────────────────────
-Fix 4: M13 — api/newsletter-webhook.js (pre-verified — narrower fix)
-────────────────────────────────────────────────────────────────────
-Site: L259 `return res.status(200).json({ ok: false, error: e.message })`
+H19 sites (image_url scheme validation):
+  Line 41   `<img src="' + esc(story.image_url) + '"` — esc() prevents HTML
+            injection but `javascript:`, `data:`, and `file:` URLs still
+            escape cleanly and remain clickable in some email clients.
 
-This file already has its own logEvent() writing to webhook_log, and
-L257 already calls `logEvent('db_error', { headers: hdrs, detail: { error: e.message, stack: ... } })`.
-Don't add a second monitor.logError — the existing logEvent is the
-route's logging pathway.
+  Fix: add a `validateImageUrl(url)` helper near esc() that returns `url`
+  only if it starts with `https://` or `http://`, else returns '' (safe
+  fallback — no image rendered). Apply at line 41 wrapping image_url.
+  Check for any other image src sites (grep `<img `) to be thorough.
 
-Fix: just strip `error: e.message` from the response body. Change to
-`return res.status(200).json({ ok: false })` or similar. The detail
-is already in webhook_log.
+─────────────────────────────────────────────────────────────────────
+Fix 2: H20 — api/_lib/email-template.js + 9 caller files (atomic commit)
+─────────────────────────────────────────────────────────────────────
 
-Also check the other error-response sites in the file (L67, L98, L131)
-— they look fine (they already do logEvent + generic response) but
-spot-confirm they're not leaking.
+Context:
+- Function `p(text)` at L48 returns raw HTML wrapping `text` in <p>. Called
+  ~82 times across 9 files. The majority of calls concat literal HTML
+  (`<strong>`, `&bull;`, `email.esc(var)`) so they need the raw behavior.
+- Field `footerNote` is an *option* to wrap() (not a function), inserted
+  raw at L164. Called in 8 files. One of them (send-proposal-email.js)
+  passes HTML with an `<a>` tag + styles; the others pass plain strings.
 
-────────────────────────────────────────────────────────────────────
-Fix 5: M26 (err-leak half only) — api/chat.js (pre-verified)
-────────────────────────────────────────────────────────────────────
-Site: L126 `return res.status(500).json({ error: 'Internal server error', detail: err.message })`
+Plan (single atomic commit):
 
-Fix: require monitor; call monitor.logError('chat', err) in the outer
-catch; drop `detail` from the response. Keep the console.error at L125.
+  email-template.js changes:
+    1. Rename internal `function p` → `function pRaw`.
+    2. Add new `function p(text)` that returns
+       `'<p style="..."">' + esc(text) + '</p>'`
+    3. Export both: `p: p` (new safe), `pRaw: pRaw` (current behavior).
+    4. In `wrap()`: support both `options.footerNote` (new, esc-wrapped)
+       and `options.footerNoteRaw` (current behavior). If both present,
+       `footerNoteRaw` wins. If only `footerNote`, esc-wrap it.
 
-OUT OF SCOPE for this session: the prompt-injection half of M26
-(page/tab/clientSlug in prompt) — that's Group D. Leave it alone.
+  Caller changes (9 files):
+    api/compile-report.js
+    api/digest.js
+    api/generate-audit-followups.js
+    api/generate-followups.js
+    api/ingest-batch-audit.js
+    api/ingest-surge-content.js
+    api/notify-team.js
+    api/send-audit-email.js
+    api/send-followup-email.js (check — currently 0 p calls but may have
+                                 module-level usage)
+    api/send-proposal-email.js
+    api/send-report-email.js
+    api/generate-proposal.js (only if it uses email.p; verify — H22 touches it anyway)
 
-────────────────────────────────────────────────────────────────────
+    Mechanical change: sed-replace every `email.p(` → `email.pRaw(`.
+    Behavior preserved exactly (renamed-original).
+
+    footerNote: only send-proposal-email.js passes HTML — change to
+    `footerNoteRaw:` there. Other 7 callers pass plain strings (including
+    'This is an internal notification for the Moonraker team.' and '') —
+    safe to leave on the new `footerNote` option since escape of plain
+    text is a no-op on content that has no HTML metacharacters. (If any
+    plain-text caller contains `&`, `<`, `>`, `"` — an apostrophe is fine
+    — they also need `footerNoteRaw`. Grep to check.)
+
+Result: 100% byte-identical email output. New safe `p()` and `footerNote`
+now exist for future callers. H20 closed.
+
+─────────────────────────────────────────────────────────────────────
+Fix 3: H22 — api/generate-proposal.js (single commit)
+─────────────────────────────────────────────────────────────────────
+
+Two sites at current line numbers:
+
+Line 331: `(customPricing.amount_cents / 100).toLocaleString()`
+  If `amount_cents` is undefined/null/non-numeric, this produces '$NaN'
+  in the deployed proposal. Guard:
+    var amt = Number(customPricing.amount_cents);
+    if (!Number.isFinite(amt) || amt < 0) { /* skip card or log error */ }
+    else investmentCardsHtml += '<div>$' + (amt/100).toLocaleString() + '</div>';
+
+Line 332: `(customPricing.label || customPricing.period)` — admin-controlled
+  string, flows into deployed HTML. Escape via local esc helper (reuse the
+  function already defined in the file if present, else define inline:
+  same shape as newsletter/email-template esc()).
+
+Line 361: `(s.title || 'Step ' + (i+1))` + `(s.desc || s.description || '')`
+  next_steps from AI, flows into deployed HTML. Escape both.
+
+Note: this file generates HTML that gets pushed to GitHub → deployed to
+live domain via Vercel, not email. Don't import email-template.js. Define
+or reuse a local `esc()` helper.
+
+─────────────────────────────────────────────────────────────────────
+Fix 4: M6 — api/_lib/monitor.js (trivial, bundle with doc update)
+─────────────────────────────────────────────────────────────────────
+
+Line 83: `'<p><strong>Route:</strong> ' + route + '</p>'`  → wrap route with escHtml()
+Line 85: `'<p><strong>Client:</strong> ' + slug + '</p>'`  → wrap slug with escHtml()
+
+Note: Line 81's subject also uses `route` and `slug` unescaped, but
+subject is plain text (not HTML) so it's not an HTML injection vector.
+Optional: strip newlines from subject anyway to prevent header injection.
+Not flagged by M6 — your call.
+
+`escHtml()` already exists at L104. Reuse it.
+
+─────────────────────────────────────────────────────────────────────
 Testing
-────────────────────────────────────────────────────────────────────
-- No smoke tests strictly required; all five fixes are shape-preserving.
-- Expect Vercel deploy READY after each push (or batch as you prefer).
-- Spot-check: for each file, grep for '\.message' and 'detail:' after
-  the fix to confirm no remaining raw-detail response-body leaks on
-  the 5xx path.
+─────────────────────────────────────────────────────────────────────
 
-────────────────────────────────────────────────────────────────────
+- Each commit's Vercel deploy must go READY.
+- For Fix 1 (newsletter-template): there's no easy preview harness, but
+  the existing `/admin/newsletter` preview flow exercises storyBlock +
+  spotlight + finalThoughts. Visually inspect a preview for an existing
+  newsletter after the commit. Expect zero diff since the fields being
+  escaped haven't historically contained HTML metacharacters.
+- For Fix 2 (email-template): more critical. Hit `/api/test-email` or
+  equivalent, or just let the next transactional email (say, a proposal
+  send) exercise it. Byte-identical HTML expected.
+- For Fix 3: spot-check /_templates/proposal.html rendering in an existing
+  deployed proposal (via clients.moonraker.ai/<slug>/proposal). If `esc`
+  breaks anything, the symptom is literal `<strong>` or similar appearing
+  in the next_steps section.
+- For Fix 4: trigger a critical error (monitor.critical call) if you
+  have a dev path for it; otherwise, a grep-verify is fine.
+
+─────────────────────────────────────────────────────────────────────
 Out of scope
-────────────────────────────────────────────────────────────────────
-- L15 anon-key expiry design question.
-- M26 prompt-injection half (Group D).
-- Any AbortController work in these files (Group B.2).
-- Migrating inline Supabase fetches in these files (Pattern 12).
-- Adding rate limits (Group F — several of these are public-ish routes).
+─────────────────────────────────────────────────────────────────────
 
-────────────────────────────────────────────────────────────────────
+- Migrating individual `email.pRaw(` callers back to the new safe `email.p(`
+  (opportunistic future cleanup).
+- Changing the AI generation prompt to emit plain text instead of HTML for
+  story.body / spotlight.body / final_thoughts (design change, not scope).
+- H25, H31, M15, M26-prompt-half (Group D — AI prompt injection).
+- Any rate limiting on email-related routes (Group F).
+
+─────────────────────────────────────────────────────────────────────
 Deliverables
-────────────────────────────────────────────────────────────────────
-- 5 commits (one per file), or batched if you prefer — either works.
-- Final commit: doc update to api-audit-2026-04.md marking H33, H34,
-  H35, M13, M26 resolved in the resolution log. Update tallies:
-  High 8 → 11 resolved, Medium 2+ → 4+ resolved.
-- Also update post-phase-4-status.md Group A table to mark all five
-  items closed, and update the "Where the audit stands" paragraph.
-```
+─────────────────────────────────────────────────────────────────────
 
----
+Commit shape (suggested — combine/split as you prefer):
+
+  c1: H18 + H19 + M22 — newsletter-template: escape untrusted fields,
+      validate image URL scheme, encode subscriberId
+  c2: H20 — email-template rename + caller migration (atomic; ~10 files)
+  c3: H22 — generate-proposal: amount_cents guard + escape label + escape
+      next_steps items
+  c4: M6 — monitor critical alert: escape route + slug
+
+Final: doc update — mark H18, H19, H20, H22, M6, M22 resolved in
+docs/api-audit-2026-04.md resolution log. Update running tallies:
+  High 11 → 15 resolved (H18, H19, H20, H22)
+  Medium 3+ → 5+ resolved (M6, M22)
+
+Also update docs/post-phase-4-status.md: mark Group C complete, note the
+opportunistic `pRaw` → `p` migration as follow-up work.
+```
 
 ## Closing thought on the grouping approach
 
