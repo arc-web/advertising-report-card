@@ -10,6 +10,7 @@
 var sb = require('./_lib/supabase');
 var auth = require('./_lib/auth');
 var imgq = require('./_lib/image-query');
+var monitor = require('./_lib/monitor');
 
 var PEXELS_KEY = process.env.PEXELS_API_KEY || '';
 
@@ -61,7 +62,8 @@ module.exports = async function handler(req, res) {
     newsletter = await sb.one('newsletters?id=eq.' + newsletterId + '&select=*&limit=1');
     if (!newsletter) return res.status(404).json({ error: 'Newsletter not found' });
   } catch (e) {
-    return res.status(500).json({ error: 'Failed to load newsletter: ' + e.message });
+    await monitor.logError('newsletter-generate', e, { detail: { stage: 'load_newsletter', newsletter_id: newsletterId } });
+    return res.status(500).json({ error: 'Failed to load newsletter' });
   }
 
   // Load selected stories (sorted by sort_order)
@@ -75,7 +77,8 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Exactly 5 stories required, ' + stories.length + ' selected.' });
     }
   } catch (e) {
-    return res.status(500).json({ error: 'Failed to load stories: ' + e.message });
+    await monitor.logError('newsletter-generate', e, { detail: { stage: 'load_stories', newsletter_id: newsletterId } });
+    return res.status(500).json({ error: 'Failed to load stories' });
   }
 
   var today = new Date().toISOString().split('T')[0];
@@ -156,7 +159,10 @@ module.exports = async function handler(req, res) {
     if (!aiResp.ok) {
       var errBody = await aiResp.text();
       console.error('Newsletter generate Anthropic error:', aiResp.status, errBody.substring(0, 300));
-      return res.status(500).json({ error: 'Anthropic API error: ' + aiResp.status, detail: errBody.substring(0, 500) });
+      await monitor.logError('newsletter-generate', new Error('Anthropic API error: ' + aiResp.status), {
+        detail: { stage: 'anthropic_http', newsletter_id: newsletterId, status: aiResp.status, body: errBody.substring(0, 500) }
+      });
+      return res.status(500).json({ error: 'AI service error' });
     }
 
     console.log('Newsletter generate: Anthropic response OK, parsing...');
@@ -173,7 +179,10 @@ module.exports = async function handler(req, res) {
     }
 
     if (!rawText) {
-      return res.status(500).json({ error: 'No text response from AI', raw: aiData });
+      await monitor.logError('newsletter-generate', new Error('No text in AI response'), {
+        detail: { stage: 'ai_no_text', newsletter_id: newsletterId, response_shape: aiData ? Object.keys(aiData) : null }
+      });
+      return res.status(500).json({ error: 'No text response from AI' });
     }
 
     // Clean and parse
@@ -181,7 +190,10 @@ module.exports = async function handler(req, res) {
     var jsonStart = rawText.indexOf('{');
     var jsonEnd = rawText.lastIndexOf('}');
     if (jsonStart === -1 || jsonEnd === -1) {
-      return res.status(500).json({ error: 'Could not find JSON in response', raw: rawText.substring(0, 500) });
+      await monitor.logError('newsletter-generate', new Error('No JSON braces in AI response'), {
+        detail: { stage: 'ai_no_json', newsletter_id: newsletterId, preview: rawText.substring(0, 500) }
+      });
+      return res.status(500).json({ error: 'Could not parse AI response' });
     }
 
     var content = JSON.parse(rawText.substring(jsonStart, jsonEnd + 1));
@@ -280,13 +292,16 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (e) {
-    return res.status(500).json({ error: 'Generation failed: ' + e.message });
+    await monitor.logError('newsletter-generate', e, { detail: { stage: 'outer_catch', newsletter_id: newsletterId } });
+    return res.status(500).json({ error: 'Generation failed' });
   }
   } catch (fatal) {
     console.error('Newsletter generate FATAL:', fatal.message, fatal.stack);
-    try { return res.status(500).json({ error: 'Fatal: ' + fatal.message }); } catch(e2) {}
+    try { await monitor.logError('newsletter-generate', fatal, { detail: { stage: 'fatal' } }); } catch (lgErr) {}
+    try { return res.status(500).json({ error: 'Generation failed' }); } catch(e2) {}
   }
 };
+
 
 
 
