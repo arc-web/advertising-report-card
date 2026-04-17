@@ -7,7 +7,7 @@
 
 ## Where the audit stands
 
-All 9 Criticals closed. **Twenty-four Highs closed** (H4, H5, H7, H8, H9, H10, H11, H14, H18, H19, H20, H21, H22, H24, H25, H26, H27, H28, H30, H31, H33, H34, H35, H36). **M6, M8, M10, M11, M13, M15, M16, M22, M26 (fully resolved), M30, M38 closed.** **L8**, L14, L16, L26, L27 closed. Group C closed the template-escape surface; Group B.1 collapsed the `getDelegatedToken` duplication; Group D hardened every Claude-prompting route with `sanitizer.sanitizeText` at untrusted-input sources plus delimiter framing around large blobs, closing the prompt-injection half of M26. Group B.2 extracted `fetchWithTimeout` into `_lib/` and eliminated every bare `fetch()` call across the four files with the biggest AbortController gap. Group E converted every non-transactional DELETE+INSERT pair into a PostgREST `resolution=merge-duplicates` upsert (with stale-row cleanup on onboarding_steps) and converted `generate-proposal.js` fire-and-forget PATCHes into awaited try/catch + monitor.logError. H36 (8th `getDelegatedToken` copy in `convert-to-prospect.js`, discovered during B.1 verification) closed as Group D pre-task. `authenticator_secret_key` null-on-all-rows investigation resolved: `SENSITIVE_FIELDS` includes it; the null state just means no 2FA setup has been saved yet through the admin UI. Not a bug.
+All 9 Criticals closed. **Twenty-seven Highs closed** (H4, H5, H7, H8, H9, H10, H11, H12, H14, H15, H18, H19, H20, H21, H22, H24, H25, H26, H27, H28, H30, H31, H32, H33, H34, H35, H36). **M6, M8, M9, M10, M11, M12, M13, M14, M15, M16, M20, M22, M26 (fully resolved), M30, M38 closed.** **L8**, L14, L16, L26, L27 closed. Group C closed the template-escape surface; Group B.1 collapsed the `getDelegatedToken` duplication; Group D hardened every Claude-prompting route with `sanitizer.sanitizeText` at untrusted-input sources plus delimiter framing around large blobs, closing the prompt-injection half of M26. Group B.2 extracted `fetchWithTimeout` into `_lib/` and eliminated every bare `fetch()` call across the four files with the biggest AbortController gap. Group E converted every non-transactional DELETE+INSERT pair into a PostgREST `resolution=merge-duplicates` upsert (with stale-row cleanup on onboarding_steps) and converted `generate-proposal.js` fire-and-forget PATCHes into awaited try/catch + monitor.logError. Group F hardened every public-facing input validation surface: UUID regex + encodeURIComponent at concat sites on `content-chat.js`, require-Origin on `submit-entity-audit.js` + `content-chat.js`, FQDN validation on `admin/manage-site.js`, recipient allowlist on `digest.js`, existence check before PATCH on `newsletter-unsubscribe.js`, and TOCTOU pre-check removal on `submit-entity-audit.js`. H36 (8th `getDelegatedToken` copy in `convert-to-prospect.js`, discovered during B.1 verification) closed as Group D pre-task. `authenticator_secret_key` null-on-all-rows investigation resolved: `SENSITIVE_FIELDS` includes it; the null state just means no 2FA setup has been saved yet through the admin UI. Not a bug.
 
 ~72 findings remain. None of them are attack chains of the same severity as C1-C9. Most are hardening, consistency, and observability work. Ordering them linearly doesn't match their actual value; grouping them does.
 
@@ -155,231 +155,254 @@ Recommended sequence after Group F:
 
 Approximately 4-5 sessions to clear the remaining open findings, or stop earlier once diminishing returns kick in.
 
-## Prompt for next session (Group F — Public endpoint hardening)
+## Prompt for next session (Group G batch 1 — operational resilience cherry-picks)
 
 ```
-Public endpoint hardening session. Seven findings clustered around input
-validation + boundary checks on endpoints exposed to untrusted callers
-(public forms, admin JWT compromise surface, or trusted-identity misuse).
+Operational resilience session — batch 1. A mix of short cleanups with
+one pleasant surprise: H2 is already resolved incidentally and just
+needs a doc update.
 
-Read docs/api-audit-2026-04.md sections H12, H15, H32, M9, M12, M14,
-M20 first. Then walk through your plan before touching code.
+Findings this session: H1, H2 (housekeeping), H3, H17, M2, M18.
+
+Read docs/api-audit-2026-04.md sections H1, H2, H3, H17, M2, M18 first,
+then walk through your plan before touching code.
 
 ─────────────────────────────────────────────────────────────────────
 Pre-verified state (current main)
 ─────────────────────────────────────────────────────────────────────
 
-| File                          | Findings          | Current state summary |
-|-------------------------------|-------------------|----------------------|
-| api/content-chat.js           | H12, M14          | Origin + rate-limit + sanitizer already wired (good). Needs UUID validation + ownership + fail-loud on Supabase error |
-| api/submit-entity-audit.js    | H15, M9           | Origin check works when present but empty-Origin still bypasses; slug check-then-insert is TOCTOU |
-| api/digest.js                 | H32               | Admin/internal auth ✓, but `recipients` accepted from request body without allowlist |
-| api/admin/manage-site.js      | M12               | `domain.toLowerCase().replace(...)` strips protocol/trailing slash but doesn't reject `:port`, `/path`, `user:pass@`, `?query` |
-| api/newsletter-unsubscribe.js | M20               | UUID-format gate ✓, but valid-UUID-but-nonexistent still triggers PATCH zero-rows log warning — oracle for probing valid SIDs |
+| Finding | Site | Shape | Est size |
+|---------|------|-------|----------|
+| H1 | api/_lib/auth.js:160 | `_profileCache = {}` module-scoped, no TTL | 10 lines |
+| H2 | api/onboarding-action.js + api/action.js | **ALREADY RESOLVED** via `_lib/postgrest-filter.js` in P4S5 commit `e00be4c` (2026-04-17). Just needs doc mark. | 0 lines code |
+| H3 | api/_lib/auth.js:105, 143-145 | `rawToDer(raw){return raw}` dead code + unused `derSig` var | 3 lines |
+| H17 | api/process-entity-audit.js:550, ~582, ~624 | Two sub-issues: env-var OR fallback to empty string (L550); HTML injection in team notification emails (~L582, ~L624) | 30-50 lines |
+| M2 | api/_lib/auth.js:198-204, 253-259 | `last_login_at` PATCHes every authenticated request, 2 sites | 15 lines |
+| M18 | api/process-entity-audit.js:374 | `id: auditId.substring(0,8) + '-' + padStart(3,'0')` — first 8 hex chars = ~65K birthday collision | 3 lines |
 
 ─────────────────────────────────────────────────────────────────────
-Fix 1: H12 — api/content-chat.js UUID validation + ownership check
+Fix 1: H2 — housekeeping doc update
 ─────────────────────────────────────────────────────────────────────
 
-content-chat.js already has Origin check, rate limit (20/min/IP), and
-sanitizer in buildSystemPrompt (Group D). Remaining surface:
+H2 was about extracting duplicated `buildFilter` code from `onboarding-
+action.js` and `action.js` into a shared `_lib/postgrest-filter.js`
+helper. That migration already happened in P4S5 (commit `e00be4c` on
+2026-04-17 05:09Z) but the audit doc wasn't updated.
 
-Site 1 — content_page_id validation (line 59-65):
-  var contentPageId = context.content_page_id || '';
-  if (contentPageId) {
-    var fetched = await fetchPageContext(contentPageId);
-    // ...
-  }
+Verify on current main:
+  - `api/_lib/postgrest-filter.js` exists with `buildFilter` exported
+  - `api/action.js` has no local `function buildFilter` (3 call sites use `pgFilter.buildFilter(filters)` at L60, L96, L132)
+  - `api/onboarding-action.js` has no local `function buildFilter` (2 call sites at L95, L105)
 
-  Issue: no UUID format check; attacker can pass arbitrary strings that
-  concat into `?id=eq.` in fetchPageContext at line 124.
+Action: mark H2 ✅ RESOLVED in audit doc with reference to commit
+`e00be4c` + Phase 4 S5 session. No code change needed this session.
 
-  Fix: UUID validation at the top of the handler (after rate limit,
-  before fetchPageContext). On invalid UUID, return 400:
-    var uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (contentPageId && !uuidPattern.test(contentPageId)) {
-      return res.status(400).json({ error: 'Invalid content_page_id' });
-    }
+─────────────────────────────────────────────────────────────────────
+Fix 2: H1 — auth.js _profileCache TTL
+─────────────────────────────────────────────────────────────────────
 
-  Also pass contentPageId through encodeURIComponent at the PostgREST
-  query sites (line 124 and ~135) even though UUID format is already
-  validated — defense in depth.
+Current (line 158-173):
 
-Site 2 — no ownership check:
-  Anyone with a valid content_page_id UUID can hit this endpoint. The
-  audit notes "no ownership check — anyone with a content_page_id UUID
-  can stream Claude content about that client."
+  var _profileCache = {};
 
-  Options:
-  a) Require a page-token (scope='content-preview', contact_id bound).
-     The content preview pages are client-facing slug URLs, so a token
-     fits the C3/C7 page-token pattern. HIGHEST defense, highest effort.
-  b) Check `pages[0].status` in fetchPageContext — if the content page
-     is in a status that forbids preview (e.g. archived, deleted),
-     return 404. MODEST defense.
-  c) Scope ownership to lifecycle status: derive contact from
-     pages[0].contact_id, verify contact.status is `active`/`onboarding`/
-     `prospect` (not `lost`). Prevents streaming Claude content for a
-     lost contact.
-
-  Recommended: (c) at minimum. (a) if page-token infrastructure is ready
-  to extend; check docs/phase-4-design.md for whether a `content-preview`
-  scope already exists in page-token SCOPES. If it does, use it;
-  otherwise, defer the full token-scoped fix and log (c) as the interim.
-
-  If going with (c), return 404 (not 403) to avoid revealing existence:
-    if (!contact || contact.lost || contact.status === 'lost') {
-      return res.status(404).json({ error: 'Content page not found' });
-    }
-
-Site 3 — M14 fail-loud on Supabase error in fetchPageContext:
-  Current (line 142-144):
-    } catch(e) {
-      return { page: null, contact: null, spec: null };
-    }
-
-  Silent null return lets Claude call proceed with empty context — an
-  expensive no-op that burns Anthropic credits. Worse: if pages/contacts
-  table is intermittently unreachable, every chat request runs a futile
-  Opus call.
-
-  Fix: throw instead of returning nulls. The handler's existing logic
-  doesn't catch fetchPageContext — add a try/catch around line 63 that
-  returns 503:
+  async function getAdminProfile(userId) {
+    if (_profileCache[userId]) return _profileCache[userId];
     try {
-      var fetched = await fetchPageContext(contentPageId);
-      // ...
+      var profile = await sb.one(
+        'admin_profiles?id=eq.' + userId + '&select=id,email,display_name,role&limit=1'
+      );
+      if (profile) _profileCache[userId] = profile;
+      return profile;
     } catch (e) {
-      return res.status(503).json({ error: 'Service temporarily unavailable' });
+      console.error('[auth] Admin profile lookup failed:', e.message);
+      return null;
     }
-
-─────────────────────────────────────────────────────────────────────
-Fix 2: H15 — api/submit-entity-audit.js empty-Origin bypass
-─────────────────────────────────────────────────────────────────────
-
-Current (line 19-22):
-  var origin = req.headers.origin || '';
-  if (origin && origin !== 'https://clients.moonraker.ai') {
-    return res.status(403).json({ error: 'Forbidden' });
   }
 
-The `if (origin && ...)` branch skips the check when origin is empty.
-`curl` sends no Origin header, so it passes. Rate limit at 3/hr/IP
-(already shipped) is the real control against curl-based abuse, but
-the audit calls out closing the empty-Origin bypass as defense-in-depth.
+Fix: add a 60s TTL. Store `{ profile, fetched_at }` and bypass cache
+if `(Date.now() - fetched_at) > 60000`.
 
-Fix: require Origin to be set AND match:
-  var origin = req.headers.origin || '';
-  if (!origin || origin !== 'https://clients.moonraker.ai') {
-    return res.status(403).json({ error: 'Forbidden' });
+  var _profileCache = {};
+  var PROFILE_CACHE_TTL_MS = 60000;
+
+  async function getAdminProfile(userId) {
+    var cached = _profileCache[userId];
+    if (cached && (Date.now() - cached.fetched_at) < PROFILE_CACHE_TTL_MS) {
+      return cached.profile;
+    }
+    try {
+      var profile = await sb.one(
+        'admin_profiles?id=eq.' + userId + '&select=id,email,display_name,role&limit=1'
+      );
+      if (profile) _profileCache[userId] = { profile: profile, fetched_at: Date.now() };
+      return profile;
+    } catch (e) {
+      console.error('[auth] Admin profile lookup failed:', e.message);
+      return null;
+    }
   }
 
-Same pattern applies to content-chat.js line 30-32 — the audit notes
-H12's empty-Origin bypass inherits from the same pattern. Fix both
-files identically. Group A-style: shared pattern, one commit per file,
-sanitized similarly.
+Trade-off: up to 60s stale admin profile after a role change or
+removal. Acceptable vs current unbounded staleness (cold-start only).
 
 ─────────────────────────────────────────────────────────────────────
-Fix 3: M9 — api/submit-entity-audit.js slug TOCTOU
+Fix 3: H3 — auth.js rawToDer + derSig dead code
 ─────────────────────────────────────────────────────────────────────
 
-Current flow (lines 66-100):
-  1. Check `contacts?slug=eq.X` — 409 if exists
-  2. Check `contacts?email=eq.X` — 409 if exists
-  3. sb.mutate('contacts', 'POST', {..., slug: X})
-  4. On unique-constraint error (line 199), substring match on
-     'duplicate|unique' → 409
+Delete at line 143-145:
+  function rawToDer(raw) {
+    return raw;
+  }
 
-The check-then-insert is a TOCTOU race: two concurrent submissions
-with the same slug pass the check, then one hits the unique constraint
-at step 3. Current fallback works (string match on error message) but
-is fragile.
+Delete at line 104-105:
+  // ES256 JWTs use raw R||S format (64 bytes), but Node expects DER
+  // Convert raw signature to DER format
+  var derSig = rawToDer(signature);
 
-Fix: eliminate the pre-check entirely. Just POST and rely on the
-unique constraint. On 23505 (Postgres unique violation) or error
-containing 'duplicate key' / 'contacts_slug_key' / 'contacts_email_key',
-return 409 with the existing user message.
+`derSig` is never referenced — L111 and L123 both pass `signature`
+directly to `nodeCrypto.verify`. The `dsaEncoding: 'ieee-p1363'`
+option handles the raw format natively.
 
-Verify the constraint names first via Supabase MCP:
-  execute_sql: select conname from pg_constraint where conrelid = 'public.contacts'::regclass;
-
-Likely constraint names are contacts_slug_key and contacts_email_key.
-Match on both.
-
-Preserve the user-facing error messages exactly — they're empathetic
-and already written for the audit intake form.
+Comment already says "Not needed when using dsaEncoding: 'ieee-p1363',
+but kept for reference" — no ambiguity. Delete.
 
 ─────────────────────────────────────────────────────────────────────
-Fix 4: H32 — api/digest.js recipient allowlist
+Fix 4: M2 — last_login_at throttle (auth.js, 2 sites)
 ─────────────────────────────────────────────────────────────────────
 
-Current (line 23): `var recipients = body.recipients;` accepted raw.
-auth.requireAdminOrInternal gate exists at L11, so surface is admin
-JWT compromise or CRON_SECRET compromise — but the `from:` field
-sends as `notifications@clients.moonraker.ai` (trusted internal
-identity), so a compromised admin JWT could spray trusted-identity
-emails to arbitrary addresses.
+Sites at L198-204 and L253-259 (requireAdmin and requireAdminOrInternal
+flows). Both PATCH `admin_profiles.last_login_at` on every authenticated
+request, currently fire-and-forget.
 
-Fix: allowlist recipient domains to `@moonraker.ai` (covers all team
-members). Reject any recipient outside the allowlist:
+Audit says: 29+ admin routes × 3-5 calls/page = PATCH/second during
+normal use. Throttle to update only if current `last_login_at` is
+older than 60s.
 
-  var ALLOWED_DOMAIN = '@moonraker.ai';
-  var invalidRecipients = recipients.filter(function(r) {
-    return String(r).indexOf(ALLOWED_DOMAIN) === -1;
+Approach:
+  1. Extend the cached profile from H1 to include `last_login_at`.
+  2. Check cached value; skip PATCH if it's newer than Date.now() - 60000.
+  3. When PATCH fires, update the cached value so subsequent same-second
+     calls also skip.
+
+Sketch (composes with H1 fix; do both in a single commit on auth.js):
+
+  // After H1's getAdminProfile returns, inside requireAdmin at L198:
+  var now = Date.now();
+  var lastLogin = cached && cached.profile && cached.profile.last_login_at
+    ? new Date(cached.profile.last_login_at).getTime() : 0;
+
+  if (now - lastLogin > 60000) {
+    var nowIso = new Date(now).toISOString();
+    sb.mutate(
+      'admin_profiles?id=eq.' + payload.sub,
+      'PATCH',
+      { last_login_at: nowIso },
+      'return=minimal'
+    ).catch(function() {});
+    // Update cache so next request in same window also skips.
+    if (cached && cached.profile) cached.profile.last_login_at = nowIso;
+  }
+
+To make that clean, include `last_login_at` in the SELECT at L166:
+  'admin_profiles?id=eq.' + userId + '&select=id,email,display_name,role,last_login_at&limit=1'
+
+Then apply the throttle at both PATCH sites (L198-204 and L253-259).
+
+Recommended: bundle H1 + M2 into one commit — they share the cache
+variable and the fix interacts.
+
+─────────────────────────────────────────────────────────────────────
+Fix 5: M18 — process-entity-audit.js composite checklist ID
+─────────────────────────────────────────────────────────────────────
+
+Current (line 374):
+  id: auditId.substring(0, 8) + '-' + String(idx + 1).padStart(3, '0'),
+
+First 8 hex chars of a UUID = 32 bits = birthday collision around
+sqrt(2^32) ≈ 65,536 audits. We have ~60-80 active audits, so collision
+is not imminent, but the audit flags it and the fix is tiny.
+
+Fix: use the full audit UUID instead of the 8-char prefix. `checklist_
+items` id column is VARCHAR (verify via pg_constraint / information_
+schema before push); 36+3+4 = 43 chars fits any reasonable constraint.
+
+  id: auditId + '-' + String(idx + 1).padStart(3, '0'),
+
+Verify first via Supabase MCP:
+  execute_sql: select column_name, data_type, character_maximum_length
+               from information_schema.columns
+               where table_name = 'checklist_items' and column_name = 'id';
+
+If the column is VARCHAR(20) or similar, switch strategy to a
+synthetic bigint sequence or UUID directly (check existing id
+semantics elsewhere in the file — some callers may parse the 8-char
+prefix, audit reference behavior before changing the shape).
+
+No destructive migration — only affects new rows. Existing short-form
+IDs remain as-is.
+
+─────────────────────────────────────────────────────────────────────
+Fix 6: H17 — process-entity-audit.js two sub-issues
+─────────────────────────────────────────────────────────────────────
+
+Sub-issue 1: Auth env-var OR fallback to empty string (L550)
+
+  var internalAuth = process.env.CRON_SECRET || process.env.AGENT_API_KEY || '';
+  var sendResp = await fetchT('https://clients.moonraker.ai/api/send-audit-email', {
+    method: 'POST',
+    headers: { ..., 'Authorization': 'Bearer ' + internalAuth },
+    ...
   });
-  if (invalidRecipients.length > 0) {
-    return res.status(400).json({
-      error: 'Recipients must be @moonraker.ai addresses',
-      invalid: invalidRecipients
-    });
+
+Fix: hard-require CRON_SECRET at module load; throw if absent. This
+endpoint already runs only server-side (cron + agent callback). If
+AGENT_API_KEY is the intended path, use it explicitly — don't OR them.
+
+Look at what identity this internal call should assume. The target
+endpoint `send-audit-email` uses `auth.requireAdminOrInternal(req, res)`
+which accepts either secret. Current code has `CRON_SECRET || AGENT_
+API_KEY` — that order is backwards (this is the agent callback path;
+AGENT_API_KEY is the primary identity). Flip the order OR (better)
+hardcode to AGENT_API_KEY since process-entity-audit.js is only ever
+invoked via the agent callback.
+
+Cleanest pattern: one env var per call site, chosen deliberately.
+
+  if (!process.env.AGENT_API_KEY) {
+    throw new Error('AGENT_API_KEY not configured — cannot call send-audit-email');
   }
+  var sendResp = await fetchT(..., {
+    headers: { ..., 'Authorization': 'Bearer ' + process.env.AGENT_API_KEY },
+    ...
+  });
 
-Keep `from:` and `to:` allowlist check off (they're stable internal
-values; locking them down is overkill).
+Sub-issue 2: HTML injection in team notification emails
 
-─────────────────────────────────────────────────────────────────────
-Fix 5: M12 — api/admin/manage-site.js domain validation
-─────────────────────────────────────────────────────────────────────
+Two sites:
+  - L~582 (premium audit notify): embeds `contact.first_name`,
+    `contact.last_name`, `practiceName`, `auditId`, `cresScore`.
+  - L~624 (quarterly audit notify): embeds `practiceName`,
+    `audit.audit_period`, score values.
 
-Current (line 69):
-  domain = domain.toLowerCase().replace(/^https?:\\/\\//, '').replace(/\\/+$/, '').replace(/^www\\./, '');
+These contact fields come from `submit-entity-audit.js` (public
+intake form). A malicious submitter can inject HTML tags, images,
+tracking pixels, iframes into the team notification emails.
 
-Strips protocol, trailing slash, www. But doesn't reject:
-  - `:port`                 → `domain.com:8080`
-  - `/path`                 → `domain.com/admin`
-  - `user:pass@host`        → basic auth prefix
-  - `?query`                → tracking params
-  - Characters outside FQDN charset
+Fix: use `sanitizer.sanitizeText()` from `_lib/html-sanitizer.js`
+(already a standard by Group F's time) OR a local `esc()` helper at
+top of file.
 
-Fix: after the normalization, validate against a strict FQDN regex:
-  var fqdnPattern = /^(?=.{1,253}$)(?!-)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$/;
-  if (!fqdnPattern.test(domain)) {
-    return res.status(400).json({ error: 'Invalid domain format' });
-  }
+Approach:
+  - Add `var sanitizer = require('./_lib/html-sanitizer');` at top.
+  - Wrap every embedded variable in both notification HTML bodies:
+    contact.first_name/last_name, practiceName, auditId (defense-
+    in-depth — server-generated but cheap), cresScore (number, low
+    risk but keeps the pattern consistent), audit.audit_period.
+  - For the `<a href="...auditId...">` URL: use `encodeURIComponent`
+    on auditId, not sanitizeText (different escape semantics).
 
-Admin-only endpoint, but bad input reaches the Cloudflare custom-
-hostname API (line ~173) which will either reject it noisily or
-create a hostname record with a malformed value.
-
-─────────────────────────────────────────────────────────────────────
-Fix 6: M20 — api/newsletter-unsubscribe.js UUID-probing oracle
-─────────────────────────────────────────────────────────────────────
-
-Current UUID gate (line 31-37) short-circuits on non-UUID format.
-But valid-UUID-but-nonexistent still runs sb.mutate at line 40, which
-logs `[sb.mutate] PATCH returned 0 rows` warning. An attacker could
-probe valid UUIDs by monitoring 5xx vs 200 response timing, or by
-inspecting server logs if they have any visibility.
-
-Fix: silence the zero-rows warning on this specific PATCH. Two options:
-  a) Check existence first: `sb.one('newsletter_subscribers?id=eq.X&select=id&limit=1')`.
-     If null, return success anyway (don't reveal existence).
-  b) Wrap the sb.mutate with a try/catch that doesn't log + treat
-     zero-rows as success.
-
-Recommended: (a). It's explicit and avoids adding zero-rows suppression
-machinery. Response shape stays identical (same unsubPage HTML or JSON)
-regardless of whether the subscriber existed.
+Both sites are send-only (no downstream parsing), so sanitizeText
+fits — it strips all tags + entities.
 
 ─────────────────────────────────────────────────────────────────────
 Testing
@@ -387,52 +410,49 @@ Testing
 
 - Each commit's Vercel deploy must go READY.
 - Smoke tests (non-blocking):
-    * content-chat.js: valid content_page_id still works; invalid UUID
-      returns 400; unknown UUID returns 404 (not 503, not 500).
-    * submit-entity-audit.js: valid submission works; duplicate slug
-      returns 409 with same user-friendly message; curl with no Origin
-      returns 403.
-    * digest.js: `recipients` containing a non-moonraker.ai address
-      returns 400 with invalid list.
-    * manage-site.js: invalid domain (`domain.com/path`) returns 400.
-    * newsletter-unsubscribe.js: valid-format-but-nonexistent SID
-      returns 200 (same as success). No zero-rows log warning.
+    * H1+M2: Make an admin request, check admin_profiles.last_login_at
+      in Supabase. Make another request within 60s — last_login_at
+      should NOT update. Wait 61s and try again — should update.
+    * H3: Admin login still works, ES256 JWT verification still passes.
+    * M18: Trigger an entity audit for a test contact, check
+      checklist_items rows have full UUID prefix.
+    * H17 sub 1: Trigger a free-tier audit, confirm scorecard email
+      still auto-sends. (Production-critical path — stage if unsure.)
+    * H17 sub 2: Submit a free audit with `<script>alert(1)</script>`
+      in first_name. Team notification email should contain
+      sanitized text, not the script.
 
 ─────────────────────────────────────────────────────────────────────
 Out of scope
 ─────────────────────────────────────────────────────────────────────
 
-- Page-token infrastructure extension to content-preview scope (might be
-  added in a later session; H12's minimum-viable fix is the status check).
-- Retries / timeouts on the Anthropic stream in content-chat.js (Group
-  B.2 scope; chat.js wasn't in that list, but add fetchWithTimeout only
-  if it's trivial — don't rabbit-hole).
-- CSRF protection via custom headers / tokens — existing rate limit +
-  Origin check covers the practical surface.
-- Other endpoints with similar empty-Origin bypass: if you spot them in
-  this session, file as new findings rather than fix inline (keep commit
-  scope clean).
+- H6 (Stripe fire-and-forget retry), H13 (agreement-chat prompt
+  caching), H29 (enrichment_data encryption) — saved for Group G batch 2.
+- H17 sub 3: if you spot additional HTML interpolation sites in
+  process-entity-audit.js beyond the two notification emails, file
+  separately; keep this commit scope tight.
+- M19 (Stripe-late-lands webhook race) — parked for product decision.
+- M39 (contacts.email UNIQUE constraint) — parked for product decision.
 
 ─────────────────────────────────────────────────────────────────────
 Deliverables
 ─────────────────────────────────────────────────────────────────────
 
 Commit shape (suggested):
-  c1: H12 — content-chat.js UUID validation + ownership status check + M14 fail-loud
-  c2: H15 — submit-entity-audit.js + content-chat.js require-Origin (shared pattern, 1 commit)
-  c3: M9 — submit-entity-audit.js remove TOCTOU pre-check
-  c4: H32 — digest.js recipient allowlist
-  c5: M12 — manage-site.js FQDN validation
-  c6: M20 — newsletter-unsubscribe.js existence check before PATCH
+  c1: H1 + M2 — auth.js cache TTL + last_login_at throttle (bundled; they share cache var)
+  c2: H3 — auth.js delete rawToDer + derSig dead code
+  c3: M18 — process-entity-audit.js full-UUID composite ID (after verifying column length)
+  c4: H17 — process-entity-audit.js hard-require AGENT_API_KEY + sanitize notification email HTML (both sub-issues together — same file)
 
-Final: doc update to api-audit-2026-04.md:
-  - Mark H12, H15, H32, M9, M12, M14, M20 resolved in resolution log
-  - Tallies: Highs 24 → 27 resolved (H12, H15, H32), Mediums 11 → 15 resolved (M9, M12, M14, M20)
-
-Also update post-phase-4-status.md: mark Group F complete, recommend
-Group G batch 1 as next.
+Then doc updates:
+  - api-audit-2026-04.md: mark H1, H2, H3, H17, M2, M18 resolved with
+    Resolution blocks. Include note for H2 that it was closed
+    incidentally by P4S5 commit `e00be4c`.
+  - Tallies: Highs 27 → 31 resolved (H1, H2, H3, H17 add +4),
+    Mediums 15 → 17 resolved (M2, M18 add +2). Total ≥56 → ≥62.
+  - post-phase-4-status.md: mark Group G batch 1 complete, recommend
+    Group G batch 2 (H6, H13, H29) as next.
 ```
-
 
 ## Group B.1 — H21 google-auth migration ✅ COMPLETE (2026-04-17)
 
@@ -474,7 +494,7 @@ Final grep on main across the four files: zero matches for `\bfetch\(` in any of
 Net result:
 - H4, H24, M10, M16 fully resolved.
 - `fetchWithTimeout` is the canonical HTTP client for non-streaming routes going forward; future sessions should use it by default.
-- Tallies: **Highs 22 / 36 resolved (14 open). Mediums 9 / 38 resolved. Total ≥45 resolved / ≤72 open across 117 findings.**
+- Tallies: **Highs 22 / 36 resolved (14 open). Mediums 9 / 38 resolved. Total ≥45 resolved / ≤72 open across 118 findings.**
 
 Behavior-preservation notes:
 - `sb.mutate` throws on PostgREST 4xx/5xx; raw `fetch` did not. On sites that were previously silent-fail (highlights DELETE+POST in `compile-report.js`, checklist_items DELETE in `process-entity-audit.js`), inner try/catches were added around `sb.mutate` to preserve the original swallow-and-warn or swallow-and-continue semantics. This prevents the fallback branch in `compile-report.js`'s highlight-generation block from firing on a failed DELETE, which was not the intended trigger.
@@ -507,7 +527,7 @@ Final doc update: `Group D: doc updates` (this commit) — marks H25/H31/M15/M26
 Net result:
 - H25, H31, H36, M15 resolved.
 - M26 upgraded partial → fully resolved (err-leak half in Group A's `9dc8c7b`; prompt-injection half in `49f088a`).
-- Tallies: **Highs 20 / 36 resolved (16 open). Mediums 7 / 38 resolved. Total ≥41 resolved / ≤76 open across 117 findings.**
+- Tallies: **Highs 20 / 36 resolved (16 open). Mediums 7 / 38 resolved. Total ≥41 resolved / ≤76 open across 118 findings.**
 - All 5 code commits went straight to READY on first Vercel build. `sanitizer.sanitizeText` has no external deps and no side effects; no runtime regressions observed.
 
 Behavior-preservation notes:
@@ -532,13 +552,13 @@ Commits landed on main:
 - `4fc3f69` — **H26.** `api/generate-proposal.js` onboarding seed: DELETE+POST replaced with upsert on the existing `UNIQUE(contact_id, step_key)` using `return=minimal`. Contact `status='prospect'` flip also migrated from bare `fetch` to `sb.mutate`. Added targeted stale-row cleanup (`step_key=not.in.(...)` scoped by `contact_id`) so future template shrinkage doesn't orphan steps — production pre-check showed zero stale rows, so it's a future-proof no-op today. Each sub-step independently try/caught; failures surface in `results.conversion.{status_error, stale_cleanup_error, onboarding_error}`. Zero-row window that blocked `auto_promote_to_active` is closed.
 - `9fe2810` — **M11.** `api/admin/deploy-to-r2.js` `site_deployments`: DELETE+POST replaced with upsert on `UNIQUE(site_id, page_path)` using `return=representation` (not `=minimal`) to preserve the single-row shape downstream code depends on in the `deployment` variable. No schema change needed. Clarifies a scope-description inconsistency — the original audit text said `client_sites`, the actual table is `site_deployments`.
 - `4d0fa27` — **M30.** `api/generate-proposal.js` 4 fire-and-forget PATCHes: `await fetch(...).catch(function(){})` converted to `await sb.mutate(...)` in try/catch at L90 (`status='generating'`), L284 (error-branch `status='review'` + notes), L594 (`contacts.checkout_options`), L605 (final finalize: `status='ready'`, urls, content). Three sites (L90, L284, L605) additionally log via `monitor.logError('generate-proposal', err, { client_slug: slug, detail: { stage, proposal_id } })` with stages `set_status_generating`, `record_generation_failure`, `finalize_proposal`. Non-critical L594 is log-only through `results.checkout_options_error`. L605 is the audit-flagged "stuck in generating forever" site; it now surfaces as both an admin-visible `results.finalize_error` and an `error_log` entry.
-- `62392a9` — Doc update: `api-audit-2026-04.md` marks H26/H27/M11/M30 ✅ RESOLVED with Resolution blocks; Highs 22 → 24, Mediums 9 → 11; total ≥49 resolved / ≤68 open across 117 findings; 4 rows appended to the Resolution log.
+- `62392a9` — Doc update: `api-audit-2026-04.md` marks H26/H27/M11/M30 ✅ RESOLVED with Resolution blocks; Highs 22 → 24, Mediums 9 → 11; total ≥49 resolved / ≤68 open across 118 findings; 4 rows appended to the Resolution log.
 
 Net result:
 - H26, H27, M11, M30 fully resolved.
 - PostgREST upsert with `Prefer: resolution=merge-duplicates` is the canonical replacement for DELETE+INSERT pairs going forward, whenever the target table has (or can gain) a unique index on the conflict keys. Use `return=minimal` by default; switch to `return=representation` when downstream code depends on the post-write row shape.
 - Fire-and-forget `.catch(function(){})` is now purged from `api/generate-proposal.js` serverside. The one remaining instance at L515 is intentional: it's inside the backtick `trackingScript` template literal injected into deployed HTML as a `<script>`, so it's browser-side code running in a visitor's tab, not a Vercel function.
-- Tallies: **Highs 24 / 36 resolved (12 open). Mediums 11 / 38 resolved. Total ≥49 resolved / ≤68 open across 117 findings.**
+- Tallies: **Highs 24 / 36 resolved (12 open). Mediums 11 / 38 resolved. Total ≥49 resolved / ≤68 open across 118 findings.**
 
 Behavior-preservation notes:
 - H26 upsert uses `return=minimal`. The `auto_promote_to_active` trigger fires on row-level `pending→complete` transitions, so an upsert that keeps rows at `status='pending'` (the template's seed value) is a no-op on the column the trigger watches — no risk of the fix itself spuriously firing the promotion. The fix's goal is to close the zero-row window that was blocking the trigger from ever firing, not to change its semantics.
