@@ -22,7 +22,19 @@ module.exports = async function handler(req, res) {
     var newsletter = await sb.one('newsletters?id=eq.' + newsletterId + '&select=*&limit=1');
     if (!newsletter) return res.status(404).json({ error: 'Newsletter not found' });
 
-    var html = nl.build(newsletter, 'preview');
+    // Read warmup state so preview reflects what recipients will actually see
+    var warmupActive = false;
+    try {
+      var settings = await sb.query('settings?key=eq.newsletter_warmup&select=value');
+      if (settings.length && settings[0].value && settings[0].value.enabled) {
+        var w = settings[0].value;
+        var step = w.current_step || 0;
+        var schedule = w.ramp_schedule || [];
+        warmupActive = step < schedule.length;
+      }
+    } catch (e) { /* non-fatal — preview without warmup flag */ }
+
+    var html = nl.build(newsletter, 'preview', { warmupActive: warmupActive });
 
     if (raw) {
       res.setHeader('Content-Type', 'application/json');
@@ -36,3 +48,4 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'Preview failed: ' + e.message });
   }
 };
+
