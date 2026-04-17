@@ -21,6 +21,7 @@ var sb = require('./_lib/supabase');
 var auth = require('./_lib/auth');
 var monitor = require('./_lib/monitor');
 var gh = require('./_lib/github');
+var pageToken = require('./_lib/page-token');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -432,6 +433,20 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
 
   // Replace template variables
   var html = templateHtml;
+
+  // Sign a scope=proposal page token bound to this contact_id.
+  // The token is baked into the HTML as window.__PAGE_TOKEN__ and sent with
+  // every message the prospect chatbot sends to /api/proposal-chat, which
+  // verifies it before hitting Anthropic. 60-day TTL (see page-token DEFAULT_TTL).
+  var signedPageToken = '';
+  try {
+    signedPageToken = pageToken.sign({ scope: 'proposal', contact_id: contact.id });
+  } catch (e) {
+    // Config error (PAGE_TOKEN_SECRET missing) or validation error — fail the
+    // generate rather than deploy a broken proposal page.
+    return res.status(500).json({ error: 'Failed to sign page token: ' + e.message });
+  }
+
   var replacements = {
     '{{PRACTICE_NAME}}': practiceName,
     '{{PROSPECT_NAME_CREDENTIALS}}': nameWithCreds,
@@ -468,7 +483,8 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
     '{{CHECKOUT_URL}}': '/' + slug + '/checkout',
     '{{GUARANTEE_BOX}}': guaranteeBox,
     '{{RESULTS_SECTION}}': buildResultsSection(practiceType),
-    '{{NEXT_STEPS_ITEMS}}': nextStepsHtml
+    '{{NEXT_STEPS_ITEMS}}': nextStepsHtml,
+    '{{PAGE_TOKEN}}': signedPageToken
   };
 
   Object.keys(replacements).forEach(function(key) {
