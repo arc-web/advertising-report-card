@@ -12,6 +12,7 @@
 
 var sb = require('./_lib/supabase');
 var rateLimit = require('./_lib/rate-limit');
+var sanitizer = require('./_lib/html-sanitizer');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
@@ -151,8 +152,8 @@ async function fetchPageContext(contentPageId) {
 
 // ─── System prompt ─────────────────────────────────────────────
 function buildSystemPrompt(page, contact, spec) {
-  var practiceName = (contact && contact.practice_name) || 'the practice';
-  var therapistName = contact ? ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim() : '';
+  var practiceName = sanitizer.sanitizeText((contact && contact.practice_name) || 'the practice', 200);
+  var therapistName = contact ? sanitizer.sanitizeText(((contact.first_name || '') + ' ' + (contact.last_name || '')).trim(), 200) : '';
 
   var prompt = `You are a helpful content assistant for ${practiceName}. You are helping the practice owner review and refine their new web page before it goes live.
 
@@ -191,7 +192,7 @@ IMPORTANT EDITING RULES:
 - Page name: ${page ? page.page_name : 'unknown'}
 - Practice: ${practiceName}`;
   if (therapistName) prompt += `\n- Therapist: ${therapistName}`;
-  if (contact && contact.city) prompt += `\n- Location: ${contact.city}, ${contact.state_province || ''}`;
+  if (contact && contact.city) prompt += `\n- Location: ${sanitizer.sanitizeText(contact.city, 100)}, ${sanitizer.sanitizeText(contact.state_province || '', 100)}`;
 
   // Include current HTML summary (not the full HTML, that comes in the user messages from the chatbot)
   if (page && page.generated_html) {
