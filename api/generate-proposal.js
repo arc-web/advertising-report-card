@@ -22,6 +22,7 @@ var auth = require('./_lib/auth');
 var monitor = require('./_lib/monitor');
 var gh = require('./_lib/github');
 var pageToken = require('./_lib/page-token');
+var google = require('./_lib/google-delegated');
 
 // HTML-escape untrusted values before interpolating into deployed HTML.
 // Mirrors the shape used in email-template.js and newsletter-template.js.
@@ -650,8 +651,13 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
   } else if (saJson) {
     try {
       var practiceName = contact.practice_name || slug;
-      var driveToken = await getDelegatedToken(saJson, 'support@moonraker.ai', 'https://www.googleapis.com/auth/drive');
-      if (driveToken && typeof driveToken === 'string') {
+      var driveToken;
+      try {
+        driveToken = await google.getDelegatedAccessToken('support@moonraker.ai', 'https://www.googleapis.com/auth/drive');
+      } catch (tokenErr) {
+        results.drive.error = 'Failed to get Drive token: ' + (tokenErr.message || String(tokenErr));
+      }
+      if (driveToken) {
         var driveHeaders = { 'Authorization': 'Bearer ' + driveToken, 'Content-Type': 'application/json' };
 
         // Create parent folder: Drive > Clients > [Practice Name]
@@ -700,8 +706,6 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
         } else {
           results.drive.error = 'Failed to create parent folder: ' + JSON.stringify(parentFolder);
         }
-      } else {
-        results.drive.error = 'Failed to get Drive token: ' + (driveToken && driveToken.error ? driveToken.error : 'unknown');
       }
     } catch (driveErr) {
       results.drive.error = driveErr.message || String(driveErr);
@@ -717,51 +721,6 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
     results: results
   });
 };
-
-
-// ═══════════════════════════════════════════════════════════════════
-// Helper: Get access token via domain-wide delegation
-// ═══════════════════════════════════════════════════════════════════
-async function getDelegatedToken(saJson, impersonateEmail, scope) {
-  try {
-    var sa = typeof saJson === 'string' ? JSON.parse(saJson) : saJson;
-    if (!sa.private_key || !sa.client_email) {
-      throw new Error('SA JSON missing private_key or client_email');
-    }
-    var crypto = require('crypto');
-
-    var header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
-    var now = Math.floor(Date.now() / 1000);
-    var claims = Buffer.from(JSON.stringify({
-      iss: sa.client_email,
-      sub: impersonateEmail,
-      scope: scope,
-      aud: 'https://oauth2.googleapis.com/token',
-      iat: now,
-      exp: now + 3600
-    })).toString('base64url');
-
-    var signable = header + '.' + claims;
-    var signer = crypto.createSign('RSA-SHA256');
-    signer.update(signable);
-    var signature = signer.sign(sa.private_key, 'base64url');
-
-    var jwt = signable + '.' + signature;
-
-    var tokenResp = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=' + jwt
-    });
-    var tokenData = await tokenResp.json();
-    if (!tokenData.access_token) {
-      throw new Error(tokenData.error_description || tokenData.error || JSON.stringify(tokenData));
-    }
-    return tokenData.access_token;
-  } catch (e) {
-    return { error: e.message || String(e) };
-  }
-}
 
 
 // ═══════════════════════════════════════════════════════════════════
