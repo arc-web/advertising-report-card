@@ -123,6 +123,10 @@
     "api/cron/process-batch-pages.js": {
       "maxDuration": 120,
       "memory": 1024
+    },
+    "api/campaign-summary.js": {
+      "maxDuration": 300,
+      "memory": 1024
     }
   },
   "crons": [
@@ -160,5 +164,3 @@
     }
   ]
 }
-
-
