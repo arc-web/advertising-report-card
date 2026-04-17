@@ -1,6 +1,8 @@
 // /api/onboarding-action.js
 // Client-facing action route for onboarding pages.
-// No admin JWT required — uses service role key for writes.
+// Authenticates via page_token (not admin JWT); service role key is the
+// write identity but the page_token gate and verified contact_id below
+// constrain what any given request can touch. See security model below.
 //
 // Security model (post-Phase-4-session-2):
 //   1. Every request MUST carry a page_token that verifies under scope='onboarding'.
