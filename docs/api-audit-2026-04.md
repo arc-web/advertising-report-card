@@ -3,7 +3,7 @@
 **Date:** April 17, 2026
 **Scope:** `api/*.js` (63 routes), `api/admin/*.js` (7 routes), `api/_lib/*.js` (8 shared modules). Excludes `api/cron/*` and the VPS agent service.
 
-**Totals:** 9 Critical, 35 High, 37 Medium, 25 Low, 6 Nit.
+**Totals:** 9 Critical, 35 High, 38 Medium, 27 Low, 6 Nit.
 
 Each finding has an ID (C/H/M/L/N-number) for reference in remediation commits and PRs.
 
@@ -158,14 +158,18 @@ Throw if env var unset instead of falling back.
 ### H8. `api/_lib/crypto.js:45` — decrypt returns literal error strings as values
 `'[encrypted - key not available]'` and `'[decryption failed]'` flow back to callers as if they were plaintext. Read-then-write cycle would encrypt the error strings. Throw instead.
 
-### H9. `api/admin/deploy-to-r2.js:10` — hardcoded secret fallback in source
+### H9. `api/admin/deploy-to-r2.js:10` — hardcoded secret fallback in source ✅ RESOLVED
 ```js
 var DEPLOY_SECRET = process.env.CF_R2_DEPLOY_SECRET || 'moonraker-r2-deploy-2026';
 ```
 Live secret in git history (confirmed via `git log -p`). Assume compromised. Rotate, remove fallback, throw at module load.
 
-### H10. `api/admin/manage-site.js:15, 18` — hardcoded CF account/zone IDs
+**Resolution (2026-04-17, commit `36ac5bb`):** Rotated `CF_R2_DEPLOY_SECRET` in Vercel to a fresh 32-byte hex value. Uploaded transitional Worker accepting both old and new, then final Worker (`env.DEPLOY_SECRET` only) after verification. Removed source fallback; handler now returns 500 `'Deploy secret not configured'` if env missing, module-load `console.error` warning mirrors the C5 pattern. **Discovered during rotation:** the literal `'moonraker-r2-deploy-2026'` in source had been dead code in production — the Worker's own source had a different hardcoded value (`fa8e68f5…`), so the git-history string would never have authenticated against the live Worker. The actual live secret was in the Worker's uploaded script (not a secret binding) and is now rotated and moved to a proper secret binding.
+
+### H10. `api/admin/manage-site.js:15, 18` — hardcoded CF account/zone IDs ✅ RESOLVED
 Not secrets but infrastructure identifiers. Move to env.
+
+**Resolution (2026-04-17, commit `e772fa9`):** Removed literal `CF_ACCOUNT_ID` fallback; migrated `MOONRAKER_ZONE_ID` from source literal to new `CF_ZONE_ID` env var on Vercel. Added module-load warnings for all three required CF env vars (`CF_ACCOUNT_ID`, `CF_API_TOKEN`, `CF_ZONE_ID`) and request-time 500 if any are missing (except `action: 'status'` which is DB-read-only). Matches the C5 fail-closed pattern.
 
 ### H11. `api/newsletter-webhook.js:27, 32, 35-37` — same signature issues as Stripe
 - Line 27: `JSON.stringify(req.body)` raw-body reconstruction won't match svix's signed bytes.
@@ -380,6 +384,22 @@ If PATCH succeeds but POST version fails, HTML saved without version record.
 Inconsistent with project's ES5 style.
 
 ### M37. `api/send-audit-email.js:131` — auto-schedule doesn't check contact status
+
+### M38. `client_sites` RLS missing `authenticated_admin_full` policy ✅ RESOLVED
+**Discovered during H9 rotation UI smoke test (2026-04-17).** `client_sites` had RLS enabled with only one policy: `anon_read_client_sites` (`roles={anon}`, `USING (true)`). Every other public table (`contacts`, `content_pages`, `tracked_keywords`, `bio_materials`, `neo_images`, …) has an additional `authenticated_admin_full` policy using `is_admin()`. `shared/admin-auth.js` installs a fetch interceptor that upgrades the `Authorization` header from the anon key to the user's admin JWT on direct Supabase REST calls, so the admin UI queries `client_sites` as role `authenticated` — which had no matching policy, returning empty.
+
+**Impact:** The Website Hosting card in the client deep-dive has likely been silently empty for every admin viewing every client since RLS was introduced on this table. The UI's empty-state path calls `provisionHosting()` which POSTs to `/api/admin/manage-site` with a partially-populated body, producing the `400 contact_id, domain, and hosting_type are required` toast that has been observed but never traced to cause. No security exposure — RLS was over-restrictive, not under-restrictive — but a real correctness gap.
+
+**Resolution (2026-04-17, migration `add_authenticated_admin_policy_client_sites`):** Added `authenticated_admin_full` policy matching the pattern used on every other table:
+```sql
+create policy authenticated_admin_full
+  on public.client_sites
+  for all
+  to authenticated
+  using (is_admin())
+  with check (is_admin());
+```
+UI smoke test confirmed the Website Hosting card now renders the moonraker site correctly. A broader sweep for other tables with this pattern missing is a candidate follow-up.
 Follow-up sequence scheduled even if contact has since flipped to `lost`/`onboarding`/`active`.
 
 ---
@@ -422,7 +442,8 @@ Non-strict mode hoisting inconsistency across engines.
 
 ### L13. `_lib/email-template.js:22-24` — hardcoded asset URLs
 
-### L14. `DEPLOY_SECRET` in git history — covered by H9
+### L14. `DEPLOY_SECRET` in git history — covered by H9 ✅ RESOLVED
+Resolved alongside H9 (commit `36ac5bb`). The rotation made the git-history string useless against the Worker. Note: the Worker's own legacy hardcoded secret (discovered during rotation) was also rotated out; see H9 resolution note.
 
 ### L15. `_templates/onboarding.html:955` — anon key JWT exp 2089 (effectively never)
 RLS is the only control. Consider rotating to a shorter-exp anon key.
@@ -448,6 +469,16 @@ RLS is the only control. Consider rotating to a shorter-exp anon key.
 `email.CALENDAR_URL` = `scott-pope-calendar` but memory canonical is `moonraker-free-strategy-call`. Verify.
 
 ### L25. `api/generate-content-page.js:180-182` — VERIFY regex stops at `<`
+
+### L26. `admin/clients/index.html:1991` — `renderContent()` race condition ✅ RESOLVED
+**Discovered during H9 rotation UI smoke test (2026-04-17).** When the Content tab renders, `renderContent()` calls `renderHostingCard(c)` which kicks off an async fetch of `client_sites`. The initial synchronous render of the Service Pages section uses `state.clientSite` which is still `null` at that moment, so the conditional gate on `state.clientSite` for rendering the `☁ Deploy to Site` button fails and the button never appears. The fetch's `.then()` only re-rendered the hosting card, not the Service Pages section, so the button stayed hidden until the user switched tabs and came back.
+
+**Resolution (2026-04-17, commit `402a579`):** In the fetch resolution, added a re-render of `renderContent()` guarded by (a) same-contact identity check (`state.contact === c`) and (b) active tab is `content`. No re-render on catch (the empty-sites render is already correct for that path).
+
+### L27. `workspace_credentials.authenticator_secret_key` is null on every row — write path never built
+**Observed during H9 session (2026-04-17).** `api/_lib/crypto.js:120` correctly lists `authenticator_secret_key` in `SENSITIVE_FIELDS`, and `api/action.js:78, 110` correctly applies `encryptFields` on `workspace_credentials` writes. The encrypt/decrypt plumbing is complete. **But nothing in the frontend writes to this column.** Grep of `admin/*.html` + `shared/*.js` returns zero hits outside the crypto module itself. The column exists in the schema, and rows exist in `workspace_credentials`, but the field is never populated.
+
+**Not a bug — a workflow gap.** Likely intent: capture the TOTP seed when setting up 2FA on client Google Workspaces, alongside the app password. The setup UI captures `app_password` but not `authenticator_secret_key`. Either wire it up when 2FA capture becomes part of the onboarding flow, or remove the column. No action this session.
 Cuts off flags mid-sentence with HTML brackets.
 
 ---
@@ -541,6 +572,9 @@ Before coding Phase 3+:
 
 ### Phase 5 — Hardening passes (IN PROGRESS)
 8. ✅ **H9 + L14** — commit `36ac5bb` (2026-04-17). Rotated `CF_R2_DEPLOY_SECRET` in Vercel, removed source fallback from `api/admin/deploy-to-r2.js:10`, module-load warning + request-time 500 on missing env var. The old fallback `'moonraker-r2-deploy-2026'` no longer works against the worker.
+8b. ✅ **H10** — commit `e772fa9` (2026-04-17). Removed hardcoded `CF_ACCOUNT_ID` + `MOONRAKER_ZONE_ID` literals; added `CF_ZONE_ID` env var; fail-closed on missing CF config.
+8c. ✅ **M38** (new, discovered during H9 smoke test) — Supabase migration `add_authenticated_admin_policy_client_sites` (2026-04-17). Added missing `authenticated_admin_full` RLS policy to `client_sites`; admin hosting card now renders correctly.
+8d. ✅ **L26** (new) — commit `402a579` (2026-04-17). Fixed `renderContent()` race so Service Pages re-renders after async hosting fetch resolves.
 9. **H21 + N6** — extract `_lib/google-auth.js`, delete 7 duplicate `getDelegatedToken` copies.
 10. **H4 + H24 + M10 + M16 + the many AbortController gaps** — extract `fetchWithTimeout`, apply everywhere.
 11. **Pattern 12** — migrate inline Supabase fetches to helper in the five big files. Mechanical, test-with-deploy.
@@ -568,12 +602,12 @@ _(Brought forward from Phase 7 since Chris chose "ship now" over "wait for traff
 ## Running tallies
 
 - **Critical:** 9 total (C1–C9). **Resolved: 9 ✅** (all).
-- **High:** 35 total (H1–H35). **Resolved: 5** (H5, H8, H9, H11, H14). **Open: 30.**
-- **Medium:** 37 total (M1–M37). **Resolved: 1+** (M8 confirmed; several more likely closed via Phase 4 action-schema work — needs verification sweep). **Open: ~36.**
-- **Low:** 25 total (L1–L25). **Resolved: 1** (L14). **Open: 24.**
+- **High:** 35 total (H1–H35). **Resolved: 6** (H5, H8, H9, H10, H11, H14). **Open: 29.**
+- **Medium:** 38 total (M1–M38). **Resolved: 2+** (M8 confirmed; M38 added + resolved same session; several more likely closed via Phase 4 action-schema work — needs verification sweep). **Open: ~35.**
+- **Low:** 27 total (L1–L27). **Resolved: 3** (L14, L26, L27-documented-only). **Open: 24.**
 - **Nit:** 6 total (N1–N6). **Open: 6.**
 
-**Total: 112 findings. Resolved: ≥16. Open: ≤96.**
+**Total: 115 findings. Resolved: ≥20. Open: ≤95.**
 
 ### Resolution log
 | Finding | Commit / Session | Date |
@@ -588,5 +622,9 @@ _(Brought forward from Phase 7 since Chris chose "ship now" over "wait for traff
 | H5 | Phase 4 S4 (rate-limit chat endpoints) | 2026-04-17 |
 | H14 | Phase 4 S4 (per-IP submit-entity-audit limit) | 2026-04-17 |
 | H9 + L14 | `36ac5bb` (rotate CF_R2_DEPLOY_SECRET, remove fallback) | 2026-04-17 |
+| H10 | `e772fa9` (strip CF_ACCOUNT_ID + CF_ZONE_ID fallbacks) | 2026-04-17 |
+| M38 | migration `add_authenticated_admin_policy_client_sites` | 2026-04-17 |
+| L26 | `402a579` (renderContent race fix) | 2026-04-17 |
+| L27 | documented-only (workflow gap, not a bug) | 2026-04-17 |
 
 Audit was performed across five sessions reading ~11,000 lines of API route code, the eight `_lib/` modules, relevant templates, and git history for secret leakage. Unread in detail: chat system prompt bodies (low-risk content), several `send-*-email.js` / `trigger-*` / `ingest-*` routes (expected to follow already-catalogued patterns), most `api/admin/*` read-only dashboard routes. The audit is considered comprehensive for Critical and High findings; Medium/Low/Nit counts would grow modestly with further reading.
