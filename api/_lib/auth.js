@@ -283,9 +283,44 @@ async function requireAdminOrInternal(req, res) {
   };
 }
 
+// ── CRON-only helper (strict) ────────────────────────────────────
+//
+// Use on internal-only routes whose capability is so powerful that even
+// admin JWT holders shouldn't be able to invoke them through a compromised
+// browser session. Distinct from requireAdminOrInternal which also accepts
+// admin JWTs and AGENT_API_KEY.
+//
+// Current consumers:
+//   - api/run-migration.js (executes arbitrary SQL as service_role)
+//   - api/backfill-campaign-summary-pages.js (bulk pushes to GitHub)
+
+async function requireCronSecret(req, res) {
+  var cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    // Fail closed, surface as 500 so config gaps are visible in logs
+    res.status(500).json({ error: 'CRON_SECRET not configured' });
+    return null;
+  }
+
+  var token = extractToken(req);
+  if (!token) {
+    res.status(401).json({ error: 'Authentication required' });
+    return null;
+  }
+
+  if (cronSecret.length !== token.length
+      || !nodeCrypto.timingSafeEqual(Buffer.from(token), Buffer.from(cronSecret))) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return null;
+  }
+
+  return { id: 'system', email: 'system@internal', role: 'internal', name: 'System' };
+}
+
 module.exports = {
   verifyJwt: verifyJwt,
   extractToken: extractToken,
   requireAdmin: requireAdmin,
-  requireAdminOrInternal: requireAdminOrInternal
+  requireAdminOrInternal: requireAdminOrInternal,
+  requireCronSecret: requireCronSecret
 };
