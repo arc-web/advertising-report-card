@@ -39,22 +39,15 @@ module.exports = async function handler(req, res) {
 
 
   var anthropicKey = process.env.ANTHROPIC_API_KEY;
-  var ghToken = process.env.GITHUB_PAT;
 
   if (!sb.isConfigured()) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
   if (!anthropicKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
-  if (!ghToken) return res.status(500).json({ error: 'GITHUB_PAT not configured' });
+  if (!gh.isConfigured()) return res.status(500).json({ error: 'GITHUB_PAT not configured' });
 
   var proposalId = (req.body || {}).proposal_id;
   if (!proposalId) return res.status(400).json({ error: 'proposal_id required' });
 
-  var REPO = 'Moonraker-AI/client-hq';
-  var BRANCH = 'main';
   var results = { generate: null, deploy: [] };
-
-  function ghHeaders() {
-    return { 'Authorization': 'Bearer ' + ghToken, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' };
-  }
 
   // ─── 1. Load proposal + contact ───────────────────────────────
   var proposal, contact;
@@ -97,18 +90,13 @@ module.exports = async function handler(req, res) {
   // ─── 2. Read proposal template from GitHub ────────────────────
   var templateHtml;
   try {
-    var tResp = await fetch('https://api.github.com/repos/' + REPO + '/contents/_templates/proposal.html?ref=' + BRANCH, { headers: ghHeaders() });
-    if (!tResp.ok) {
-      var errText = await tResp.text().catch(function() { return 'unknown'; });
-      return res.status(500).json({ error: 'GitHub API returned ' + tResp.status + ' reading template. Check GITHUB_PAT env var.', details: errText.substring(0, 500) });
-    }
-    var tData = await tResp.json();
-    if (!tData.content) {
-      return res.status(500).json({ error: 'Template response has no content field', keys: Object.keys(tData) });
-    }
-    templateHtml = Buffer.from(tData.content, 'base64').toString('utf-8');
+    templateHtml = await gh.readTemplate('proposal.html');
   } catch (e) {
-    return res.status(500).json({ error: 'Failed to read proposal template: ' + e.message, stack: (e.stack || '').substring(0, 500) });
+    monitor.logError('generate-proposal', e, {
+      client_slug: slug,
+      detail: { stage: 'read_proposal_template' }
+    });
+    return res.status(500).json({ error: 'Failed to read proposal template' });
   }
 
   // ─── 3. Build context and call Anthropic ──────────────────────
@@ -549,9 +537,9 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
 
   var pagesToDeploy = [
     { dest: slug + '/proposal/index.html', content: html },
-    { template: '_templates/router.html', dest: slug + '/index.html' },
-    { template: '_templates/checkout.html', dest: slug + '/checkout/index.html' },
-    { template: '_templates/onboarding.html', dest: slug + '/onboarding/index.html', replacements: { '{{PAGE_TOKEN}}': signedOnboardingToken } }
+    { template: 'router.html', dest: slug + '/index.html' },
+    { template: 'checkout.html', dest: slug + '/checkout/index.html' },
+    { template: 'onboarding.html', dest: slug + '/onboarding/index.html', replacements: { '{{PAGE_TOKEN}}': signedOnboardingToken } }
   ];
 
   for (var p of pagesToDeploy) {
@@ -560,11 +548,8 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
       if (p.content) {
         fileContent = p.content;
       } else {
-        // Read template from GitHub
-        var tplResp = await fetch('https://api.github.com/repos/' + REPO + '/contents/' + p.template + '?ref=' + BRANCH, { headers: ghHeaders() });
-        if (!tplResp.ok) { results.deploy.push({ path: p.dest, ok: false, error: 'Template not found' }); continue; }
-        var tplData = await tplResp.json();
-        fileContent = Buffer.from(tplData.content, 'base64').toString('utf-8');
+        // Read template from GitHub via _lib wrapper (returns utf8 string)
+        fileContent = await gh.readTemplate(p.template);
 
         // Apply any page-specific replacements (e.g. {{PAGE_TOKEN}} for onboarding)
         if (p.replacements) {
@@ -574,27 +559,14 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
         }
       }
 
-      // Check if file already exists (need SHA for update)
-      var existResp = await fetch('https://api.github.com/repos/' + REPO + '/contents/' + p.dest + '?ref=' + BRANCH, { headers: ghHeaders() });
-      var sha = null;
-      if (existResp.ok) {
-        var existData = await existResp.json();
-        sha = existData.sha;
-      }
-
-      var pushBody = {
-        message: 'Deploy ' + p.dest.split('/').pop() + ' for ' + slug,
-        content: Buffer.from(fileContent).toString('base64'),
-        branch: BRANCH
-      };
-      if (sha) pushBody.sha = sha;
-
-      var pushResp = await fetch('https://api.github.com/repos/' + REPO + '/contents/' + p.dest, {
-        method: 'PUT', headers: ghHeaders(), body: JSON.stringify(pushBody)
-      });
-      results.deploy.push({ path: p.dest, ok: pushResp.ok });
+      await gh.pushFile(p.dest, fileContent, 'Deploy ' + p.dest.split('/').pop() + ' for ' + slug);
+      results.deploy.push({ path: p.dest, ok: true });
     } catch (e) {
-      results.deploy.push({ path: p.dest, ok: false, error: e.message });
+      results.deploy.push({ path: p.dest, ok: false, error: 'Deploy failed' });
+      monitor.logError('generate-proposal', e, {
+        client_slug: slug,
+        detail: { stage: 'deploy', path: p.dest }
+      });
     }
   }
 
