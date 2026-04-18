@@ -35,6 +35,16 @@ function constantTimeEqual(a, b) {
   return nodeCrypto.timingSafeEqual(bufA, bufB);
 }
 
+// Intentionally uses raw `fetch` against the GitHub REST API instead of
+// routing through `api/_lib/github.js` (M40, 2026-04-19). Three reasons:
+//   1. CRON_SECRET-gated handler with no user-input reachability
+//   2. Read-only — no writes, no upsert SHA dance, no write-path surface
+//   3. Filename already regex-validated at the caller (L80 below) as
+//      /^[a-zA-Z0-9_.-]+\.sql$/ — stricter than `validatePath`'s
+//      allowlist would be, and `migrations/` is not a wrapper-managed
+//      prefix (no other code writes there). Expanding the wrapper's
+//      write surface to cover this single read would weaken the
+//      "wrapper only writes where writes happen" invariant.
 async function fetchMigrationFromGitHub(filename) {
   var token = process.env.GITHUB_PAT;
   if (!token) throw new Error('GITHUB_PAT env var missing');
