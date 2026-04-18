@@ -15,6 +15,7 @@ var sb = require('./_lib/supabase');
 var auth = require('./_lib/auth');
 var monitor = require('./_lib/monitor');
 var google = require('./_lib/google-delegated');
+var crypto = require('./_lib/crypto');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -383,15 +384,63 @@ module.exports = async function handler(req, res) {
   } catch (e) { /* practice details optional */ }
 
   // ─── Save enrichment to proposal ──────────────────────────────
+  // H29: encrypt the sensitive subtree (emails[] + calls[]) at rest.
+  //
+  // Shape written to enrichment_data:
+  //   {
+  //     // Operational metadata — cleartext, queryable without key:
+  //     audit_scores, audit_tasks, website_info, campaign_audit, practice_details,
+  //     email_count: N, call_count: N, enriched_at: ISO,
+  //     // Encrypted subtree — a v1/v2: prefixed ciphertext string containing
+  //     // JSON.stringify({ emails: [...], calls: [...] }):
+  //     _sensitive: "v1:iv:ct:tag"
+  //   }
+  //
+  // enrichment_sources stays cleartext because its entries contain only
+  // source metadata (counts, error strings, entity_audit id/tier/date,
+  // website url/fetched flag) -- no message_ids or recording_ids that
+  // would enable Gmail/Fathom content retrieval live there. The sensitive
+  // IDs are inside the emails[*].message_id / calls[*].recording_id
+  // fields, which ARE in the _sensitive envelope.
+  //
+  // Admin UIs (admin/clients, admin/proposals) read email_count/call_count
+  // cleartext for the enrichment pills; they never need the actual content.
+  // Server-side decryption happens only in generate-proposal.js where
+  // Claude needs the email subjects/snippets/call summaries for prompt
+  // context, and in the backfill endpoint.
   if (proposalId) {
     try {
+      var sensitiveBlob = {
+        emails: enrichment.data.emails || [],
+        calls: enrichment.data.calls || []
+      };
+      var publicPayload = {
+        audit_scores: enrichment.data.audit_scores || null,
+        audit_tasks: enrichment.data.audit_tasks || null,
+        website_info: enrichment.data.website_info || null,
+        campaign_audit: enrichment.data.campaign_audit || null,
+        practice_details: enrichment.data.practice_details || null,
+        email_count: sensitiveBlob.emails.length,
+        call_count: sensitiveBlob.calls.length,
+        enriched_at: new Date().toISOString(),
+        _sensitive: crypto.encryptJSON(sensitiveBlob)
+      };
       await sb.mutate('proposals?id=eq.' + proposalId, 'PATCH', {
         status: 'review',
         enrichment_sources: enrichment.sources,
-        enrichment_data: enrichment.data
+        enrichment_data: publicPayload
       });
     } catch (e) {
       enrichment._save_error = e.message;
+      // Surface encryption failures loudly -- they indicate env var misconfig
+      // (CREDENTIALS_ENCRYPTION_KEY missing) which would otherwise silently
+      // block all future proposal enrichment writes.
+      try {
+        await monitor.logError('enrich-proposal', e, {
+          client_slug: contact && contact.slug,
+          detail: { stage: 'save_enrichment_encrypted', proposal_id: proposalId }
+        });
+      } catch (_) { /* observability-only; don't mask the 200 */ }
     }
   }
 
