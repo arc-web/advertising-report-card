@@ -40,6 +40,15 @@ module.exports = async function handler(req, res) {
 
   if (!clientSlug) return res.status(400).json({ error: 'client_slug required' });
 
+  // M27: validate slug format before using in PostgREST filter concatenations
+  // downstream. Slugs are internal identifiers written by admins at contact
+  // creation; legitimate format is lowercase alphanumerics + dashes, 1-60 chars.
+  // A slug outside this set is either malformed input or an injection attempt
+  // trying to smuggle extra filter clauses into one of the eq.<slug> sites.
+  if (!/^[a-z0-9-]{1,60}$/.test(clientSlug)) {
+    return res.status(400).json({ error: 'Invalid client_slug format' });
+  }
+
   // ─── Team config ───────────────────────────────────────────────
   var SA_EMAIL = 'reporting@moonraker-client-hq.iam.gserviceaccount.com';
   var IMPERSONATE_USER = 'support@moonraker.ai';
@@ -501,7 +510,12 @@ module.exports = async function handler(req, res) {
     }
     for (var du = 0; du < deliverableUpdates.length; du++) {
       var upd = deliverableUpdates[du];
-      await sb.mutate('deliverables?contact_id=eq.' + contact.id + '&deliverable_type=eq.' + upd.type + '&status=neq.delivered', 'PATCH', {
+      // M28: defense-in-depth encoding. contact.id is a trusted UUID (loaded
+      // from DB earlier) and upd.type is from a fixed hardcoded set above, so
+      // both are currently safe. encodeURIComponent costs nothing on ASCII
+      // values and makes the pattern safe-by-default if someone later copies
+      // this site and swaps in a request-controlled value.
+      await sb.mutate('deliverables?contact_id=eq.' + encodeURIComponent(contact.id) + '&deliverable_type=eq.' + encodeURIComponent(upd.type) + '&status=neq.delivered', 'PATCH', {
         status: 'delivered', delivered_at: new Date().toISOString(), notes: 'Auto: ' + upd.note, updated_at: new Date().toISOString()
       });
     }
