@@ -146,6 +146,14 @@
     "api/backfill-campaign-summary-pages.js": {
       "maxDuration": 300,
       "memory": 1024
+    },
+    "api/admin/attribution-sync.js": {
+      "maxDuration": 120,
+      "memory": 1024
+    },
+    "api/cron/sync-attribution-sheets.js": {
+      "maxDuration": 300,
+      "memory": 1024
     }
   },
   "crons": [
@@ -184,6 +192,10 @@
     {
       "path": "/api/cron/cleanup-rate-limits",
       "schedule": "30 6 * * *"
+    },
+    {
+      "path": "/api/cron/sync-attribution-sheets",
+      "schedule": "0 9 1 * *"
     }
   ]
 }
