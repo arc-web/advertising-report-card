@@ -332,7 +332,15 @@ ${surgeData}`;
       // Metadata
       client_slug: slug,
       status: 'complete',
-      variance_from_previous: varianceFromPrevious
+      variance_from_previous: varianceFromPrevious,
+      // Retention (security audit H3): once the surge payload has been parsed
+      // into scores + tasks + citations above, the raw HTML is no longer
+      // needed. Nulling it here reclaims ~80KB/row (TOAST) and prevents the
+      // entity_audits footprint from growing linearly with audit volume. The
+      // recovery path in this same handler (~line 56) only reads surge_raw_data
+      // pre-processing, so clearing it at the complete-transition never
+      // interferes with retry logic.
+      surge_raw_data: null
     };
 
     try {
