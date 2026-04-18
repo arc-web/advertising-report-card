@@ -17,6 +17,7 @@
  */
 
 var sb = require('./_lib/supabase');
+var monitor = require('./_lib/monitor');
 var auth = require('./_lib/auth');
 
 module.exports = async function(req, res) {
@@ -231,6 +232,9 @@ module.exports = async function(req, res) {
 
   } catch (err) {
     console.error('trigger-batch-audit error:', err);
-    return res.status(500).json({ error: err.message || 'Internal error' });
+    monitor.logError('trigger-batch-audit', err, {
+      detail: { stage: 'trigger_handler' }
+    });
+    return res.status(500).json({ error: 'Failed to trigger batch audit' });
   }
 };

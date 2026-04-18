@@ -14,6 +14,7 @@
 // Idempotent: skips if next_audit_due is already set.
 
 var sb = require('./_lib/supabase');
+var monitor = require('./_lib/monitor');
 var auth = require('./_lib/auth');
 var gh = require('./_lib/github');
 
@@ -220,6 +221,9 @@ module.exports = async function handler(req, res) {
 
   } catch (err) {
     console.error('setup-audit-schedule error:', err);
-    return res.status(500).json({ error: err.message });
+    monitor.logError('setup-audit-schedule', err, {
+      detail: { stage: 'setup_handler' }
+    });
+    return res.status(500).json({ error: 'Failed to set up audit schedule' });
   }
 };

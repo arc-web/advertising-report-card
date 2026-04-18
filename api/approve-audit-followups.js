@@ -5,6 +5,7 @@
 // POST { audit_id }
 
 var sb = require('./_lib/supabase');
+var monitor = require('./_lib/monitor');
 var auth = require('./_lib/auth');
 
 module.exports = async function handler(req, res) {
@@ -46,6 +47,9 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ ok: true, scheduled: scheduled });
   } catch (err) {
     console.error('approve-audit-followups error:', err);
-    return res.status(500).json({ error: err.message });
+    monitor.logError('approve-audit-followups', err, {
+      detail: { stage: 'approve_handler' }
+    });
+    return res.status(500).json({ error: 'Failed to approve audit followups' });
   }
 };

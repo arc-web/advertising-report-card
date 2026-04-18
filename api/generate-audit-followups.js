@@ -7,6 +7,7 @@
 
 var email = require('./_lib/email-template');
 var sb = require('./_lib/supabase');
+var monitor = require('./_lib/monitor');
 var auth = require('./_lib/auth');
 
 var FOOTER_NOTE = 'Questions? Reply to this email or <a href="' + email.CALENDAR_URL + '" style="font-family:Inter,sans-serif;color:#00D47E;text-decoration:none;font-weight:500;">book a call with Scott</a>.';
@@ -115,7 +116,11 @@ module.exports = async function handler(req, res) {
 
   } catch (err) {
     console.error('generate-audit-followups error:', err);
-    return res.status(500).json({ error: err.message });
+    monitor.logError('generate-audit-followups', err, {
+      client_slug: (typeof slug !== 'undefined' ? slug : null),
+      detail: { stage: 'generate_handler' }
+    });
+    return res.status(500).json({ error: 'Failed to generate audit followups' });
   }
 };
 

@@ -25,6 +25,7 @@
 
 var auth = require('./_lib/auth');
 var sb = require('./_lib/supabase');
+var monitor = require('./_lib/monitor');
 var google = require('./_lib/google-delegated');
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -246,8 +247,11 @@ async function pullBookings(client, monthBuckets) {
       top_subjects: topSubjects
     };
   } catch (e) {
-    console.error('[campaign-summary] bookings error:', e);
-    return { available: false, error: e.message || String(e) };
+    monitor.logError('campaign-summary', e, {
+      client_slug: (client && client.slug) || null,
+      detail: { stage: 'pull_bookings' }
+    });
+    return { available: false, error: 'Failed to pull bookings' };
   }
 }
 
@@ -392,8 +396,10 @@ async function pullGsc(siteUrl, monthBuckets, windowStart, windowEnd) {
       recent_window: { start: startForRecent, end: windowEnd }
     };
   } catch (e) {
-    console.error('[campaign-summary] GSC error:', e);
-    return { available: false, error: e.message || String(e) };
+    monitor.logError('campaign-summary', e, {
+      detail: { stage: 'pull_gsc', site_url: siteUrl }
+    });
+    return { available: false, error: 'Failed to pull GSC data' };
   }
 }
 
@@ -533,8 +539,10 @@ async function pullDeliverables(contactId) {
       items: rows
     };
   } catch (e) {
-    console.error('[campaign-summary] deliverables error:', e);
-    return { available: false, error: e.message };
+    monitor.logError('campaign-summary', e, {
+      detail: { stage: 'pull_deliverables', contact_id: contactId }
+    });
+    return { available: false, error: 'Failed to pull deliverables' };
   }
 }
 
@@ -659,8 +667,10 @@ async function pullAttribution(contactId) {
     };
   } catch (e) {
     // Most likely cause: tables not yet created. Hide section gracefully.
-    console.error('[campaign-summary] attribution error:', e.message || e);
-    return { available: false, error: e.message };
+    monitor.logError('campaign-summary', e, {
+      detail: { stage: 'pull_attribution', contact_id: contactId }
+    });
+    return { available: false, error: 'Failed to pull attribution' };
   }
 }
 
@@ -859,7 +869,10 @@ module.exports = async function handler(req, res) {
       duration_ms: Date.now() - t0
     });
   } catch (e) {
-    console.error('[campaign-summary] fatal:', e);
-    res.status(500).json({ error: e.message || 'Internal error', duration_ms: Date.now() - t0 });
+    monitor.logError('campaign-summary', e, {
+      client_slug: (typeof slug !== 'undefined' ? slug : null),
+      detail: { stage: 'summary_handler' }
+    });
+    res.status(500).json({ error: 'Failed to build campaign summary', duration_ms: Date.now() - t0 });
   }
 };

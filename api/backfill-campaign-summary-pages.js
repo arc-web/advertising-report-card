@@ -30,6 +30,7 @@
 
 var nodeCrypto = require('crypto');
 var sb = require('./_lib/supabase');
+var monitor = require('./_lib/monitor');
 var gh = require('./_lib/github');
 
 function constantTimeEqual(a, b) {
@@ -122,7 +123,11 @@ module.exports = async function handler(req, res) {
         await sleep(700);
       } catch (e) {
         failed++;
-        results.push({ slug: c.slug, status: 'failed', error: e.message || String(e) });
+        monitor.logError('backfill-campaign-summary-pages', e, {
+          client_slug: c.slug,
+          detail: { stage: 'backfill_per_client' }
+        });
+        results.push({ slug: c.slug, status: 'failed', error: 'Backfill failed' });
       }
     }
 
@@ -136,9 +141,11 @@ module.exports = async function handler(req, res) {
       results: results
     });
   } catch (e) {
-    console.error('[backfill-campaign-summary-pages]', e);
+    monitor.logError('backfill-campaign-summary-pages', e, {
+      detail: { stage: 'backfill_handler' }
+    });
     res.status(500).json({
-      error: e.message || String(e),
+      error: 'Backfill failed',
       duration_ms: Date.now() - t0
     });
   }

@@ -8,6 +8,7 @@
 // POST { dry_run: true|false }
 
 var sb = require('./_lib/supabase');
+var monitor = require('./_lib/monitor');
 var auth = require('./_lib/auth');
 
 module.exports = async function handler(req, res) {
@@ -96,7 +97,11 @@ module.exports = async function handler(req, res) {
           }
         }
       } catch (clientErr) {
-        errors.push({ slug: c.slug, error: clientErr.message });
+        monitor.logError('seed-batch-audits', clientErr, {
+          client_slug: c.slug,
+          detail: { stage: 'seed_per_client' }
+        });
+        errors.push({ slug: c.slug, error: 'Seed failed' });
       }
     }
 
@@ -119,6 +124,9 @@ module.exports = async function handler(req, res) {
 
   } catch (err) {
     console.error('seed-batch-audits error:', err);
-    return res.status(500).json({ error: err.message });
+    monitor.logError('seed-batch-audits', err, {
+      detail: { stage: 'seed_handler' }
+    });
+    return res.status(500).json({ error: 'Failed to seed batch audits' });
   }
 };

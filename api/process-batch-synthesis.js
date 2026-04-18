@@ -18,6 +18,7 @@
  */
 
 var sb = require('./_lib/supabase');
+var monitor = require('./_lib/monitor');
 var auth = require('./_lib/auth');
 
 module.exports = async function(req, res) {
@@ -199,7 +200,10 @@ module.exports = async function(req, res) {
 
   } catch(err) {
     console.error('process-batch-synthesis error:', err);
-    return res.status(500).json({ error: err.message || 'Internal error' });
+    monitor.logError('process-batch-synthesis', err, {
+      detail: { stage: 'synthesis_handler' }
+    });
+    return res.status(500).json({ error: 'Failed to process batch synthesis' });
   }
 };
 

@@ -4,6 +4,7 @@
 
 var email = require('./_lib/email-template');
 var sb = require('./_lib/supabase');
+var monitor = require('./_lib/monitor');
 var auth = require('./_lib/auth');
 
 module.exports = async function handler(req, res) {
@@ -176,6 +177,10 @@ module.exports = async function handler(req, res) {
     }
 
   } catch (err) {
-    return res.status(500).json({ error: err.message || 'Internal error' });
+    monitor.logError('send-report-email', err, {
+      client_slug: (typeof contact !== 'undefined' && contact ? contact.slug : null),
+      detail: { stage: 'send_handler' }
+    });
+    return res.status(500).json({ error: 'Failed to send report email' });
   }
 };
