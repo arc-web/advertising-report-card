@@ -1,41 +1,93 @@
 // api/_lib/crypto.js
 // Application-level AES-256-GCM encryption for sensitive fields.
-// Used by action.js to automatically encrypt/decrypt workspace_credentials.
 //
-// Requires CREDENTIALS_ENCRYPTION_KEY env var (32-byte hex string).
-// Generate one with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+// Used by:
+//   - api/action.js to auto encrypt/decrypt workspace_credentials
+//   - api/enrich-proposal.js to encrypt the sensitive subtree of
+//     proposals.enrichment_data (emails[] and calls[])
+//   - api/generate-proposal.js to decrypt the sensitive subtree when
+//     building the Claude prompt context
+//   - api/admin/backfill-enrichment-encryption.js for the one-shot
+//     re-shaping of legacy pre-H29 rows
 //
-// Usage:
-//   var crypto = require('./_lib/crypto');
-//   var encrypted = crypto.encrypt('my secret');  // returns "v1:iv:ciphertext:tag"
-//   var plain = crypto.decrypt(encrypted);        // returns "my secret"
+// ─── Key versioning / rotation ──────────────────────────────────────
+//
+// The module supports two key slots to enable key rotation without a
+// downtime window. Each ciphertext is tagged with its version prefix
+// ('v1:' or 'v2:'); decrypt() looks up the matching key based on the
+// prefix. encrypt() uses whichever version is currently active.
+//
+//   Env vars:
+//     CREDENTIALS_ENCRYPTION_KEY            — the v1 key (32-byte hex)
+//     CREDENTIALS_ENCRYPTION_KEY_V2         — optional v2 key (32-byte hex)
+//     CREDENTIALS_ENCRYPTION_ACTIVE_VERSION — 'v1' | 'v2' (default 'v1')
+//
+//   Rotation procedure:
+//     1. Generate a new 32-byte hex key:
+//        node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"
+//     2. Add CREDENTIALS_ENCRYPTION_KEY_V2 to Vercel env (all envs)
+//     3. Redeploy. Decryption now accepts both prefixes.
+//     4. Set CREDENTIALS_ENCRYPTION_ACTIVE_VERSION=v2 in Vercel env. Redeploy.
+//        All new writes encrypt with v2; reads continue to handle v1 legacy.
+//     5. Optionally run the re-encrypt backfill endpoint (future) to flip
+//        all v1 ciphertext to v2 ciphertext.
+//     6. Once no v1 ciphertext remains, delete CREDENTIALS_ENCRYPTION_KEY.
+//
+// Absent the rotation, the default shape (only CREDENTIALS_ENCRYPTION_KEY set,
+// ACTIVE_VERSION unset or 'v1') produces byte-identical output to the
+// pre-H29 implementation — every existing 'v1:' ciphertext continues to
+// decrypt cleanly with zero migration.
+//
+// ─── JSON helpers ───────────────────────────────────────────────────
+//
+// encryptJSON(obj) and decryptJSON(ciphertext) wrap JSON.stringify + encrypt
+// and decrypt + JSON.parse respectively. Used by enrich-proposal.js for the
+// _sensitive envelope in proposals.enrichment_data.
 
 var nodeCrypto = require('crypto');
 
 var ALGO = 'aes-256-gcm';
 var IV_BYTES = 12;
-var PREFIX = 'v1:';
+var PREFIX_V1 = 'v1:';
+var PREFIX_V2 = 'v2:';
 
-// Loud warning at module load if the key is missing. Surfaces config issues
+// Loud warning at module load if the v1 key is missing. Surfaces config issues
 // in Vercel logs even before the first encrypt/decrypt call.
 if (!process.env.CREDENTIALS_ENCRYPTION_KEY) {
   console.error('[crypto] CRITICAL: CREDENTIALS_ENCRYPTION_KEY is not set. encrypt() and decrypt() will throw on any call. Set the env var immediately.');
 }
 
-function getKey() {
-  var hex = process.env.CREDENTIALS_ENCRYPTION_KEY;
+function getActiveVersion() {
+  return process.env.CREDENTIALS_ENCRYPTION_ACTIVE_VERSION === 'v2' ? 'v2' : 'v1';
+}
+
+function getKey(version) {
+  var envVar = version === 'v2' ? 'CREDENTIALS_ENCRYPTION_KEY_V2' : 'CREDENTIALS_ENCRYPTION_KEY';
+  var hex = process.env[envVar];
   if (!hex) return null;
   return Buffer.from(hex, 'hex');
 }
 
-// Encrypt a plaintext string. Returns "v1:iv_hex:ciphertext_hex:tag_hex".
-// Throws if CREDENTIALS_ENCRYPTION_KEY is not configured — refusing to write
-// plaintext is always safer than silent passthrough.
+function prefixForVersion(version) {
+  return version === 'v2' ? PREFIX_V2 : PREFIX_V1;
+}
+
+function versionFromPrefix(ciphertext) {
+  if (ciphertext.indexOf(PREFIX_V1) === 0) return 'v1';
+  if (ciphertext.indexOf(PREFIX_V2) === 0) return 'v2';
+  return null;
+}
+
+// Encrypt a plaintext string. Returns \"<prefix>:iv_hex:ciphertext_hex:tag_hex\".
+// Uses the currently-active key version. Throws if the active version's key
+// is not configured — refusing to write plaintext is always safer than silent
+// passthrough.
 function encrypt(plaintext) {
   if (!plaintext) return plaintext;
-  var key = getKey();
+  var version = getActiveVersion();
+  var key = getKey(version);
   if (!key) {
-    throw new Error('CREDENTIALS_ENCRYPTION_KEY not configured — refusing to write plaintext');
+    throw new Error('Encryption key for active version ' + version + ' not configured — refusing to write plaintext');
   }
 
   var iv = nodeCrypto.randomBytes(IV_BYTES);
@@ -43,25 +95,27 @@ function encrypt(plaintext) {
   var encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
   var tag = cipher.getAuthTag();
 
-  return PREFIX + iv.toString('hex') + ':' + encrypted.toString('hex') + ':' + tag.toString('hex');
+  return prefixForVersion(version) + iv.toString('hex') + ':' + encrypted.toString('hex') + ':' + tag.toString('hex');
 }
 
-// Decrypt a "v1:iv:ciphertext:tag" string. Returns plaintext or original
-// string if not encrypted (passthrough for already-plaintext legacy rows).
-// Throws if the key is missing or decryption fails — error strings must
-// never flow into read-then-write cycles where they would be persisted.
+// Decrypt a '<prefix>:iv:ciphertext:tag' string. Returns plaintext, or the
+// original string if not prefixed (passthrough for legacy plaintext rows).
+// Routes to the correct key based on the prefix, so rotation windows that
+// have both v1 and v2 ciphertext in play work transparently.
 function decrypt(ciphertext) {
   if (!ciphertext || typeof ciphertext !== 'string') return ciphertext;
-  if (!ciphertext.startsWith(PREFIX)) return ciphertext; // Not encrypted, return as-is
+  var version = versionFromPrefix(ciphertext);
+  if (!version) return ciphertext; // Not encrypted, return as-is
 
-  var key = getKey();
+  var key = getKey(version);
   if (!key) {
-    throw new Error('CREDENTIALS_ENCRYPTION_KEY not configured — cannot decrypt');
+    throw new Error('Encryption key for version ' + version + ' not configured — cannot decrypt');
   }
 
-  var parts = ciphertext.substring(PREFIX.length).split(':');
+  var prefix = prefixForVersion(version);
+  var parts = ciphertext.substring(prefix.length).split(':');
   if (parts.length !== 3) {
-    throw new Error('Malformed ciphertext: expected 3 parts after v1: prefix');
+    throw new Error('Malformed ciphertext: expected 3 parts after ' + prefix + ' prefix');
   }
 
   try {
@@ -78,12 +132,40 @@ function decrypt(ciphertext) {
   }
 }
 
+// Encrypt a JS value by JSON.stringify-ing it first. Throws if stringify
+// fails (circular refs, etc). Pairs with decryptJSON.
+function encryptJSON(value) {
+  if (value === null || value === undefined) return value;
+  var str;
+  try { str = JSON.stringify(value); }
+  catch (e) { throw new Error('encryptJSON: stringify failed: ' + e.message); }
+  return encrypt(str);
+}
+
+// Decrypt and JSON.parse the result. Returns the original value unchanged
+// if it's not a prefixed ciphertext (legacy passthrough: if you pass an
+// already-parsed object, you get it back). Throws on malformed ciphertext
+// or bad JSON.
+function decryptJSON(ciphertext) {
+  if (ciphertext === null || ciphertext === undefined) return ciphertext;
+  if (typeof ciphertext !== 'string') return ciphertext;
+  if (!versionFromPrefix(ciphertext)) return ciphertext;
+  var decrypted = decrypt(ciphertext);
+  try { return JSON.parse(decrypted); }
+  catch (e) { throw new Error('decryptJSON: JSON.parse failed: ' + e.message); }
+}
+
+// Detect whether a value is encrypted (prefixed ciphertext).
+function isEncrypted(value) {
+  return typeof value === 'string' && versionFromPrefix(value) !== null;
+}
+
 // Encrypt specific fields in an object. Returns a new object with encrypted values.
 function encryptFields(obj, fields) {
   if (!obj) return obj;
   var result = Object.assign({}, obj);
   for (var i = 0; i < fields.length; i++) {
-    if (result[fields[i]] && typeof result[fields[i]] === 'string' && !result[fields[i]].startsWith(PREFIX)) {
+    if (result[fields[i]] && typeof result[fields[i]] === 'string' && !isEncrypted(result[fields[i]])) {
       result[fields[i]] = encrypt(result[fields[i]]);
     }
   }
@@ -111,19 +193,25 @@ function decryptFields(data, fields) {
   return result;
 }
 
-// Check if encryption is configured
+// Check if encryption is configured for the currently-active version.
 function isConfigured() {
-  return !!process.env.CREDENTIALS_ENCRYPTION_KEY;
+  return !!getKey(getActiveVersion());
 }
 
-// The fields that should be encrypted
+// The fields that should be encrypted for workspace_credentials.
 var SENSITIVE_FIELDS = ['gmail_password', 'app_password', 'authenticator_secret_key', 'qr_code_image'];
 
 module.exports = {
   encrypt: encrypt,
   decrypt: decrypt,
+  encryptJSON: encryptJSON,
+  decryptJSON: decryptJSON,
   encryptFields: encryptFields,
   decryptFields: decryptFields,
+  isEncrypted: isEncrypted,
   isConfigured: isConfigured,
-  SENSITIVE_FIELDS: SENSITIVE_FIELDS
+  SENSITIVE_FIELDS: SENSITIVE_FIELDS,
+  // Exposed for testing / rotation verification only; production callers
+  // should use encrypt/decrypt (version routing is automatic).
+  _getActiveVersion: getActiveVersion
 };
