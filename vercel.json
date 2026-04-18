@@ -147,6 +147,10 @@
       "maxDuration": 300,
       "memory": 1024
     },
+    "api/backfill-progress-pages.js": {
+      "maxDuration": 300,
+      "memory": 1024
+    },
     "api/admin/attribution-sync.js": {
       "maxDuration": 120,
       "memory": 1024

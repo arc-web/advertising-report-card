@@ -22,7 +22,7 @@
 
 var nodeCrypto = require('crypto');
 
-var SCOPES = ['onboarding', 'proposal', 'content_preview', 'endorsement', 'report', 'campaign_summary'];
+var SCOPES = ['onboarding', 'proposal', 'content_preview', 'endorsement', 'report', 'campaign_summary', 'progress'];
 
 // Default token lifetime per scope (in seconds). Callers can override via
 // ttl_seconds in sign(). These are deliberately generous: pages are meant to
@@ -33,7 +33,12 @@ var DEFAULT_TTL = {
   content_preview:  30 * 86400,
   endorsement:     180 * 86400,
   report:           30 * 86400,
-  campaign_summary: 365 * 86400
+  campaign_summary: 365 * 86400,
+  // progress: checklist tracker used across the full active engagement +
+  // any long-tail lead/prospect funnel. 365 days covers the longest live
+  // campaign; expired tokens produce a 401 on write but the page still
+  // renders (reads go through anon_read_visible which is web_visible-scoped).
+  progress:         365 * 86400
 };
 
 // Loud warning at module load if the secret is missing. Surfaces config

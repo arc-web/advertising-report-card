@@ -17,6 +17,7 @@ var sb = require('./_lib/supabase');
 var monitor = require('./_lib/monitor');
 var auth = require('./_lib/auth');
 var gh = require('./_lib/github');
+var pageToken = require('./_lib/page-token');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -82,11 +83,33 @@ module.exports = async function handler(req, res) {
           { template: 'progress.html', dest: slug + '/audits/progress/index.html' }
         ];
 
+        // Sign a scope='progress' page token bound to this contact. The
+        // progress page reads it as window.__PAGE_TOKEN__ and sends it on
+        // every call to /api/progress-update, which verifies + binds the
+        // checklist item to the contact. 365-day TTL (see page-token DEFAULT_TTL).
+        // Security audit H4.
+        var signedProgressToken = '';
+        try {
+          signedProgressToken = pageToken.sign({ scope: 'progress', contact_id: contact.id });
+        } catch (e) {
+          // Config error — log and continue; progress page will render but
+          // writes will 401 until the token is repaired via backfill.
+          monitor.logError('setup-audit-schedule', e, {
+            client_slug: slug,
+            detail: { stage: 'sign_progress_token' }
+          });
+        }
+
         var suiteDeployed = 0;
         for (var t = 0; t < suiteTemplates.length; t++) {
           try {
             var tmplContent = await gh.readTemplate(suiteTemplates[t].template);
             if (tmplContent) {
+              // Only progress.html carries {{PAGE_TOKEN}} today. Keep the
+              // replacement tight so the other two templates ship unchanged.
+              if (suiteTemplates[t].template === 'progress.html') {
+                tmplContent = tmplContent.split('{{PAGE_TOKEN}}').join(signedProgressToken);
+              }
               await gh.pushFile(suiteTemplates[t].dest, tmplContent, 'Deploy audit ' + suiteTemplates[t].template.replace('.html', '') + ' for ' + slug);
               suiteDeployed++;
             }

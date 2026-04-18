@@ -14,6 +14,7 @@ var gh = require('./_lib/github');
 var fetchT = require('./_lib/fetch-with-timeout');
 var sanitizer = require('./_lib/html-sanitizer');
 var jsonParser = require('./_lib/json-parser');
+var pageToken = require('./_lib/page-token');
 
 // Apply any {{KEY}} replacements to a template HTML string. Kept as a
 // helper even though no templates here use placeholders today — keeps
@@ -479,6 +480,19 @@ ${surgeData}`;
           { template: 'progress.html', dest: slug + '/audits/progress/index.html' }
         ];
 
+        // Sign a scope='progress' page token bound to this contact.
+        // progress.html bakes it as window.__PAGE_TOKEN__ and sends it on
+        // every call to /api/progress-update. Security audit H4.
+        var signedProgressToken = '';
+        try {
+          signedProgressToken = pageToken.sign({ scope: 'progress', contact_id: contact.id });
+        } catch (e) {
+          monitor.logError('process-entity-audit', e, {
+            client_slug: slug,
+            detail: { stage: 'sign_progress_token' }
+          });
+        }
+
         var suiteResults = [];
         for (var i = 0; i < suiteTemplates.length; i++) {
           var st = suiteTemplates[i];
@@ -486,7 +500,11 @@ ${surgeData}`;
           if (i > 0) await new Promise(function(r) { setTimeout(r, 600); });
 
           try {
-            var stHtml = prepTemplate(await gh.readTemplate(st.template));
+            var stReplacements = null;
+            if (st.template === 'progress.html') {
+              stReplacements = { '{{PAGE_TOKEN}}': signedProgressToken };
+            }
+            var stHtml = prepTemplate(await gh.readTemplate(st.template), stReplacements);
             await gh.pushFile(st.dest, stHtml, 'Deploy audit ' + st.template.replace('.html', '') + ' for ' + slug);
             suiteResults.push({ template: st.template, deployed: true });
           } catch (ghErr) {
