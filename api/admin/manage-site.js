@@ -10,6 +10,7 @@
 //   Just records the hosting config for reference. No CF provisioning.
 
 var sb = require('../_lib/supabase');
+var monitor = require('../_lib/monitor');
 var { requireAdmin } = require('../_lib/auth');
 
 var CF_ACCOUNT_ID = process.env.CF_ACCOUNT_ID;
@@ -51,8 +52,10 @@ module.exports = async function handler(req, res) {
 
     return res.status(400).json({ error: 'Unknown action: ' + action });
   } catch (err) {
-    console.error('[manage-site] Error:', err);
-    return res.status(500).json({ error: err.message });
+    monitor.logError('admin/manage-site', err, {
+      detail: { stage: 'manage_handler', action: (req.body && req.body.action) || null }
+    });
+    return res.status(500).json({ error: 'Site management operation failed' });
   }
 };
 
@@ -269,7 +272,10 @@ async function handleStatus(req, res) {
         ssl_status: resp.result.ssl ? resp.result.ssl.status : 'unknown'
       };
     } catch (err) {
-      cfStatus = { error: err.message };
+      monitor.logError('admin/manage-site', err, {
+        detail: { stage: 'cf_status_fetch' }
+      });
+      cfStatus = { error: 'Failed to fetch Cloudflare status' };
     }
   }
 

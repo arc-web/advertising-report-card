@@ -7,6 +7,7 @@
 var sb = require('./_lib/supabase');
 var gh = require('./_lib/github');
 var auth = require('./_lib/auth');
+var monitor = require('./_lib/monitor');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -74,7 +75,11 @@ module.exports = async function handler(req, res) {
         await sb.mutate(t.table + '?' + t.filter, 'DELETE', null, 'return=minimal');
         results.supabase.push({ table: t.table, ok: true });
       } catch (e) {
-        results.supabase.push({ table: t.table, ok: false, error: e.message });
+        monitor.logError('delete-client', e, {
+          client_slug: slug,
+          detail: { stage: 'delete_table_rows', table: t.table }
+        });
+        results.supabase.push({ table: t.table, ok: false, error: 'Delete failed' });
       }
     }
 
@@ -83,7 +88,11 @@ module.exports = async function handler(req, res) {
       await sb.mutate('contacts?id=eq.' + contactId, 'DELETE', null, 'return=minimal');
       results.supabase.push({ table: 'contacts', ok: true });
     } catch (e) {
-      results.supabase.push({ table: 'contacts', ok: false, error: e.message });
+      monitor.logError('delete-client', e, {
+        client_slug: slug,
+        detail: { stage: 'delete_contact_row' }
+      });
+      results.supabase.push({ table: 'contacts', ok: false, error: 'Delete failed' });
     }
 
     // ============================================================
@@ -114,7 +123,11 @@ module.exports = async function handler(req, res) {
           await gh.deleteFile(filePath, null, 'Delete ' + filePath + ' (client removed)');
           results.github.push({ path: filePath, ok: true });
         } catch (e) {
-          results.github.push({ path: filePath, ok: false, error: e.message });
+          monitor.logError('delete-client', e, {
+            client_slug: slug,
+            detail: { stage: 'delete_github_file', path: filePath }
+          });
+          results.github.push({ path: filePath, ok: false, error: 'Delete failed' });
         }
       }
 
@@ -133,6 +146,10 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (err) {
-    return res.status(500).json({ error: err.message, results: results });
+    monitor.logError('delete-client', err, {
+      client_slug: slug,
+      detail: { stage: 'delete_handler' }
+    });
+    return res.status(500).json({ error: 'Failed to delete client', results: results });
   }
 };

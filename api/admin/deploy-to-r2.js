@@ -3,6 +3,7 @@
 // Used by Pagemaster to push generated HTML to moonraker-hosted client sites.
 
 var sb = require('../_lib/supabase');
+var monitor = require('../_lib/monitor');
 var { requireAdmin } = require('../_lib/auth');
 var crypto = require('crypto');
 
@@ -98,7 +99,10 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error('[deploy-to-r2] Error:', err);
-    return res.status(500).json({ error: err.message });
+    monitor.logError('admin/deploy-to-r2', err, {
+      client_slug: (site && site.slug) || null,
+      detail: { stage: 'deploy_handler' }
+    });
+    return res.status(500).json({ error: 'Failed to deploy to R2' });
   }
 };
