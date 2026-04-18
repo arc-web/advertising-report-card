@@ -7358,8 +7358,11 @@
     // Enrichment pills (if enriched)
     var ed = proposal.enrichment_data || {};
     var es = proposal.enrichment_sources || {};
-    var emailCt = ed.emails ? ed.emails.length : 0;
-    var callCt = ed.calls ? ed.calls.length : 0;
+    // H29: post-encryption rows expose cleartext email_count/call_count;
+    // legacy (pre-backfill) rows have cleartext emails[]/calls[] arrays.
+    // Prefer the count fields, fall through to the array lengths.
+    var emailCt = (typeof ed.email_count === 'number') ? ed.email_count : (ed.emails ? ed.emails.length : 0);
+    var callCt  = (typeof ed.call_count  === 'number') ? ed.call_count  : (ed.calls  ? ed.calls.length  : 0);
     if (emailCt || callCt || es.entity_audit || es.website) {
       h += '<div class="prop-enrichment-pills">';
       if (emailCt) h += '<span class="epill" style="color:var(--color-info);border-color:rgba(59,130,246,.2);">&#128231; ' + emailCt + ' email' + (emailCt !== 1 ? 's' : '') + '</span>';
