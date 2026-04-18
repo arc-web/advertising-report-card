@@ -28,6 +28,7 @@ var sb = require('./_lib/supabase');
 var monitor = require('./_lib/monitor');
 var google = require('./_lib/google-delegated');
 var contract = require('./_lib/contract');
+var gbp = require('./_lib/gbp');
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -404,6 +405,22 @@ async function pullLocalFalcon(reportConfig) {
   // The "place_id not found in saved locations" warning means historical
   // data isn't available yet — hide section until it is.
   return { available: false, error: 'No historical LocalFalcon data available yet' };
+}
+
+// ── Google Business Profile Performance ─────────────────────────────
+//
+// Pulls total engagement metrics for the full display window. Requires
+// report_configs.gbp_location_id, set per-client via admin tooling.
+// Delegates to _lib/gbp.js which is shared with compile-report.js.
+
+async function pullGbp(reportConfig, windowStart, windowEnd) {
+  if (!reportConfig || !reportConfig.gbp_location_id) {
+    return { available: false, error: 'No gbp_location_id configured' };
+  }
+  var result = await gbp.fetchPerformance(
+    reportConfig.gbp_location_id, windowStart, windowEnd
+  );
+  return result;
 }
 
 // ── Cost / unit economics ──────────────────────────────────────────
@@ -783,12 +800,13 @@ module.exports = async function handler(req, res) {
     var billedMonths = Math.min(elapsedMonths, displayMonths);
 
     // 4. Pull all sources in parallel
-    var [bookings, gsc, localfalcon, deliverables, attribution] = await Promise.all([
+    var [bookings, gsc, localfalcon, deliverables, attribution, gbpPerf] = await Promise.all([
       pullBookings(client, monthBuckets),
       pullGsc(reportConfig && reportConfig.gsc_property, monthBuckets, displayStartISO, displayEndISO),
       pullLocalFalcon(reportConfig),
       pullDeliverables(client.id),
-      pullAttribution(client.id)
+      pullAttribution(client.id),
+      pullGbp(reportConfig, displayStartISO, displayEndISO)
     ]);
 
     // Cost + derived unit economics (synchronous)
@@ -847,6 +865,7 @@ module.exports = async function handler(req, res) {
       bookings: bookings,
       gsc: gsc,
       localfalcon: localfalcon,
+      gbp: gbpPerf,
       cost: cost,
       conversion: conversion,
       cost_per_consultation: costPerConsultation,
