@@ -424,8 +424,12 @@
       html += '<td class="actions-cell">';
       var ed = p.enrichment_data || {};
       var es = p.enrichment_sources || {};
-      if (ed.emails && ed.emails.length) html += '<span class="plan-pill" style="color:var(--color-info);border-color:rgba(59,130,246,.2);">&#128231; ' + ed.emails.length + '</span>';
-      if (ed.calls && ed.calls.length) html += '<span class="plan-pill" style="color:#A855F7;border-color:rgba(168,85,247,.2);">&#127908; ' + ed.calls.length + '</span>';
+      // H29: prefer cleartext email_count/call_count (post-encryption shape);
+      // fall back to ed.emails/ed.calls array lengths for legacy pre-backfill rows.
+      var edEmailCt = (typeof ed.email_count === 'number') ? ed.email_count : ((ed.emails && ed.emails.length) || 0);
+      var edCallCt  = (typeof ed.call_count  === 'number') ? ed.call_count  : ((ed.calls  && ed.calls.length)  || 0);
+      if (edEmailCt) html += '<span class="plan-pill" style="color:var(--color-info);border-color:rgba(59,130,246,.2);">&#128231; ' + edEmailCt + '</span>';
+      if (edCallCt)  html += '<span class="plan-pill" style="color:#A855F7;border-color:rgba(168,85,247,.2);">&#127908; ' + edCallCt + '</span>';
       if (es.entity_audit) html += '<span class="plan-pill" style="color:var(--color-warning);border-color:rgba(245,158,11,.2);">&#128202;</span>';
       if (es.website) html += '<span class="plan-pill" style="color:var(--color-success);border-color:rgba(0,212,126,.2);">&#127760;</span>';
 
