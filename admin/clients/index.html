@@ -187,6 +187,13 @@
 .collapsible-header.collapsed .collapse-icon { transform: rotate(-90deg); }
 .collapsible-body.collapsed { display: none; }
 
+/* ---- ATTRIBUTION TAB ---- */
+.attr-icon-btn { background: none; border: none; padding: .25rem .45rem; font-size: .9rem; color: var(--color-muted); cursor: pointer; border-radius: 4px; font-family: inherit; line-height: 1; transition: background .15s, color .15s; }
+.attr-icon-btn:hover { background: var(--color-bg); color: var(--color-heading); }
+.attr-icon-btn.attr-icon-danger:hover { background: rgba(239,68,68,.08); color: var(--color-danger); }
+.attr-btn-secondary { padding: .35rem .7rem; font-size: .72rem; font-weight: 600; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-body); border-radius: 6px; cursor: pointer; font-family: inherit; transition: border-color .15s, color .15s; }
+.attr-btn-secondary:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
 /* ---- PROGRESS BAR (MINI) ---- */
 .progress-mini { display: flex; align-items: center; gap: .5rem; }
 .progress-mini .bar { flex: 1; height: 5px; background: var(--color-border); border-radius: 3px; overflow: hidden; min-width: 50px; }
@@ -936,6 +943,7 @@
         <button class="tab-btn" data-tab="audit">Audit</button>
         <button class="tab-btn" data-tab="content">Content</button>
         <button class="tab-btn" data-tab="reports">Reports</button>
+        <button class="tab-btn" data-tab="attribution">Attribution</button>
         <button class="tab-btn" data-tab="billing">Billing</button>
         <button class="history-toggle tab-hidden" id="historyToggle" onclick="toggleHistoryTabs()"><span class="ht-icon">&#9654;</span>History</button>
       </div>
@@ -1234,6 +1242,24 @@
           </div>
           <div id="rptList"></div>
           <div class="empty-state" id="rptEmpty" style="display:none;"><p>No reports compiled yet. Complete platform setup deliverables and compile your first report.</p></div>
+        </div>
+      </div>
+
+      <!-- TAB: Attribution -->
+      <div class="tab-panel" id="tab-attribution">
+        <div class="card">
+          <div class="card-header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">
+            <div>
+              <h3>Attribution periods</h3>
+              <p style="font-size:.78rem;color:var(--color-muted);margin:.25rem 0 0;max-width:60ch;line-height:1.5;">Client-reported appointment counts and revenue by source. Used for year-over-year comparisons on the campaign-summary page and for the performance-guarantee calculation.</p>
+            </div>
+            <button class="btn-sm" id="attrAddPeriodBtn" onclick="openCreatePeriodModal()" style="padding:.35rem .85rem;font-size:.75rem;font-weight:600;border:none;background:var(--color-primary);color:#fff;border-radius:6px;cursor:pointer;font-family:inherit;white-space:nowrap;">+ Add period</button>
+          </div>
+          <div id="attrPeriodsList" style="padding:0 1rem 1rem;"></div>
+          <div class="empty-state" id="attrEmpty" style="display:none;padding:2rem 1rem;text-align:center;color:var(--color-muted);">
+            <p style="margin:0;">No attribution data recorded yet.</p>
+            <p style="margin:.35rem 0 0;font-size:.78rem;">Click <strong>+ Add period</strong> to record the first baseline or campaign period.</p>
+          </div>
         </div>
       </div>
 
@@ -1850,6 +1876,13 @@
             state.snapshots = data.snapshots || [];
             state.trackedKeywords = data.keywords || [];
             break;
+
+          case 'attribution':
+            state.attribution = {
+              periods: data.periods || [],
+              sources: data.sources || []
+            };
+            break;
         }
 
         state.tabLoaded[tabName] = true;
@@ -1890,6 +1923,7 @@
       case 'content': renderContent(); try { renderBioMaterials(); } catch(e) { console.error('[renderBioMaterials]', e); } break;
       case 'audit': renderAudit(); break;
       case 'reports': renderReports(); break;
+      case 'attribution': renderAttribution(); break;
       case 'billing': renderBilling(state.contact); break;
     }
     // Update tab count from live data after load
@@ -7177,6 +7211,469 @@
     });
   };
 
+  // ---- ATTRIBUTION TAB ----
+  //
+  // Data shape in state.attribution:
+  //   { periods: [ {id, period_label, period_start, period_end, is_baseline,
+  //                 reported_by, reported_at, notes, data_source, ...} ],
+  //     sources: [ {id, period_id, source_name, source_category,
+  //                 appointment_count, revenue_cents, notes} ] }
+  //
+  // We group sources under their period at render time and compute totals
+  // inline. All writes funnel through /api/admin/attribution.
+
+  var ATTR_CATEGORIES = [
+    { value: 'organic_search', label: 'Organic search' },
+    { value: 'ai_search',      label: 'AI search' },
+    { value: 'paid_search',    label: 'Paid search' },
+    { value: 'social',         label: 'Social media' },
+    { value: 'referral',       label: 'Referral' },
+    { value: 'directory',      label: 'Directory' },
+    { value: 'direct',         label: 'Direct / typed' },
+    { value: 'other',          label: 'Other' }
+  ];
+
+  function attrCategoryLabel(v) {
+    for (var i = 0; i < ATTR_CATEGORIES.length; i++) {
+      if (ATTR_CATEGORIES[i].value === v) return ATTR_CATEGORIES[i].label;
+    }
+    return v || 'Other';
+  }
+
+  function attrCategoryOptions(selected) {
+    return ATTR_CATEGORIES.map(function(c) {
+      var sel = c.value === selected ? ' selected' : '';
+      return '<option value="' + c.value + '"' + sel + '>' + esc(c.label) + '</option>';
+    }).join('');
+  }
+
+  function attrFmtDollars(cents) {
+    var d = Number(cents || 0) / 100;
+    return '$' + d.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  }
+
+  function attrFmtDateRange(start, end) {
+    function fmt(s) {
+      if (!s) return '';
+      var parts = String(s).slice(0, 10).split('-');
+      var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      if (parts.length !== 3) return s;
+      return months[parseInt(parts[1],10)-1] + ' ' + parseInt(parts[2],10) + ', ' + parts[0];
+    }
+    return fmt(start) + ' \u2192 ' + fmt(end);
+  }
+
+  function renderAttribution() {
+    var list   = document.getElementById('attrPeriodsList');
+    var empty  = document.getElementById('attrEmpty');
+    var attr   = state.attribution || { periods: [], sources: [] };
+    var periods = attr.periods;
+    var sources = attr.sources;
+
+    if (!periods.length) {
+      list.innerHTML = '';
+      empty.style.display = '';
+      return;
+    }
+    empty.style.display = 'none';
+
+    // Group sources under their parent period
+    var byPeriod = {};
+    sources.forEach(function(s) {
+      if (!byPeriod[s.period_id]) byPeriod[s.period_id] = [];
+      byPeriod[s.period_id].push(s);
+    });
+
+    var html = periods.map(function(p) {
+      var periodSources = byPeriod[p.id] || [];
+      var totalAppts   = periodSources.reduce(function(a,s){ return a + Number(s.appointment_count || 0); }, 0);
+      var totalRevenue = periodSources.reduce(function(a,s){ return a + Number(s.revenue_cents || 0); }, 0);
+
+      var baselineBadge = p.is_baseline
+        ? '<span style="display:inline-block;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.15rem .5rem;border-radius:4px;background:var(--color-primary-subtle);color:var(--color-primary);margin-left:.5rem;">Baseline</span>'
+        : '';
+
+      var reportedLine = '';
+      if (p.reported_by || p.reported_at) {
+        reportedLine = '<div style="font-size:.72rem;color:var(--color-muted);margin-top:.15rem;">'
+          + (p.reported_by ? 'Reported by ' + esc(p.reported_by) : '')
+          + (p.reported_by && p.reported_at ? ' \u00B7 ' : '')
+          + (p.reported_at ? formatDateTime(p.reported_at) : '')
+          + '</div>';
+      }
+
+      var notesLine = p.notes
+        ? '<div style="font-size:.78rem;color:var(--color-muted);margin-top:.35rem;padding:.5rem .75rem;background:var(--color-bg);border-radius:6px;white-space:pre-wrap;">' + esc(p.notes) + '</div>'
+        : '';
+
+      var sourceRows = periodSources.map(function(s) {
+        return '<tr data-source-id="' + esc(s.id) + '">'
+          + '<td style="padding:.5rem .75rem;font-weight:600;">' + esc(s.source_name) + '</td>'
+          + '<td style="padding:.5rem .75rem;"><span style="font-size:.7rem;padding:.1rem .45rem;border-radius:4px;background:var(--color-bg);color:var(--color-muted);">' + esc(attrCategoryLabel(s.source_category)) + '</span></td>'
+          + '<td style="padding:.5rem .75rem;text-align:right;">' + Number(s.appointment_count || 0).toLocaleString() + '</td>'
+          + '<td style="padding:.5rem .75rem;text-align:right;font-variant-numeric:tabular-nums;">' + attrFmtDollars(s.revenue_cents) + '</td>'
+          + '<td style="padding:.5rem .75rem;text-align:right;white-space:nowrap;">'
+          +   '<button class="attr-icon-btn" title="Edit" onclick="openEditSourceModal(\'' + esc(s.id) + '\')">&#9998;</button>'
+          +   '<button class="attr-icon-btn attr-icon-danger" title="Delete" onclick="deleteAttributionSource(\'' + esc(s.id) + '\')">&#215;</button>'
+          + '</td>'
+          + '</tr>';
+      }).join('');
+
+      var sourcesTable = periodSources.length > 0
+        ? '<table style="width:100%;border-collapse:collapse;margin-top:.5rem;font-size:.82rem;">'
+        +   '<thead><tr style="color:var(--color-muted);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">'
+        +     '<th style="padding:.4rem .75rem;text-align:left;">Source</th>'
+        +     '<th style="padding:.4rem .75rem;text-align:left;">Category</th>'
+        +     '<th style="padding:.4rem .75rem;text-align:right;">Appts</th>'
+        +     '<th style="padding:.4rem .75rem;text-align:right;">Revenue</th>'
+        +     '<th style="padding:.4rem .75rem;"></th>'
+        +   '</tr></thead>'
+        +   '<tbody>' + sourceRows + '</tbody>'
+        + '</table>'
+        : '<div style="padding:.75rem;color:var(--color-muted);font-size:.82rem;text-align:center;background:var(--color-bg);border-radius:6px;margin-top:.5rem;">No sources recorded for this period yet.</div>';
+
+      return '<div class="attr-period-card" data-period-id="' + esc(p.id) + '" style="border:1px solid var(--color-border);border-radius:10px;padding:1rem 1.1rem;margin-top:1rem;background:var(--color-surface);">'
+        + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;">'
+        +   '<div style="flex:1;min-width:0;">'
+        +     '<div style="font-size:1rem;font-weight:600;color:var(--color-heading);">' + esc(p.period_label) + baselineBadge + '</div>'
+        +     '<div style="font-size:.8rem;color:var(--color-muted);margin-top:.15rem;">' + attrFmtDateRange(p.period_start, p.period_end) + '</div>'
+        +     reportedLine
+        +   '</div>'
+        +   '<div style="text-align:right;white-space:nowrap;">'
+        +     '<div style="font-size:1.1rem;font-weight:700;color:var(--color-heading);">' + attrFmtDollars(totalRevenue) + '</div>'
+        +     '<div style="font-size:.72rem;color:var(--color-muted);">' + totalAppts.toLocaleString() + ' appts</div>'
+        +   '</div>'
+        +   '<div style="display:flex;gap:.25rem;">'
+        +     '<button class="attr-icon-btn" title="Edit period" onclick="openEditPeriodModal(\'' + esc(p.id) + '\')">&#9998;</button>'
+        +     '<button class="attr-icon-btn attr-icon-danger" title="Delete period" onclick="deleteAttributionPeriod(\'' + esc(p.id) + '\')">&#215;</button>'
+        +   '</div>'
+        + '</div>'
+        + notesLine
+        + sourcesTable
+        + '<div style="margin-top:.75rem;display:flex;gap:.5rem;">'
+        +   '<button class="btn-sm attr-btn-secondary" onclick="openCreateSourceModal(\'' + esc(p.id) + '\')">+ Add source</button>'
+        +   '<button class="btn-sm attr-btn-secondary" onclick="openPasteParseModal(\'' + esc(p.id) + '\')">Paste from email</button>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+
+    list.innerHTML = html;
+  }
+
+  // ── Period modal (create / edit) ──────────────────────────────────
+  function openCreatePeriodModal() { _openPeriodModal(null); }
+  window.openCreatePeriodModal = openCreatePeriodModal;
+
+  function openEditPeriodModal(periodId) {
+    var p = (state.attribution.periods || []).find(function(x) { return x.id === periodId; });
+    if (!p) return;
+    _openPeriodModal(p);
+  }
+  window.openEditPeriodModal = openEditPeriodModal;
+
+  function _openPeriodModal(existing) {
+    var isEdit = !!existing;
+    var today = new Date().toISOString().slice(0,10);
+    var defaults = existing || {
+      period_label: '', period_start: '', period_end: '',
+      is_baseline: false, reported_by: '', reported_at: today, notes: ''
+    };
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = '<div class="modal-box" style="width:560px;max-width:95vw;">'
+      + '<h2 class="modal-title">' + (isEdit ? 'Edit period' : 'Add attribution period') + '</h2>'
+      + '<div class="modal-form-group"><label>Period label *</label>'
+      +   '<input type="text" id="ap_label" placeholder="e.g., Pre-campaign baseline" value="' + esc(defaults.period_label || '') + '"></div>'
+      + '<div class="modal-form-row">'
+      +   '<div class="modal-form-group"><label>Start date *</label><input type="date" id="ap_start" value="' + esc((defaults.period_start || '').slice(0,10)) + '"></div>'
+      +   '<div class="modal-form-group"><label>End date *</label><input type="date" id="ap_end" value="' + esc((defaults.period_end || '').slice(0,10)) + '"></div>'
+      + '</div>'
+      + '<div class="modal-form-group"><label style="display:flex;align-items:center;gap:.5rem;font-weight:normal;">'
+      +   '<input type="checkbox" id="ap_baseline"' + (defaults.is_baseline ? ' checked' : '') + ' style="width:auto;margin:0;">'
+      +   '<span>This is a baseline period (used as the YoY comparison anchor)</span>'
+      + '</label></div>'
+      + '<div class="modal-form-row">'
+      +   '<div class="modal-form-group"><label>Reported by</label><input type="text" id="ap_by" placeholder="Name of client contact" value="' + esc(defaults.reported_by || '') + '"></div>'
+      +   '<div class="modal-form-group"><label>Reported on</label><input type="date" id="ap_on" value="' + esc((defaults.reported_at || today).slice(0,10)) + '"></div>'
+      + '</div>'
+      + '<div class="modal-form-group"><label>Notes</label>'
+      +   '<textarea id="ap_notes" rows="3" placeholder="Optional context">' + esc(defaults.notes || '') + '</textarea></div>'
+      + '<div class="modal-actions" style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1rem;">'
+      +   '<button class="btn btn-ghost" onclick="closeAttrModal()">Cancel</button>'
+      +   '<button class="btn btn-primary" id="ap_save_btn">' + (isEdit ? 'Save changes' : 'Create period') + '</button>'
+      + '</div>'
+      + '</div>';
+    document.body.appendChild(overlay);
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+    document.getElementById('ap_save_btn').onclick = function() {
+      _savePeriod(existing ? existing.id : null);
+    };
+  }
+
+  function _savePeriod(periodId) {
+    var label = document.getElementById('ap_label').value.trim();
+    var start = document.getElementById('ap_start').value;
+    var end   = document.getElementById('ap_end').value;
+    if (!label || !start || !end) { toast('Label, start, and end are required', 'error'); return; }
+    if (end < start) { toast('End date must be on or after start date', 'error'); return; }
+
+    var payload = {
+      period_label: label,
+      period_start: start,
+      period_end:   end,
+      is_baseline:  document.getElementById('ap_baseline').checked,
+      reported_by:  document.getElementById('ap_by').value.trim() || null,
+      reported_at:  document.getElementById('ap_on').value || null,
+      notes:        document.getElementById('ap_notes').value.trim() || null
+    };
+
+    var btn = document.getElementById('ap_save_btn');
+    btn.disabled = true; btn.textContent = 'Saving...';
+
+    var body;
+    if (periodId) {
+      body = { action: 'update_period', period_id: periodId, fields: payload };
+    } else {
+      body = Object.assign({ action: 'create_period', contact_id: state.contact.id }, payload);
+    }
+    attrApiCall(body).then(function() {
+      closeAttrModal();
+      reloadAttribution();
+      toast(periodId ? 'Period updated' : 'Period created', 'success');
+    }).catch(function(err) {
+      btn.disabled = false; btn.textContent = periodId ? 'Save changes' : 'Create period';
+      toast('Error: ' + err.message, 'error');
+    });
+  }
+
+  function deleteAttributionPeriod(periodId) {
+    var p = (state.attribution.periods || []).find(function(x) { return x.id === periodId; });
+    if (!p) return;
+    if (!confirm('Delete period "' + p.period_label + '" and all its sources?')) return;
+    attrApiCall({ action: 'delete_period', period_id: periodId }).then(function() {
+      reloadAttribution();
+      toast('Period deleted', 'success');
+    }).catch(function(err) { toast('Error: ' + err.message, 'error'); });
+  }
+  window.deleteAttributionPeriod = deleteAttributionPeriod;
+
+  // ── Source modal (create / edit) ──────────────────────────────────
+  function openCreateSourceModal(periodId) { _openSourceModal(periodId, null); }
+  window.openCreateSourceModal = openCreateSourceModal;
+
+  function openEditSourceModal(sourceId) {
+    var s = (state.attribution.sources || []).find(function(x) { return x.id === sourceId; });
+    if (!s) return;
+    _openSourceModal(s.period_id, s);
+  }
+  window.openEditSourceModal = openEditSourceModal;
+
+  function _openSourceModal(periodId, existing) {
+    var isEdit = !!existing;
+    var defaults = existing || {
+      source_name: '', source_category: 'organic_search',
+      appointment_count: 0, revenue_cents: 0, notes: ''
+    };
+    var defaultDollars = existing ? (Number(existing.revenue_cents || 0) / 100) : 0;
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = '<div class="modal-box" style="width:480px;max-width:95vw;">'
+      + '<h2 class="modal-title">' + (isEdit ? 'Edit source' : 'Add source') + '</h2>'
+      + '<div class="modal-form-row">'
+      +   '<div class="modal-form-group"><label>Source name *</label><input type="text" id="as_name" placeholder="Google, ChatGPT, Psychology Today..." value="' + esc(defaults.source_name) + '"></div>'
+      +   '<div class="modal-form-group"><label>Category</label><select id="as_cat">' + attrCategoryOptions(defaults.source_category) + '</select></div>'
+      + '</div>'
+      + '<div class="modal-form-row">'
+      +   '<div class="modal-form-group"><label>Appointments</label><input type="number" id="as_appts" min="0" step="1" value="' + Number(defaults.appointment_count || 0) + '"></div>'
+      +   '<div class="modal-form-group"><label>Revenue ($)</label><input type="number" id="as_rev" min="0" step="1" value="' + defaultDollars + '"></div>'
+      + '</div>'
+      + '<div class="modal-form-group"><label>Notes</label><textarea id="as_notes" rows="2" placeholder="Optional">' + esc(defaults.notes || '') + '</textarea></div>'
+      + '<div class="modal-actions" style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1rem;">'
+      +   '<button class="btn btn-ghost" onclick="closeAttrModal()">Cancel</button>'
+      +   '<button class="btn btn-primary" id="as_save_btn">' + (isEdit ? 'Save' : 'Add source') + '</button>'
+      + '</div>'
+      + '</div>';
+    document.body.appendChild(overlay);
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+    document.getElementById('as_save_btn').onclick = function() {
+      _saveSource(existing ? existing.id : null, periodId);
+    };
+  }
+
+  function _saveSource(sourceId, periodId) {
+    var name = document.getElementById('as_name').value.trim();
+    if (!name) { toast('Source name required', 'error'); return; }
+    var cat = document.getElementById('as_cat').value;
+    var appts = Number(document.getElementById('as_appts').value || 0);
+    var dollars = Number(document.getElementById('as_rev').value || 0);
+    var notes = document.getElementById('as_notes').value.trim() || null;
+
+    var btn = document.getElementById('as_save_btn');
+    btn.disabled = true; btn.textContent = 'Saving...';
+
+    var body;
+    if (sourceId) {
+      body = { action: 'update_source', source_id: sourceId, fields: {
+        source_name: name, source_category: cat,
+        appointment_count: appts, revenue_dollars: dollars, notes: notes
+      } };
+    } else {
+      body = {
+        action: 'create_source', period_id: periodId,
+        source_name: name, source_category: cat,
+        appointment_count: appts, revenue_dollars: dollars, notes: notes
+      };
+    }
+    attrApiCall(body).then(function() {
+      closeAttrModal();
+      reloadAttribution();
+      toast(sourceId ? 'Source updated' : 'Source added', 'success');
+    }).catch(function(err) {
+      btn.disabled = false; btn.textContent = sourceId ? 'Save' : 'Add source';
+      toast('Error: ' + err.message, 'error');
+    });
+  }
+
+  function deleteAttributionSource(sourceId) {
+    var s = (state.attribution.sources || []).find(function(x) { return x.id === sourceId; });
+    if (!s) return;
+    if (!confirm('Delete source "' + s.source_name + '"?')) return;
+    attrApiCall({ action: 'delete_source', source_id: sourceId }).then(function() {
+      reloadAttribution();
+      toast('Source deleted', 'success');
+    }).catch(function(err) { toast('Error: ' + err.message, 'error'); });
+  }
+  window.deleteAttributionSource = deleteAttributionSource;
+
+  // ── Paste-from-email modal ─────────────────────────────────────────
+  function openPasteParseModal(periodId) {
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = '<div class="modal-box" style="width:640px;max-width:95vw;">'
+      + '<h2 class="modal-title">Paste from email</h2>'
+      + '<p class="modal-desc" style="font-size:.8rem;color:var(--color-muted);margin:0 0 .75rem;">Paste any loose attribution text. We\'ll extract source / appointment / revenue rows you can review before saving. Supports formats like "Google: 9 appts, $37,200".</p>'
+      + '<textarea id="pp_text" rows="6" placeholder="Google: 9 appts, $37,200&#10;ChatGPT - 1 appointment / $3,800&#10;Psychology Today: 4 consultations, $18,000" style="width:100%;font-family:monospace;font-size:.85rem;"></textarea>'
+      + '<div style="margin-top:.75rem;display:flex;gap:.5rem;justify-content:flex-end;">'
+      +   '<button class="btn btn-ghost" onclick="closeAttrModal()">Cancel</button>'
+      +   '<button class="btn btn-primary" id="pp_parse_btn">Parse</button>'
+      + '</div>'
+      + '<div id="pp_results" style="margin-top:1rem;"></div>'
+      + '</div>';
+    document.body.appendChild(overlay);
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+    document.getElementById('pp_parse_btn').onclick = function() { _doParse(periodId); };
+  }
+  window.openPasteParseModal = openPasteParseModal;
+
+  function _doParse(periodId) {
+    var text = document.getElementById('pp_text').value;
+    if (!text.trim()) { toast('Paste some text first', 'error'); return; }
+    var btn = document.getElementById('pp_parse_btn');
+    btn.disabled = true; btn.textContent = 'Parsing...';
+    attrApiCall({ action: 'parse_paste', text: text }).then(function(resp) {
+      btn.disabled = false; btn.textContent = 'Re-parse';
+      var suggestions = resp.suggested_sources || [];
+      _renderPasteResults(periodId, suggestions);
+    }).catch(function(err) {
+      btn.disabled = false; btn.textContent = 'Parse';
+      toast('Error: ' + err.message, 'error');
+    });
+  }
+
+  function _renderPasteResults(periodId, suggestions) {
+    var box = document.getElementById('pp_results');
+    if (!suggestions.length) {
+      box.innerHTML = '<div style="padding:.75rem;background:var(--color-bg);border-radius:6px;color:var(--color-muted);font-size:.82rem;">No rows detected. Try adjusting the text (include "appts" or "$" so the parser can find the pattern).</div>';
+      return;
+    }
+    var rowsHtml = suggestions.map(function(s, i) {
+      return '<tr data-idx="' + i + '">'
+        + '<td style="padding:.4rem;"><input type="text" class="pp_row_name" value="' + esc(s.source_name) + '" style="width:100%;"></td>'
+        + '<td style="padding:.4rem;"><select class="pp_row_cat">' + attrCategoryOptions(s.source_category) + '</select></td>'
+        + '<td style="padding:.4rem;"><input type="number" class="pp_row_appts" min="0" step="1" value="' + Number(s.appointment_count || 0) + '" style="width:80px;"></td>'
+        + '<td style="padding:.4rem;"><input type="number" class="pp_row_rev" min="0" step="1" value="' + Number(s.revenue_dollars || 0) + '" style="width:110px;"></td>'
+        + '<td style="padding:.4rem;"><input type="checkbox" class="pp_row_keep" checked></td>'
+        + '</tr>';
+    }).join('');
+    box.innerHTML = '<div style="font-size:.75rem;color:var(--color-muted);margin-bottom:.35rem;">Review and edit below, then click <strong>Save selected</strong>.</div>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:.82rem;">'
+      +   '<thead><tr style="color:var(--color-muted);text-align:left;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;">'
+      +     '<th style="padding:.4rem;">Source</th>'
+      +     '<th style="padding:.4rem;">Category</th>'
+      +     '<th style="padding:.4rem;">Appts</th>'
+      +     '<th style="padding:.4rem;">Revenue</th>'
+      +     '<th style="padding:.4rem;">Keep</th>'
+      +   '</tr></thead><tbody>' + rowsHtml + '</tbody>'
+      + '</table>'
+      + '<div style="margin-top:.75rem;display:flex;justify-content:flex-end;">'
+      +   '<button class="btn btn-primary" id="pp_save_btn">Save selected</button>'
+      + '</div>';
+    document.getElementById('pp_save_btn').onclick = function() { _savePasteRows(periodId); };
+  }
+
+  function _savePasteRows(periodId) {
+    var rows = document.querySelectorAll('#pp_results tbody tr');
+    var toSave = [];
+    rows.forEach(function(r) {
+      if (!r.querySelector('.pp_row_keep').checked) return;
+      toSave.push({
+        source_name:       r.querySelector('.pp_row_name').value.trim(),
+        source_category:   r.querySelector('.pp_row_cat').value,
+        appointment_count: Number(r.querySelector('.pp_row_appts').value || 0),
+        revenue_dollars:   Number(r.querySelector('.pp_row_rev').value || 0)
+      });
+    });
+    if (!toSave.length) { toast('Nothing selected', 'error'); return; }
+    var btn = document.getElementById('pp_save_btn');
+    btn.disabled = true; btn.textContent = 'Saving 0/' + toSave.length + '...';
+
+    // Sequential create so we can surface per-row errors if any
+    var idx = 0;
+    function next() {
+      if (idx >= toSave.length) {
+        closeAttrModal();
+        reloadAttribution();
+        toast('Saved ' + toSave.length + ' source' + (toSave.length === 1 ? '' : 's'), 'success');
+        return;
+      }
+      btn.textContent = 'Saving ' + (idx + 1) + '/' + toSave.length + '...';
+      var row = toSave[idx];
+      attrApiCall(Object.assign({ action: 'create_source', period_id: periodId }, row))
+        .then(function() { idx++; next(); })
+        .catch(function(err) {
+          btn.disabled = false; btn.textContent = 'Save selected';
+          toast('Failed at row ' + (idx + 1) + ': ' + err.message, 'error');
+        });
+    }
+    next();
+  }
+
+  // ── Shared helpers ───────────────────────────────────────────────
+  function closeAttrModal() {
+    var overlays = document.querySelectorAll('.modal-overlay');
+    overlays.forEach(function(o) { o.remove(); });
+  }
+  window.closeAttrModal = closeAttrModal;
+
+  function attrApiCall(body) {
+    return fetch('/api/admin/attribution', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body)
+    }).then(function(r) {
+      return r.json().then(function(data) {
+        if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+        return data;
+      });
+    });
+  }
+
+  function reloadAttribution() {
+    state.tabLoaded['attribution'] = false;
+    ensureTabData('attribution');
+  }
+
   // ---- BILLING TAB ----
   function renderBilling(c) {
     var bf = document.getElementById('billingFields');
@@ -7358,11 +7855,8 @@
     // Enrichment pills (if enriched)
     var ed = proposal.enrichment_data || {};
     var es = proposal.enrichment_sources || {};
-    // H29: post-encryption rows expose cleartext email_count/call_count;
-    // legacy (pre-backfill) rows have cleartext emails[]/calls[] arrays.
-    // Prefer the count fields, fall through to the array lengths.
-    var emailCt = (typeof ed.email_count === 'number') ? ed.email_count : (ed.emails ? ed.emails.length : 0);
-    var callCt  = (typeof ed.call_count  === 'number') ? ed.call_count  : (ed.calls  ? ed.calls.length  : 0);
+    var emailCt = ed.emails ? ed.emails.length : 0;
+    var callCt = ed.calls ? ed.calls.length : 0;
     if (emailCt || callCt || es.entity_audit || es.website) {
       h += '<div class="prop-enrichment-pills">';
       if (emailCt) h += '<span class="epill" style="color:var(--color-info);border-color:rgba(59,130,246,.2);">&#128231; ' + emailCt + ' email' + (emailCt !== 1 ? 's' : '') + '</span>';
