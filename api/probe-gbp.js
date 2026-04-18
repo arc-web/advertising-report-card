@@ -51,6 +51,14 @@ module.exports = async function handler(req, res) {
   var probeLocationId = String(body.performance_location_id || DEFAULT_PROBE_LOCATION);
   var skipAccounts = !!body.skip_accounts;
   var skipPerformance = !!body.skip_performance;
+  // Allow overriding the impersonated mailbox so we can test whether the
+  // zero-metric results are a permissions issue vs a data issue. Production
+  // pipeline uses support@moonraker.ai, but chris@, scott@ etc. may have
+  // different GBP roles.
+  var impersonateMailbox = String(body.impersonate_mailbox || IMPERSONATED_MAILBOX);
+  // When true, also include the raw Performance API JSON in the response
+  // for debugging. Off by default because it can be sizeable.
+  var includeRaw = !!body.include_raw;
 
   // Default date range: last 30 days ending yesterday (Performance API
   // does not accept today as endDate)
@@ -67,7 +75,7 @@ module.exports = async function handler(req, res) {
 
   var warnings = [];
   var result = {
-    impersonated: IMPERSONATED_MAILBOX,
+    impersonated: impersonateMailbox,
     accounts: null,
     locations: null,
     locations_count: 0,
@@ -79,12 +87,13 @@ module.exports = async function handler(req, res) {
   var t0 = Date.now();
   var token;
   try {
-    token = await google.getDelegatedAccessToken(IMPERSONATED_MAILBOX, GBP_SCOPE);
+    token = await google.getDelegatedAccessToken(impersonateMailbox, GBP_SCOPE);
   } catch (e) {
-    monitor.logError('probe-gbp', e, { detail: { stage: 'token' } });
+    monitor.logError('probe-gbp', e, { detail: { stage: 'token', mailbox: impersonateMailbox } });
     res.status(500).json({
       error: 'DWD token acquisition failed',
-      detail: e.message || String(e)
+      detail: e.message || String(e),
+      impersonated: impersonateMailbox
     });
     return;
   }
@@ -118,7 +127,7 @@ module.exports = async function handler(req, res) {
   // ── 2. Performance API quota probe ────────────────────────────
   if (!skipPerformance) {
     result.performance_test = await probePerformance(
-      token, probeLocationId, startDate, endDate
+      token, probeLocationId, startDate, endDate, includeRaw
     );
   }
 
@@ -209,7 +218,7 @@ async function listLocations(token, accountName) {
 // ── Performance API: quota probe ────────────────────────────────
 // Ports the exact URL shape from compile-report.js so a positive probe
 // proves the production pipeline will work identically once un-gated.
-async function probePerformance(token, locationId, startDate, endDate) {
+async function probePerformance(token, locationId, startDate, endDate, includeRaw) {
   var s = new Date(startDate + 'T00:00:00Z');
   var e = new Date(endDate + 'T00:00:00Z');
   var url = 'https://businessprofileperformance.googleapis.com/v1/locations/' + locationId
@@ -300,5 +309,11 @@ async function probePerformance(token, locationId, startDate, endDate) {
     impressions_total:  imp.desktop_maps + imp.desktop_search + imp.mobile_maps + imp.mobile_search,
     impressions_breakdown: imp
   };
+  if (includeRaw) {
+    // Expose the raw Performance API response so we can see the exact
+    // shape returned (empty series? empty datedValues? entirely missing
+    // metric entries?).
+    out.raw = data;
+  }
   return out;
 }
