@@ -16,6 +16,7 @@ var crypto = require('crypto');
 var sb = require('./_lib/supabase');
 var monitor = require('./_lib/monitor');
 var fetchT = require('./_lib/fetch-with-timeout');
+var sanitizer = require('./_lib/html-sanitizer');
 
 function readRawBody(req) {
   return new Promise(function(resolve, reject) {
@@ -124,7 +125,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    var contact = await sb.one('contacts?slug=eq.' + slug + '&select=id,status,email,audit_tier&limit=1');
+    var contact = await sb.one('contacts?slug=eq.' + slug + '&select=id,status,email,audit_tier,practice_name,first_name,last_name&limit=1');
     if (!contact) {
       console.log('Stripe webhook: contact not found for slug', slug);
       return res.status(200).json({ received: true, warning: 'Contact not found: ' + slug });
@@ -132,15 +133,8 @@ module.exports = async function handler(req, res) {
 
     var results = { slug: slug, session_id: session.id };
 
-    // M1 (2026-04-18): prefer session.metadata.product set dashboard-side on
-    // each payment link (entity_audit / core_marketing_system / strategy_call).
-    // Amount-threshold fallback stays for backward compat with any checkout
-    // sessions that predate the metadata tagging (ACH $2000 / CC $2070 for
-    // the Entity Audit product). Remove the amount fallback after ~30 days
-    // of observing every new session carrying session.metadata.product.
-    var metadataProduct = (session.metadata && session.metadata.product) || '';
-    var isEntityAudit = metadataProduct === 'entity_audit'
-      || (!metadataProduct && (amountTotal === 200000 || amountTotal === 207000));
+    // Entity Audit: $2,000 (200000 cents) or $2,070 (207000 cents for CC)
+    var isEntityAudit = amountTotal === 200000 || amountTotal === 207000;
 
     if (isEntityAudit) {
       // ── Premium Entity Audit payment ──
@@ -155,8 +149,63 @@ module.exports = async function handler(req, res) {
         }
         results.action = 'entity_audit_upgraded';
         results.audit_id = audits[0].id;
+
+        // M19 race-case check: if the free scorecard email had already been
+        // auto-sent by process-entity-audit before this upgrade landed, the
+        // customer paid for premium but already received free delivery. Fire
+        // a second-chance Loom team notification so the team can still
+        // deliver the premium walkthrough. Idempotent via
+        // race_loom_notified_at conditional-PATCH-where-null; process-entity-
+        // audit's own post-auto-send re-read may also attempt this claim
+        // (if it detected the premium upgrade landed during its processing).
+        // Only the first writer to flip race_loom_notified_at from NULL to
+        // now() wins the claim and sends the email.
+        if (upgradeResult && upgradeResult.length > 0 && upgradeResult[0].auto_sent_at) {
+          try {
+            var loomClaim = await sb.mutate(
+              'entity_audits?id=eq.' + audits[0].id + '&race_loom_notified_at=is.null',
+              'PATCH',
+              { race_loom_notified_at: new Date().toISOString() }
+            );
+            if (loomClaim && loomClaim.length > 0) {
+              var resendKey = process.env.RESEND_API_KEY;
+              if (resendKey) {
+                var loomPracticeName = contact.practice_name || ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim() || '(unknown practice)';
+                await fetchT('https://api.resend.com/emails', {
+                  method: 'POST',
+                  headers: { 'Authorization': 'Bearer ' + resendKey, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    from: 'Moonraker Notifications <notifications@clients.moonraker.ai>',
+                    to: ['notifications@clients.moonraker.ai'],
+                    subject: 'Premium Audit Paid After Free Delivery — Loom Required for ' + sanitizer.sanitizeText(loomPracticeName, 200),
+                    html: '<p><strong>Race-case premium audit detected.</strong> The customer paid for a premium entity audit after the free scorecard email had already been auto-sent, so they need a premium delivery to complete their purchase.</p>' +
+                      '<p><strong>Client:</strong> ' + sanitizer.sanitizeText((contact.first_name || '') + ' ' + (contact.last_name || ''), 200) + '</p>' +
+                      '<p><strong>Practice:</strong> ' + sanitizer.sanitizeText(loomPracticeName, 200) + '</p>' +
+                      '<p><strong>Audit ID:</strong> ' + sanitizer.sanitizeText(String(audits[0].id), 64) + '</p>' +
+                      '<p style="margin-top:16px;"><strong>Next steps:</strong></p>' +
+                      '<ol><li>Record a personalized Loom walkthrough covering the same audit data</li><li>Add the Loom URL to the audit in admin</li><li>Send the premium delivery email from admin</li></ol>' +
+                      '<p>The free scorecard already went out; this Loom is the premium top-up.</p>' +
+                      '<p><a href="https://clients.moonraker.ai/admin/clients" style="color:#00D47E;">Open in Admin</a></p>'
+                  })
+                }, 15000);
+                results.race_loom_notified = true;
+              }
+            } else {
+              // process-entity-audit already claimed + sent (or the audit row was deleted).
+              results.race_loom_already_sent = true;
+            }
+          } catch (raceLoomErr) {
+            try {
+              await monitor.logError('stripe-webhook', raceLoomErr, {
+                client_slug: slug,
+                detail: { stage: 'race_loom_notification', audit_id: audits[0].id, session_id: session.id }
+              });
+            } catch (_) { /* don't mask the 200 */ }
+            results.race_loom_notify_failed = true;
+          }
+        }
       }
-    } else {
+    } else if (metadataProduct === 'core_marketing_system') {
       // ── CORE Marketing System payment ──
       if (contact.status === 'prospect') {
         var flipResult = await sb.mutate('contacts?slug=eq.' + slug, 'PATCH', { status: 'onboarding' });
@@ -236,6 +285,63 @@ module.exports = async function handler(req, res) {
         results.action = 'no_status_change';
         results.reason = 'Contact status is ' + contact.status + ', not prospect';
       }
+    } else if (metadataProduct === 'strategy_call') {
+      // ── 1-Hour Strategy Call payment ──
+      // Log and notify only. Do NOT flip contact.status (a strategy-call
+      // purchaser might be a lead, prospect, or returning active client;
+      // the purchase itself carries no lifecycle signal). Do NOT schedule
+      // an audit. The payments row insert below is the canonical record.
+      results.action = 'strategy_call_logged';
+      try {
+        var scNotifyResp = await fetchT('https://clients.moonraker.ai/api/notify-team', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (process.env.CRON_SECRET || '') },
+          body: JSON.stringify({ event: 'strategy_call_purchased', slug: slug })
+        }, 15000);
+        if (!scNotifyResp.ok) {
+          var scNotifyErrBody = '';
+          try { scNotifyErrBody = await scNotifyResp.text(); } catch (_) {}
+          await monitor.logError('stripe-webhook', new Error('notify-team returned ' + scNotifyResp.status), {
+            client_slug: slug,
+            detail: {
+              stage: 'notify_team_strategy_call',
+              status: scNotifyResp.status,
+              body_preview: scNotifyErrBody.substring(0, 500),
+              session_id: session.id
+            }
+          });
+          results.notify_team_failed = true;
+        }
+      } catch (scNotifyErr) {
+        try {
+          await monitor.logError('stripe-webhook', scNotifyErr, {
+            client_slug: slug,
+            detail: { stage: 'notify_team_strategy_call', session_id: session.id }
+          });
+        } catch (_) { /* don't mask the 200 */ }
+        results.notify_team_failed = true;
+      }
+    } else {
+      // ── Unrecognized product ──
+      // M41 fail-loud: the branching landed here because neither the
+      // metadata.product (if any) nor the amount-threshold fallback
+      // matched a recognized product. Fail loud so a newly-created
+      // untagged payment link or a newly-added product surfaces in
+      // monitor logs instead of silently defaulting to the CORE
+      // onboarding cascade.
+      try {
+        await monitor.logError('stripe-webhook', new Error('Unrecognized Stripe product'), {
+          client_slug: slug,
+          detail: {
+            stage: 'classify_product',
+            metadata_product: metadataProduct || '(empty)',
+            amount_total: amountTotal,
+            session_id: session.id
+          }
+        });
+      } catch (_) { /* don't mask the 200 */ }
+      results.action = 'unclassified_product';
+      results.metadata_product = metadataProduct || null;
     }
 
     // Log the payment (column names corrected to match schema)
@@ -247,9 +353,7 @@ module.exports = async function handler(req, res) {
         amount_cents: amountTotal,
         payment_method: session.payment_method_types ? session.payment_method_types[0] : null,
         status: paymentStatus,
-        description: isEntityAudit ? 'Entity Audit'
-                   : metadataProduct === 'strategy_call' ? '1-Hour Strategy Call'
-                   : 'CORE Marketing System'
+        description: isEntityAudit ? 'Entity Audit' : 'CORE Marketing System'
       }, 'return=minimal');
     } catch (logErr) {
       console.log('Failed to log payment:', logErr.message);
