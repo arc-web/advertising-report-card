@@ -279,21 +279,43 @@ async function probePerformance(token, locationId, startDate, endDate, includeRa
     return out;
   }
 
-  // Sum up the daily values per metric
+  // Sum up the daily values per metric.
+  //
+  // Defensively handles two shapes we've observed from the Performance API:
+  //   (A) Flat:    multiDailyMetricTimeSeries[i] = { dailyMetric, timeSeries }
+  //   (B) Nested:  multiDailyMetricTimeSeries[i] = { dailyMetricTimeSeries: [...] }
+  // The live API returns shape (B) — we've seen real data come through it.
+  // compile-report.js at L277 only implements (A), which is why the monthly
+  // pipeline would silently return zeros once un-gated.
   var series = (data && data.multiDailyMetricTimeSeries) || [];
+
+  function sumDatedValues(tsObj) {
+    var pts = (tsObj && tsObj.datedValues) || [];
+    var t = 0;
+    for (var i = 0; i < pts.length; i++) t += parseInt(pts[i].value || 0, 10);
+    return t;
+  }
+
   function sumMetric(metricName) {
+    var total = 0;
     for (var i = 0; i < series.length; i++) {
-      var dmt = series[i].dailyMetricTimeSeries || {};
-      if (dmt.dailyMetric === metricName) {
-        var points = (dmt.timeSeries && dmt.timeSeries.datedValues) || [];
-        var total = 0;
-        for (var j = 0; j < points.length; j++) {
-          total += parseInt(points[j].value || 0, 10);
+      var entry = series[i] || {};
+      // Shape A: entry itself is DailyMetricTimeSeries
+      if (entry.dailyMetric === metricName) {
+        total += sumDatedValues(entry.timeSeries);
+        continue;
+      }
+      // Shape B: entry contains an array under dailyMetricTimeSeries
+      var inner = entry.dailyMetricTimeSeries;
+      if (Array.isArray(inner)) {
+        for (var j = 0; j < inner.length; j++) {
+          if (inner[j] && inner[j].dailyMetric === metricName) {
+            total += sumDatedValues(inner[j].timeSeries);
+          }
         }
-        return total;
       }
     }
-    return 0;
+    return total;
   }
   var imp = {
     desktop_maps:   sumMetric('BUSINESS_IMPRESSIONS_DESKTOP_MAPS'),
