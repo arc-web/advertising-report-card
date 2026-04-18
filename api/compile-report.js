@@ -185,18 +185,53 @@ module.exports = async function handler(req, res) {
 
     var results = await buildGscQueries(config.gsc_property);
 
-    // Self-healing: on 403/404, resolve the correct property and retry
+    // Self-healing: on 403/404, resolve the correct property and retry.
+    //
+    // M24 (2026-04-18): cool-off check — retry BEFORE PATCHing report_configs.
+    // The previous shape PATCHed the candidate property into the DB and only
+    // then retried; if both the old and new properties returned 403 (e.g.
+    // Google rate-limit or transient token issue rather than a real
+    // property mismatch), the DB ended up with an arbitrary alternative
+    // property overwriting the original. Now we retry first and only PATCH
+    // when the retry succeeds, leaving report_configs untouched on
+    // transient errors. Corrections that do land are also written to
+    // activity_log so admins can audit and revert.
     if (!results[0].ok && (results[0].status === 403 || results[0].status === 404)) {
       var oldProp = config.gsc_property;
       var corrected = await resolveGscProperty(token, config.gsc_property);
       if (corrected && corrected !== config.gsc_property) {
-        // Update report_configs with the corrected property
-        await sb.mutate('report_configs?client_slug=eq.' + clientSlug, 'PATCH', { gsc_property: corrected, updated_at: new Date().toISOString() });
-        config.gsc_property = corrected;
-        warnings.push('GSC: auto-corrected property from ' + oldProp + ' to ' + corrected);
-
-        // Retry with the corrected property
-        results = await buildGscQueries(corrected);
+        var retryResults = await buildGscQueries(corrected);
+        if (retryResults[0].ok) {
+          // Retry succeeded -- the correction is genuine. PATCH + log.
+          await sb.mutate('report_configs?client_slug=eq.' + clientSlug, 'PATCH', {
+            gsc_property: corrected,
+            updated_at: new Date().toISOString()
+          });
+          try {
+            await sb.mutate('activity_log', 'POST', {
+              client_slug: clientSlug,
+              table_name: 'report_configs',
+              record_id: clientSlug,
+              field_name: 'gsc_property',
+              old_value: oldProp,
+              new_value: corrected,
+              changed_by: 'compile-report:auto-heal'
+            }, 'return=minimal');
+          } catch (alErr) {
+            // activity_log write is observability-only; don't surface as
+            // a report error if it fails.
+            console.error('compile-report: activity_log write failed:', alErr.message);
+          }
+          config.gsc_property = corrected;
+          warnings.push('GSC: auto-corrected property from ' + oldProp + ' to ' + corrected);
+          results = retryResults;
+        } else {
+          // Both old and new properties errored -- likely a transient
+          // Google-side issue, not a real property mismatch. Leave
+          // report_configs unchanged and fall through to the final-error
+          // branch below with the ORIGINAL error surfaced.
+          warnings.push('GSC: candidate property ' + corrected + ' also failed (' + retryResults[0].status + '); leaving ' + oldProp + ' unchanged');
+        }
       }
     }
 
