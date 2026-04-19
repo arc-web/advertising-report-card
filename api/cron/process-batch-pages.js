@@ -24,6 +24,23 @@ async function handler(req, res) {
   if (!sb.isConfigured()) return res.status(500).json({ error: 'Not configured' });
 
   try {
+    // Queue snapshot for cron_runs telemetry: pages awaiting processing.
+    try {
+      var qRows = await sb.query(
+        'content_pages?surge_status=eq.raw_stored' +
+        '&select=created_at&order=created_at.asc&limit=1000'
+      );
+      if (Array.isArray(qRows) && req._cronRunId) {
+        var oldestAge = qRows.length > 0
+          ? Math.max(0, Math.floor((Date.now() - new Date(qRows[0].created_at).getTime()) / 1000))
+          : 0;
+        await cronRuns.snapshot(req._cronRunId, {
+          queue_depth: qRows.length,
+          oldest_item_age_sec: oldestAge
+        });
+      }
+    } catch (snapErr) { /* telemetry failure never blocks the cron */ }
+
     // Find batches in processing status
     var batches = await sb.query('content_audit_batches?status=eq.processing&order=created_at.asc&limit=5');
 

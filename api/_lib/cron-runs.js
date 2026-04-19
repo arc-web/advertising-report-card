@@ -43,6 +43,24 @@ async function start(cronName, snapshot) {
   }
 }
 
+// Non-terminal PATCH for in-progress telemetry (queue_depth, oldest age).
+// Called by a handler before its main work so the cron_runs row reflects
+// the queue snapshot at start. Wrapper's finish() does not overwrite these
+// fields unless explicitly passed new values, so the snapshot survives.
+async function snapshot(runId, opts) {
+  if (!runId || !opts) return;
+  try {
+    var patch = {};
+    if (opts.queue_depth != null) patch.queue_depth = opts.queue_depth;
+    if (opts.oldest_item_age_sec != null) patch.oldest_item_age_sec = opts.oldest_item_age_sec;
+    if (opts.detail) patch.detail = opts.detail;
+    if (Object.keys(patch).length === 0) return;
+    await sb.mutate('cron_runs?id=eq.' + runId, 'PATCH', patch, 'return=minimal');
+  } catch (e) {
+    console.error('cron-runs.snapshot failed: ' + (e && e.message ? e.message : ''));
+  }
+}
+
 async function finish(runId, status, opts) {
   if (!runId) return;
   opts = opts || {};
@@ -75,6 +93,9 @@ async function finish(runId, status, opts) {
 function withTracking(name, innerHandler) {
   return async function wrapped(req, res) {
     var runId = await start(name);
+    // Expose to the inner handler so it can emit mid-run telemetry via
+    // cronRuns.snapshot(req._cronRunId, { queue_depth, oldest_item_age_sec }).
+    if (req) req._cronRunId = runId;
     var capturedErr = null;
     try {
       return await innerHandler(req, res);
@@ -92,4 +113,9 @@ function withTracking(name, innerHandler) {
   };
 }
 
-module.exports = { start: start, finish: finish, withTracking: withTracking };
+module.exports = {
+  start: start,
+  snapshot: snapshot,
+  finish: finish,
+  withTracking: withTracking
+};

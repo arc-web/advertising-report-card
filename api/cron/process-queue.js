@@ -20,6 +20,26 @@ async function handler(req, res) {
   if (!sb.isConfigured()) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
 
   try {
+    // Queue snapshot for cron_runs telemetry. Capped at 1000 rows which is
+    // far above realistic pending depth; accept that the count is truncated
+    // at that point (still useful as a "backlog huge" signal).
+    try {
+      var nowIso = new Date().toISOString();
+      var qRows = await sb.query(
+        'report_queue?status=eq.pending&scheduled_for=lte.' + nowIso +
+        '&select=scheduled_for&order=scheduled_for.asc&limit=1000'
+      );
+      if (Array.isArray(qRows) && req._cronRunId) {
+        var oldestAge = qRows.length > 0
+          ? Math.max(0, Math.floor((Date.now() - new Date(qRows[0].scheduled_for).getTime()) / 1000))
+          : 0;
+        await cronRuns.snapshot(req._cronRunId, {
+          queue_depth: qRows.length,
+          oldest_item_age_sec: oldestAge
+        });
+      }
+    } catch (snapErr) { /* telemetry failure never blocks the cron */ }
+
     // Atomic claim via RPC (see migrations/2026-04-19-queue-claim-rpcs.sql).
     // Returns 0 or 1 rows. FOR UPDATE SKIP LOCKED in the RPC prevents two
     // overlapping cron invocations from claiming the same row and doing the

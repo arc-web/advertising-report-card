@@ -41,6 +41,23 @@ async function handler(req, res) {
   }
 
   try {
+    // Queue snapshot for cron_runs telemetry (queued rows + oldest age).
+    try {
+      var qRows = await sb.query(
+        'entity_audits?status=eq.queued' +
+        '&select=created_at&order=created_at.asc&limit=1000'
+      );
+      if (Array.isArray(qRows) && req._cronRunId) {
+        var oldestAge = qRows.length > 0
+          ? Math.max(0, Math.floor((Date.now() - new Date(qRows[0].created_at).getTime()) / 1000))
+          : 0;
+        await cronRuns.snapshot(req._cronRunId, {
+          queue_depth: qRows.length,
+          oldest_item_age_sec: oldestAge
+        });
+      }
+    } catch (snapErr) { /* telemetry failure never blocks the cron */ }
+
     // ============================================================
     // STEP 0: Detect and requeue orphaned/stale agent_running tasks
     // ============================================================
