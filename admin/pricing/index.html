@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<script>try{var st=localStorage.getItem('moonraker-theme');if(st){document.documentElement.setAttribute('data-theme',st)}}catch(e){}</script>
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="/assets/logo.png">
+<title>Pricing - Moonraker Admin</title>
+<link rel="stylesheet" href="/assets/admin-base.css">
+<style>
+  .container { margin: 0 auto; padding: 0 2rem; max-width: 1200px; }
+  @media (max-width: 768px) { .container { padding: 0 1rem; } }
+
+  .section-header { display: flex; align-items: baseline; gap: .75rem; margin: 2rem 0 1rem; flex-wrap: wrap; }
+  .section-header h2 { font-size: 1.05rem; font-weight: 600; }
+  .section-desc { font-size: .82rem; color: var(--color-muted); margin: 0 0 1rem; }
+
+  .refresh-btn { background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-body); padding: .5rem 1rem; border-radius: 8px; font-size: .8rem; cursor: pointer; min-height: 36px; }
+  .refresh-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
+  .sync-btn { background: var(--color-primary); color: var(--color-navy); border: none; padding: .5rem 1rem; border-radius: 8px; font-size: .8rem; font-weight: 600; font-family: 'Outfit', sans-serif; cursor: pointer; min-height: 36px; transition: all .15s; }
+  .sync-btn:hover { filter: brightness(1.08); }
+  .sync-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── Inline-scroll wrapper for any wide element ───────────────
+     Per design system rule: page width and headings stay put;
+     wider content scrolls horizontally inside its own container. */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+  .table-scroll::-webkit-scrollbar { height: 6px; }
+  .table-scroll::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+  .table-scroll table { min-width: max-content; }
+
+  /* ── Pricing editor ───────────────────────────────────────── */
+  .pricing-group { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden; margin-bottom: 1.5rem; }
+  .pricing-group-header { background: var(--color-bg); padding: .75rem 1rem; border-bottom: 1px solid var(--color-border); display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
+  .pricing-group-header h3 { margin: 0; font-size: .95rem; font-weight: 600; color: var(--color-heading); font-family: 'Outfit', sans-serif; }
+  .pricing-group-meta { font-size: .72rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: .04em; }
+
+  table.pricing { width: 100%; border-collapse: collapse; }
+  table.pricing th, table.pricing td { padding: .65rem .9rem; text-align: left; font-size: .82rem; border-bottom: 1px solid var(--color-border); vertical-align: middle; white-space: nowrap; }
+  table.pricing th { background: transparent; color: var(--color-muted); font-weight: 600; font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; }
+  table.pricing tr:last-child td { border-bottom: none; }
+  table.pricing tr.inactive td { opacity: .55; }
+  table.pricing .tier-name { font-weight: 500; color: var(--color-heading); font-family: 'Outfit', sans-serif; }
+  table.pricing .tier-key { display: block; font-family: 'JetBrains Mono', monospace; font-size: .68rem; color: var(--color-muted); margin-top: 2px; }
+  table.pricing td.col-detail { white-space: normal; min-width: 220px; }
+  table.pricing input[type="number"], table.pricing input[type="text"] { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 6px; padding: .3rem .5rem; font-size: .82rem; color: var(--color-body); width: 100%; min-height: 32px; font-family: inherit; }
+  table.pricing input[type="number"]:focus, table.pricing input[type="text"]:focus { outline: none; border-color: var(--color-primary); }
+  table.pricing .col-amount input { min-width: 100px; }
+  table.pricing .col-period input { min-width: 80px; }
+  table.pricing .col-stripe-id input { min-width: 200px; }
+  table.pricing .col-active { text-align: center; }
+  table.pricing .col-save { text-align: right; }
+
+  .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .slider { position: absolute; cursor: pointer; inset: 0; background: var(--color-border); border-radius: 22px; transition: all .2s; }
+  .switch .slider::before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; top: 2px; background: var(--color-surface); border-radius: 50%; transition: all .2s; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+  .switch input:checked + .slider { background: var(--color-primary); }
+  .switch input:checked + .slider::before { transform: translateX(18px); }
+
+  .save-btn { background: var(--color-primary); color: var(--color-navy); border: none; border-radius: 6px; padding: .35rem .75rem; font-size: .78rem; font-weight: 600; font-family: 'Outfit', sans-serif; cursor: pointer; min-height: 32px; transition: all .15s; }
+  .save-btn:hover { filter: brightness(1.08); }
+  .save-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .save-btn.dirty { background: var(--color-warning); color: var(--color-navy); }
+
+  .pricing-hint { font-size: .78rem; color: var(--color-muted); padding: .75rem 1rem; border-top: 1px solid var(--color-border); background: var(--color-bg); }
+  .pricing-hint code { background: var(--color-surface); padding: .1rem .3rem; border-radius: 4px; font-size: .72rem; }
+
+  .sync-result { margin-top: .75rem; padding: .75rem 1rem; border-radius: 8px; font-size: .82rem; display: none; }
+  .sync-result.ok { background: rgba(0,212,126,.08); border: 1px solid rgba(0,212,126,.25); color: var(--color-success); display: block; }
+  .sync-result.err { background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.25); color: var(--color-danger); display: block; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<script src="/shared/admin-auth.js"></script>
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <img src="/assets/logo.png" alt="Moonraker">
+    <span>Client HQ</span>
+    <button class="sidebar-close" id="sidebarClose" aria-label="Close menu">&times;</button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <a href="/admin"><span class="nav-icon"><svg viewBox="0 0 16 16"><rect x="1.5" y="1.5" width="5" height="5" rx="1"/><rect x="9.5" y="1.5" width="5" height="5" rx="1"/><rect x="1.5" y="9.5" width="5" height="5" rx="1"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/></svg></span><span class="nav-label">Dashboard</span></a>
+    <a href="/admin/clients"><span class="nav-icon"><svg viewBox="0 0 16 16"><circle cx="8" cy="4.5" r="2.5"/><path d="M2.5 15c0-3 2.5-5.5 5.5-5.5s5.5 2.5 5.5 5.5"/></svg></span><span class="nav-label">Clients</span></a>
+    <div class="nav-section">Workflows</div>
+    <a href="/admin/proposals"><span class="nav-icon"><svg viewBox="0 0 16 16"><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M10 2v3h3"/><path d="M5 9h6M5 12h4"/></svg></span><span class="nav-label">Proposals</span></a>
+    <a href="/admin/onboarding"><span class="nav-icon"><svg viewBox="0 0 16 16"><path d="M8 1v10M4.5 7.5L8 11l3.5-3.5"/><path d="M2.5 13.5h11"/></svg></span><span class="nav-label">Onboarding</span></a>
+    <a href="/admin/audits"><span class="nav-icon"><svg viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="4"/><path d="M14.5 14.5l-4-4"/></svg></span><span class="nav-label">Audits</span></a>
+    <a href="/admin/deliverables"><span class="nav-icon"><svg viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5.5 8l2 2 3.5-3.5"/></svg></span><span class="nav-label">Deliverables</span></a>
+    <a href="/admin/reports"><span class="nav-icon"><svg viewBox="0 0 16 16"><path d="M2 14V6l3.5-2v10"/><path d="M6.25 14V4.5l3.5-2v11.5"/><path d="M10.5 14V3l3.5-2v13"/></svg></span><span class="nav-label">Reports</span></a>
+    <div class="nav-section">Marketing</div>
+    <a href="/admin/newsletter"><span class="nav-icon"><svg viewBox="0 0 16 16"><path d="M2 3h12a1 1 0 011 1v8a1 1 0 01-1 1H2a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M1 4l7 5 7-5"/></svg></span><span class="nav-label">Newsletter</span></a>
+    <div class="nav-section">System</div>
+    <a href="/admin/pricing" class="active"><span class="nav-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5v13"/><path d="M11 4.5H6.5a1.75 1.75 0 000 3.5h3a1.75 1.75 0 010 3.5H5"/></svg></span><span class="nav-label">Pricing</span></a>
+    <a href="/admin/system"><span class="nav-icon"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2.5"/></svg></span><span class="nav-label">Cron Health</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <button onclick="adminAuth.signOut()" class="footer-icon" title="Sign out" aria-label="Sign out"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 1.5H3.5a1 1 0 00-1 1v11a1 1 0 001 1H6"/><path d="M10.5 11.5L14 8l-3.5-3.5"/><path d="M14 8H6"/></svg></button>
+    <div class="footer-right">
+      <button class="collapse-btn" id="collapseBtn" aria-label="Collapse sidebar"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M10 3L5 8l5 5"/></svg></button>
+      <button class="theme-toggle" id="themeBtn" aria-label="Toggle theme"><span class="theme-icon">&#x1F319;</span></button>
+    </div>
+  </div>
+</aside>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="main">
+  <div class="topbar">
+    <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">&#9776;</button>
+    <div style="flex:1;"></div>
+    <div class="topbar-right">
+      <button class="sync-btn" id="syncBtn" onclick="syncFromStripe()">Sync from Stripe</button>
+      <button class="refresh-btn" onclick="loadPricing()">Refresh</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="container">
+      <div class="section-header"><h2>Pricing</h2></div>
+      <p class="section-desc">Single source of truth for checkout prices. The checkout and entity-audit-checkout pages fetch these at page load. Amount is displayed at Stripe; the actual charge is whatever is configured on the matching Stripe Price or payment link.</p>
+
+      <div id="syncResult" class="sync-result"></div>
+
+      <div id="pricingContainer">
+        <div style="padding:2rem;text-align:center;color:var(--color-muted);">Loading pricing...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<script>
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function toast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type === 'error' ? ' error' : ' success');
+  setTimeout(function() { t.className = 'toast'; }, 3000);
+}
+
+// ─── Pricing editor ────────────────────────────────────────────
+
+var PRODUCT_LABELS = {
+  core_marketing: 'CORE Marketing System',
+  entity_audit_premium: 'Premium Entity Audit'
+};
+
+var _pricingRows = [];
+
+async function apiAction(action, table, data, filters) {
+  var resp = await fetch('/api/action', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify({ action: action, table: table, data: data, filters: filters || null })
+  });
+  var body = await resp.json().catch(function() { return {}; });
+  if (!resp.ok) throw new Error((body && body.error) || ('HTTP ' + resp.status));
+  return body;
+}
+
+function fmtDollars(cents) {
+  var d = cents / 100;
+  return d.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function parseDollars(str) {
+  var cleaned = String(str || '').replace(/[^0-9.]/g, '');
+  var n = parseFloat(cleaned);
+  if (!isFinite(n)) return null;
+  return Math.round(n * 100);
+}
+
+async function loadPricing() {
+  var container = document.getElementById('pricingContainer');
+  try {
+    var body = await apiAction('read_records', 'pricing_tiers', null, null);
+    _pricingRows = ((body && body.data) || []).sort(function(a, b) {
+      if (a.product_key !== b.product_key) return a.product_key < b.product_key ? -1 : 1;
+      return (a.sort_order || 0) - (b.sort_order || 0);
+    });
+  } catch (e) {
+    container.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--color-danger);">Failed to load pricing: ' + esc(e.message) + '</div>';
+    return;
+  }
+  renderPricing();
+}
+
+function renderPricing() {
+  var container = document.getElementById('pricingContainer');
+  if (_pricingRows.length === 0) {
+    container.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--color-muted);">No pricing tiers yet.</div>';
+    return;
+  }
+  var groups = {};
+  _pricingRows.forEach(function(r) {
+    var key = r.product_key;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(r);
+  });
+  var html = '';
+  Object.keys(groups).forEach(function(productKey) {
+    var label = PRODUCT_LABELS[productKey] || productKey;
+    var rows = groups[productKey];
+    html += '<div class="pricing-group">' +
+      '<div class="pricing-group-header"><h3>' + esc(label) + '</h3><span class="pricing-group-meta">' + rows.length + ' tiers &middot; product_key: <code>' + esc(productKey) + '</code></span></div>' +
+      '<div class="table-scroll">' +
+      '<table class="pricing">' +
+      '<thead><tr>' +
+        '<th>Tier</th>' +
+        '<th class="col-amount">Amount (USD)</th>' +
+        '<th class="col-period">Period</th>' +
+        '<th>Detail</th>' +
+        '<th class="col-stripe-id">Stripe Price ID</th>' +
+        '<th class="col-active">Active</th>' +
+        '<th class="col-save"></th>' +
+      '</tr></thead><tbody>';
+    rows.forEach(function(r) {
+      html += '<tr data-id="' + esc(r.id) + '" class="' + (r.active ? '' : 'inactive') + '">' +
+        '<td><span class="tier-name">' + esc(r.display_name) + '</span><span class="tier-key">' + esc(r.tier_key) + '</span></td>' +
+        '<td class="col-amount"><input type="text" data-field="amount_cents" value="' + esc(fmtDollars(r.amount_cents)) + '" inputmode="decimal"></td>' +
+        '<td class="col-period"><input type="text" data-field="period" value="' + esc(r.period || '') + '" placeholder="/month"></td>' +
+        '<td class="col-detail"><input type="text" data-field="detail" value="' + esc(r.detail || '') + '" placeholder="Description shown under price"></td>' +
+        '<td class="col-stripe-id"><input type="text" data-field="stripe_price_id" value="' + esc(r.stripe_price_id || '') + '" placeholder="price_..."></td>' +
+        '<td class="col-active"><label class="switch"><input type="checkbox" data-field="active"' + (r.active ? ' checked' : '') + '><span class="slider"></span></label></td>' +
+        '<td class="col-save"><button class="save-btn" onclick="savePricingRow(this)" disabled>Save</button></td>' +
+      '</tr>';
+    });
+    html += '</tbody></table>' +
+      '</div>' +
+      '<div class="pricing-hint">Once a row has a <code>Stripe Price ID</code>, checkout creates a real Stripe Checkout Session (dynamic success URL + metadata). Without one, the legacy buy.stripe.com payment link is used as-is.</div>' +
+      '</div>';
+  });
+  container.innerHTML = html;
+
+  // Wire dirty-state: any change enables Save, swap to warning color.
+  container.querySelectorAll('tr[data-id]').forEach(function(tr) {
+    var btn = tr.querySelector('.save-btn');
+    tr.querySelectorAll('input[data-field]').forEach(function(inp) {
+      var evtName = inp.type === 'checkbox' ? 'change' : 'input';
+      inp.addEventListener(evtName, function() {
+        btn.disabled = false;
+        btn.classList.add('dirty');
+      });
+    });
+  });
+}
+
+window.savePricingRow = async function(btn) {
+  var tr = btn.closest('tr');
+  var id = tr.getAttribute('data-id');
+  var data = {};
+  var valid = true;
+  tr.querySelectorAll('input[data-field]').forEach(function(inp) {
+    var f = inp.getAttribute('data-field');
+    if (f === 'amount_cents') {
+      var cents = parseDollars(inp.value);
+      if (cents === null || cents < 0) { valid = false; inp.style.borderColor = 'var(--color-danger)'; return; }
+      inp.style.borderColor = '';
+      data[f] = cents;
+    } else if (f === 'active') {
+      data[f] = inp.checked;
+    } else {
+      data[f] = inp.value;
+    }
+  });
+  if (!valid) { alert('Amount must be a positive number.'); return; }
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  try {
+    await apiAction('update_record', 'pricing_tiers', data, { id: id });
+    btn.textContent = 'Saved';
+    btn.classList.remove('dirty');
+    for (var i = 0; i < _pricingRows.length; i++) {
+      if (_pricingRows[i].id === id) { Object.assign(_pricingRows[i], data); break; }
+    }
+    tr.className = data.active === false ? 'inactive' : '';
+    setTimeout(function() { btn.textContent = 'Save'; btn.disabled = true; }, 1500);
+  } catch (e) {
+    btn.textContent = 'Save';
+    btn.disabled = false;
+    alert('Save failed: ' + (e.message || e));
+  }
+};
+
+window.syncFromStripe = async function() {
+  var btn = document.getElementById('syncBtn');
+  var result = document.getElementById('syncResult');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = 'Syncing...';
+  result.className = 'sync-result';
+  result.textContent = '';
+  try {
+    var resp = await fetch('/api/admin/sync-stripe-prices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ apply: true })
+    });
+    var body = await resp.json();
+    if (!resp.ok) throw new Error((body && body.error) || ('HTTP ' + resp.status));
+    var updated = (body.updates || []).length;
+    var ambiguous = body.ambiguous || 0;
+    var noMatch = body.no_match || 0;
+    result.className = 'sync-result ok';
+    result.textContent = 'Synced ' + updated + ' tier(s) from Stripe. ' +
+      (ambiguous ? ambiguous + ' ambiguous (skipped). ' : '') +
+      (noMatch ? noMatch + ' with no matching Stripe price.' : '');
+    await loadPricing();
+  } catch (e) {
+    result.className = 'sync-result err';
+    result.textContent = 'Sync failed: ' + (e.message || e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sync from Stripe';
+  }
+};
+
+adminAuth.ready(function() {
+  loadPricing();
+});
+</script>
+
+</body>
+</html>

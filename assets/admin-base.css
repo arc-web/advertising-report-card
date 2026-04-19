@@ -19,8 +19,11 @@
   --color-navy: #141C3A;
   --color-success: #00D47E;
   --color-warning: #F59E0B;
+  --color-amber-deep: #D97706;
   --color-danger: #EF4444;
   --color-info: #3B82F6;
+  --color-violet: #8B5CF6;
+  --color-purple: #A855F7;
   --sidebar-bg: #FAFDFB;
   --sidebar-border: #E8F0EC;
   --sidebar-hover: #EEF8F3;
@@ -39,8 +42,11 @@
   --color-navy: #0A1630;
   --color-success: #00D47E;
   --color-warning: #F59E0B;
+  --color-amber-deep: #FBBF24;
   --color-danger: #FF6B6B;
   --color-info: #60A5FA;
+  --color-violet: #A78BFA;
+  --color-purple: #C084FC;
   --sidebar-bg: #0A120E;
   --sidebar-border: #162820;
   --sidebar-hover: #12201A;

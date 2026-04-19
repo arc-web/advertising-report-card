@@ -75,7 +75,7 @@
 .tag-lost { background: rgba(239,68,68,.08); color: var(--color-danger); }
 .follow-up-badge { font-size: .68rem; padding: .15rem .45rem; border-radius: 4px; font-weight: 500; }
 .follow-up-badge.overdue { background: rgba(239,68,68,.1); color: var(--color-danger); }
-.follow-up-badge.upcoming { background: rgba(245,158,11,.1); color: #D97706; }
+.follow-up-badge.upcoming { background: rgba(245,158,11,.1); color: var(--color-amber-deep); }
 .follow-up-badge.future { background: rgba(107,117,153,.08); color: var(--color-muted); }
 .lost-banner { background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.15); border-radius: 10px; padding: .75rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: .75rem; }
 .lost-banner .lost-icon { font-size: 1.1rem; }
@@ -138,8 +138,8 @@
 .convert-links a { font-size: .8rem; font-weight: 500; padding: .25rem .65rem; border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-body); transition: all .15s; }
 .convert-links a:hover { border-color: var(--color-primary); color: var(--color-primary); }
 .tag-moonraker { background: rgba(0,212,126,.12); color: #00b86c; }
-.tag-client { background: rgba(59,130,246,.1); color: #3B82F6; }
-.tag-collab, .tag-collaboration { background: rgba(245,158,11,.1); color: #D97706; }
+.tag-client { background: rgba(59,130,246,.1); color: var(--color-info); }
+.tag-collab, .tag-collaboration { background: rgba(245,158,11,.1); color: var(--color-amber-deep); }
 
 /* ---- STATUS DOT ---- */
 .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
@@ -261,7 +261,7 @@
 .ic-status-select:hover { border-color: var(--color-border); }
 .ic-status-select option { background: var(--color-surface); color: var(--color-body); }
 .ic-status-select.st-pending { background: rgba(107,117,153,.1); color: var(--color-muted); }
-.ic-status-select.st-in_progress { background: rgba(59,130,246,.1); color: #3B82F6; }
+.ic-status-select.st-in_progress { background: rgba(59,130,246,.1); color: var(--color-info); }
 .ic-status-select.st-complete { background: rgba(0,212,126,.1); color: #00b86c; }
 .ic-status-select.st-not_applicable { background: rgba(107,117,153,.05); color: var(--color-muted); }
 .ic-expand-desc { padding: .75rem 1rem .75rem 3.5rem; font-size: .82rem; color: var(--color-body); line-height: 1.7; border-bottom: 1px solid var(--color-border); background: var(--color-bg); display: none; }
@@ -309,9 +309,9 @@
 .task-status-select:hover { border-color: var(--color-border); }
 .task-status-select option { background: var(--color-surface); color: var(--color-body); }
 .task-status-select.st-not_started { background: rgba(107,117,153,.1); color: var(--color-muted); }
-.task-status-select.st-in_progress { background: rgba(59,130,246,.1); color: #3B82F6; }
+.task-status-select.st-in_progress { background: rgba(59,130,246,.1); color: var(--color-info); }
 .task-status-select.st-internal_review { background: rgba(139,92,246,.1); color: #8B5CF6; }
-.task-status-select.st-waiting_on_client { background: rgba(245,158,11,.1); color: #D97706; }
+.task-status-select.st-waiting_on_client { background: rgba(245,158,11,.1); color: var(--color-amber-deep); }
 .task-status-select.st-complete { background: rgba(0,212,126,.1); color: #00b86c; }
 .task-owner-select {
   padding: .25rem .4rem; border-radius: 6px; font-size: .72rem; font-weight: 500;
@@ -320,8 +320,8 @@
 .task-owner-select:hover { border-color: var(--color-border); }
 .task-owner-select option { background: var(--color-surface); }
 .task-owner-select.ow-moonraker { background: rgba(0,212,126,.12); color: #00b86c; }
-.task-owner-select.ow-client { background: rgba(59,130,246,.1); color: #3B82F6; }
-.task-owner-select.ow-collaboration { background: rgba(245,158,11,.1); color: #D97706; }
+.task-owner-select.ow-client { background: rgba(59,130,246,.1); color: var(--color-info); }
+.task-owner-select.ow-collaboration { background: rgba(245,158,11,.1); color: var(--color-amber-deep); }
 .task-owner-select option { color: var(--color-body); background: var(--color-surface); }
 .task-delete { width: 24px; height: 24px; border-radius: 6px; border: none; background: transparent; color: var(--color-muted); cursor: pointer; font-size: .75rem; display: flex; align-items: center; justify-content: center; opacity: 0; transition: all .15s; flex-shrink: 0; }
 .task-row:hover .task-delete { opacity: .6; }
@@ -377,9 +377,9 @@
 .del-delete:hover { opacity: 1 !important; background: rgba(239,68,68,.1); color: var(--color-danger); }
 .del-status-select option { background: var(--color-surface); color: var(--color-body); }
 .del-status-select.st-not_started { background: rgba(107,117,153,.1); color: var(--color-muted); }
-.del-status-select.st-in_progress { background: rgba(59,130,246,.1); color: #3B82F6; }
+.del-status-select.st-in_progress { background: rgba(59,130,246,.1); color: var(--color-info); }
 .del-status-select.st-internal_review { background: rgba(139,92,246,.1); color: #8B5CF6; }
-.del-status-select.st-waiting_on_client { background: rgba(245,158,11,.1); color: #D97706; }
+.del-status-select.st-waiting_on_client { background: rgba(245,158,11,.1); color: var(--color-amber-deep); }
 .del-status-select.st-delivered { background: rgba(0,212,126,.1); color: #00b86c; }
 .del-status-select.st-active { background: rgba(0,212,126,.1); color: #00b86c; }
 .urgency-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
@@ -403,8 +403,8 @@
 .content-page-row.expanded .cp-expand-icon { transform: rotate(90deg); }
 .cp-type-badge { font-size: .65rem; font-weight: 600; padding: .15rem .45rem; border-radius: 4px; text-transform: uppercase; letter-spacing: .03em; flex-shrink: 0; }
 .cp-type-badge.homepage { background: rgba(139,92,246,.12); color: #8B5CF6; }
-.cp-type-badge.service { background: rgba(59,130,246,.12); color: #3B82F6; }
-.cp-type-badge.location { background: rgba(245,158,11,.12); color: #D97706; }
+.cp-type-badge.service { background: rgba(59,130,246,.12); color: var(--color-info); }
+.cp-type-badge.location { background: rgba(245,158,11,.12); color: var(--color-amber-deep); }
 .cp-type-badge.faq { background: rgba(0,212,126,.12); color: #00b86c; }
 .cp-type-badge.bio { background: rgba(236,72,153,.12); color: #EC4899; }
 .cp-info { flex: 1; min-width: 0; }
@@ -414,8 +414,8 @@
 .cp-status-select:hover { border-color: var(--color-border); }
 .cp-status-select option { background: var(--color-surface); color: var(--color-body); }
 .cp-status-select.st-pending_audit { background: rgba(107,117,153,.1); color: var(--color-muted); }
-.cp-status-select.st-audit_loaded { background: rgba(245,158,11,.1); color: #D97706; }
-.cp-status-select.st-generating { background: rgba(59,130,246,.1); color: #3B82F6; }
+.cp-status-select.st-audit_loaded { background: rgba(245,158,11,.1); color: var(--color-amber-deep); }
+.cp-status-select.st-generating { background: rgba(59,130,246,.1); color: var(--color-info); }
 .cp-status-select.st-review { background: rgba(139,92,246,.1); color: #8B5CF6; }
 .cp-status-select.st-client_review { background: rgba(236,72,153,.1); color: #EC4899; }
 .cp-status-select.st-approved { background: rgba(0,212,126,.1); color: #00b86c; }
@@ -431,7 +431,7 @@
 .cp-actions .btn { font-size: .75rem; padding: .35rem .65rem; }
 .paste-surge-area { width: 100%; min-height: 100px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; padding: .65rem; font-size: .78rem; font-family: 'Inter', sans-serif; color: var(--color-body); resize: vertical; margin-bottom: .5rem; }
 .paste-surge-area:focus { outline: none; border-color: var(--color-primary); }
-.cp-stale-banner { padding: .5rem; background: rgba(245,158,11,.08); border-radius: 6px; font-size: .75rem; color: #D97706; margin-bottom: .5rem; display: flex; align-items: center; gap: .35rem; }
+.cp-stale-banner { padding: .5rem; background: rgba(245,158,11,.08); border-radius: 6px; font-size: .75rem; color: var(--color-amber-deep); margin-bottom: .5rem; display: flex; align-items: center; gap: .35rem; }
 .content-filter-pill { padding: .3rem .65rem; border-radius: 6px; font-size: .72rem; font-weight: 500; border: 1px solid var(--color-border); background: transparent; color: var(--color-muted); cursor: pointer; font-family: inherit; transition: all .15s; }
 .content-filter-pill:hover { border-color: var(--color-primary); color: var(--color-heading); }
 .content-filter-pill.active { background: var(--color-primary-subtle); border-color: var(--color-primary); color: var(--color-primary); }
@@ -443,7 +443,7 @@
 .endorsement-row .end-name { font-weight: 500; flex: 1; }
 .endorsement-row .end-type { font-size: .68rem; font-weight: 600; padding: .1rem .35rem; border-radius: 4px; text-transform: uppercase; letter-spacing: .03em; background: rgba(107,117,153,.1); color: var(--color-muted); }
 .endorsement-row .end-status { font-size: .72rem; }
-.endorsement-row .end-status.submitted { color: #D97706; }
+.endorsement-row .end-status.submitted { color: var(--color-amber-deep); }
 .endorsement-row .end-status.processed { color: var(--color-success); }
 .field-value.editable { cursor: pointer; padding: .15rem .35rem; margin: -.15rem -.35rem; border-radius: 4px; transition: background .15s; border: 1px solid transparent; min-height: 1.4em; }
 .field-value.editable:hover { background: var(--color-bg); border-color: var(--color-border); }
@@ -537,9 +537,9 @@
 .rt-platform-name { font-weight: 600; font-size: .88rem; }
 .rt-status-badge { font-size: .68rem; padding: .15rem .5rem; border-radius: 4px; font-weight: 600; text-transform: capitalize; }
 .rt-status-badge.st-live { background: rgba(0,212,126,.12); color: #00b368; }
-.rt-status-badge.st-in_progress { background: rgba(59,130,246,.12); color: #3b82f6; }
+.rt-status-badge.st-in_progress { background: rgba(59,130,246,.12); color: var(--color-info); }
 .rt-status-badge.st-not_created { background: var(--color-bg); color: var(--color-muted); }
-.rt-status-badge.st-needs_update { background: rgba(245,158,11,.12); color: #d97706; }
+.rt-status-badge.st-needs_update { background: rgba(245,158,11,.12); color: var(--color-amber-deep); }
 .rt-status-badge.st-opted_out { background: rgba(107,114,128,.1); color: #6b7280; text-decoration: line-through; }
 .rt-url { font-size: .78rem; color: var(--color-primary); text-decoration: none; word-break: break-all; }
 .rt-url:hover { text-decoration: underline; }
@@ -580,18 +580,18 @@
 .filter-tab:hover { color: var(--color-heading); }
 .filter-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
 .filter-tab.active[data-filter="active"] { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-.filter-tab.active[data-filter="onboarding"] { color: #3b82f6; border-bottom-color: #3b82f6; }
+.filter-tab.active[data-filter="onboarding"] { color: var(--color-info); border-bottom-color: var(--color-info); }
 .filter-tab.active[data-filter="onboarding"] .count { background: rgba(59,130,246,.12); }
-.filter-tab.active[data-filter="prospect"] { color: #d97706; border-bottom-color: #d97706; }
+.filter-tab.active[data-filter="prospect"] { color: var(--color-amber-deep); border-bottom-color: var(--color-amber-deep); }
 .filter-tab.active[data-filter="prospect"] .count { background: rgba(245,158,11,.12); }
 .filter-tab.active[data-filter="lead"] { color: #6b7280; border-bottom-color: #6b7280; }
 .filter-tab.active[data-filter="lead"] .count { background: rgba(107,114,128,.12); }
 .filter-tab.active[data-filter="lost"] { color: #ef4444; border-bottom-color: #ef4444; }
 .filter-tab.active[data-filter="lost"] .count { background: rgba(239,68,68,.12); }
-.filter-tab.active[data-filter="internal_review"] { color: #d97706; border-bottom-color: #d97706; }
+.filter-tab.active[data-filter="internal_review"] { color: var(--color-amber-deep); border-bottom-color: var(--color-amber-deep); }
 .filter-tab.active[data-filter="internal_review"] .count { background: rgba(245,158,11,.12); }
 .filter-tab.active[data-filter="published"], .filter-tab.active[data-filter="sent"] { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-.filter-tab.active[data-filter="compiled"] { color: #3b82f6; border-bottom-color: #3b82f6; }
+.filter-tab.active[data-filter="compiled"] { color: var(--color-info); border-bottom-color: var(--color-info); }
 .filter-tab.active[data-filter="compiled"] .count { background: rgba(59,130,246,.12); }
 .filter-tab .count { font-size: .7rem; padding: .05rem .4rem; border-radius: 4px; background: var(--color-bg); margin-left: .3rem; }
 .filter-tab.active .count { background: var(--color-primary-subtle); }
@@ -763,10 +763,10 @@
 .prop-status-bar { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
 .prop-status-tag { font-size: .72rem; font-weight: 600; padding: .25rem .6rem; border-radius: 6px; text-transform: uppercase; letter-spacing: .03em; }
 .prop-status-tag.st-draft { background: rgba(245,158,11,.1); color: #F59E0B; }
-.prop-status-tag.st-enriching, .prop-status-tag.st-generating { background: rgba(59,130,246,.08); color: #3B82F6; }
+.prop-status-tag.st-enriching, .prop-status-tag.st-generating { background: rgba(59,130,246,.08); color: var(--color-info); }
 .prop-status-tag.st-review { background: rgba(168,85,247,.1); color: #A855F7; }
 .prop-status-tag.st-ready { background: rgba(0,212,126,.1); color: #00D47E; }
-.prop-status-tag.st-sent { background: rgba(59,130,246,.08); color: #3B82F6; }
+.prop-status-tag.st-sent { background: rgba(59,130,246,.08); color: var(--color-info); }
 .prop-status-tag.st-viewed { background: rgba(0,212,126,.1); color: #00D47E; }
 .prop-status-tag.st-accepted { background: rgba(0,212,126,.15); color: #00D47E; }
 .prop-actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
@@ -829,6 +829,7 @@
     <div class="nav-section">Marketing</div>
     <a href="/admin/newsletter"><span class="nav-icon"><svg viewBox="0 0 16 16"><path d="M2 3h12a1 1 0 011 1v8a1 1 0 01-1 1H2a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M1 4l7 5 7-5"/></svg></span><span class="nav-label">Newsletter</span></a>
     <div class="nav-section">System</div>
+    <a href="/admin/pricing"><span class="nav-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5v13"/><path d="M11 4.5H6.5a1.75 1.75 0 000 3.5h3a1.75 1.75 0 010 3.5H5"/></svg></span><span class="nav-label">Pricing</span></a>
     <a href="/admin/system"><span class="nav-icon"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2.5"/></svg></span><span class="nav-label">Cron Health</span></a>
   </nav>
   <div class="sidebar-footer">
@@ -2117,7 +2118,7 @@
       } else if (site.status === 'active') {
         h += '<span style="display:inline-flex;align-items:center;gap:.25rem;padding:.25rem .6rem;background:rgba(0,212,126,.08);border-radius:4px;font-size:.72rem;font-weight:600;color:var(--color-primary-hover);">&#10003; Active</span>';
       } else if (site.status === 'pending_dns' || site.status === 'pending_verification') {
-        h += '<span style="padding:.25rem .6rem;background:rgba(245,158,11,.08);border-radius:4px;font-size:.72rem;font-weight:600;color:#D97706;">Pending DNS</span>';
+        h += '<span style="padding:.25rem .6rem;background:rgba(245,158,11,.08);border-radius:4px;font-size:.72rem;font-weight:600;color:var(--color-amber-deep);">Pending DNS</span>';
       }
       h += '</div>';
 
@@ -3328,7 +3329,7 @@
             if (isLocked) html += '<span class="kw-lock-tip" data-tip="' + lockTitle + '" style="font-size:.65rem;color:var(--color-warning);opacity:.7;">&#128274;</span>';
             html += esc(kw.keyword) + '</div>';
             html += '<input type="text" value="' + esc(kw.target_page || '') + '" placeholder="e.g. /anxiety-therapy/" style="font-family:inherit;font-size:.78rem;padding:.25rem .4rem;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--color-muted);width:100%;transition:border-color .15s,background .15s;" onfocus="this.style.borderColor=\'var(--color-primary)\';this.style.background=\'var(--color-bg)\'" onblur="this.style.borderColor=\'transparent\';this.style.background=\'transparent\';updateKeyword(\'' + kw.id + '\', \'target_page\', this.value)">';
-            html += '<select onchange="updateKeyword(\'' + kw.id + '\', \'priority\', parseInt(this.value))" style="font-family:inherit;font-size:.72rem;font-weight:600;padding:.15rem .3rem;border:1px solid transparent;border-radius:4px;background:' + (kw.priority === 1 ? 'rgba(0,212,126,.1)' : 'rgba(59,130,246,.1)') + ';color:' + (kw.priority === 1 ? '#00b86c' : '#3B82F6') + ';cursor:pointer;appearance:none;-webkit-appearance:none;text-align:center;"><option value="1"' + (kw.priority === 1 ? ' selected' : '') + '>P1</option><option value="2"' + (kw.priority !== 1 ? ' selected' : '') + '>P2</option></select>';
+            html += '<select onchange="updateKeyword(\'' + kw.id + '\', \'priority\', parseInt(this.value))" style="font-family:inherit;font-size:.72rem;font-weight:600;padding:.15rem .3rem;border:1px solid transparent;border-radius:4px;background:' + (kw.priority === 1 ? 'rgba(0,212,126,.1)' : 'rgba(59,130,246,.1)') + ';color:' + (kw.priority === 1 ? '#00b86c' : 'var(--color-info)') + ';cursor:pointer;appearance:none;-webkit-appearance:none;text-align:center;"><option value="1"' + (kw.priority === 1 ? ' selected' : '') + '>P1</option><option value="2"' + (kw.priority !== 1 ? ' selected' : '') + '>P2</option></select>';
             html += '<select onchange="updateKeyword(\'' + kw.id + '\', \'notes\', this.value === \'new\' ? \'New page to create\' : \'Existing page\')" style="font-family:inherit;font-size:.72rem;font-weight:500;padding:.15rem .3rem;border:1px solid transparent;border-radius:4px;background:transparent;color:' + (isNew ? 'var(--color-primary)' : 'var(--color-info)') + ';cursor:pointer;appearance:none;-webkit-appearance:none;"><option value="existing"' + (pageVal === 'existing' ? ' selected' : '') + '>Existing</option><option value="new"' + (pageVal === 'new' ? ' selected' : '') + '>New</option></select>';
             if (isLocked) {
               html += '<span class="kw-lock-tip" data-tip="' + lockTitle + '" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:.65rem;color:var(--color-muted);opacity:.5;">&#128274;</span>';
@@ -3709,7 +3710,7 @@
     if (scoreSource) {
       var pillars = [
         { key: 'credibility', promoted: 'score_credibility', label: 'Credibility', color: '#00D47E' },
-        { key: 'optimization', promoted: 'score_optimization', label: 'Optimization', color: '#3B82F6' },
+        { key: 'optimization', promoted: 'score_optimization', label: 'Optimization', color: 'var(--color-info)' },
         { key: 'reputation', promoted: 'score_reputation', label: 'Reputation', color: '#F59E0B' },
         { key: 'engagement', promoted: 'score_engagement', label: 'Engagement', color: '#8B5CF6' }
       ];
@@ -3827,7 +3828,7 @@
     if (hasAnyScore && !entityVisible) {
       var pillars = [
         { key: 'score_credibility', label: 'Credibility', color: '#00D47E' },
-        { key: 'score_optimization', label: 'Optimization', color: '#3B82F6' },
+        { key: 'score_optimization', label: 'Optimization', color: 'var(--color-info)' },
         { key: 'score_reputation', label: 'Reputation', color: '#F59E0B' },
         { key: 'score_engagement', label: 'Engagement', color: '#8B5CF6' }
       ];
@@ -3864,8 +3865,8 @@
         '<div class="stat-mini"><div class="stat-label">Total Tasks</div><div class="stat-value">' + tasks.length + '</div><div class="stat-sub">' + pct + '% complete</div></div>' +
         '<div class="stat-mini"><div class="stat-label">Not Started</div><div class="stat-value">' + tns + '</div></div>' +
         '<div class="stat-mini"><div class="stat-label">In Progress</div><div class="stat-value" style="color:var(--color-info);">' + tip + '</div></div>' +
-        '<div class="stat-mini"><div class="stat-label">Internal Review</div><div class="stat-value" style="color:#8B5CF6;">' + tir + '</div></div>' +
-        '<div class="stat-mini"><div class="stat-label">Waiting on Client</div><div class="stat-value" style="color:#D97706;">' + twc + '</div></div>' +
+        '<div class="stat-mini"><div class="stat-label">Internal Review</div><div class="stat-value" style="color:var(--color-violet);">' + tir + '</div></div>' +
+        '<div class="stat-mini"><div class="stat-label">Waiting on Client</div><div class="stat-value" style="color:var(--color-amber-deep);">' + twc + '</div></div>' +
         '<div class="stat-mini"><div class="stat-label">Complete</div><div class="stat-value" style="color:var(--color-success);">' + tc + '</div></div>';
 
       // Filters
@@ -5873,7 +5874,7 @@
       } else {
         kwBadge.textContent = 'None';
         kwBadge.style.background = 'rgba(245,158,11,.1)';
-        kwBadge.style.color = '#D97706';
+        kwBadge.style.color = 'var(--color-amber-deep)';
       }
     }
     renderKeywordForm('ctKeywordForm');
@@ -5884,7 +5885,7 @@
       if (spec && spec.capture_status === 'capturing') {
         badge.textContent = 'Capturing...';
         badge.style.background = 'rgba(59,130,246,.1)';
-        badge.style.color = '#3B82F6';
+        badge.style.color = 'var(--color-info)';
       } else if (spec && spec.summary_text) {
         badge.textContent = 'Configured';
         badge.style.background = 'rgba(0,212,126,.1)';
@@ -5892,11 +5893,11 @@
       } else if (spec && spec.capture_status === 'complete') {
         badge.textContent = 'Assets Ready';
         badge.style.background = 'rgba(245,158,11,.1)';
-        badge.style.color = '#D97706';
+        badge.style.color = 'var(--color-amber-deep)';
       } else {
         badge.textContent = 'Not Set';
         badge.style.background = 'rgba(245,158,11,.1)';
-        badge.style.color = '#D97706';
+        badge.style.color = 'var(--color-amber-deep)';
       }
     }
 
@@ -6168,13 +6169,13 @@
         var isExp = expandedContentId === cp.id;
         var varianceBadge = '';
         if (cp.variance_score) {
-          var vColor = cp.variance_score >= 80 ? '#EF4444' : cp.variance_score >= 60 ? '#F59E0B' : cp.variance_score >= 40 ? '#3B82F6' : '#00b86c';
+          var vColor = cp.variance_score >= 80 ? '#EF4444' : cp.variance_score >= 60 ? '#F59E0B' : cp.variance_score >= 40 ? 'var(--color-info)' : '#00b86c';
           varianceBadge = '<span style="font-size:.68rem;font-weight:600;padding:.1rem .35rem;border-radius:4px;background:' + vColor + '20;color:' + vColor + ';margin-left:.35rem;">' + cp.variance_score + '/100</span>';
         }
         h += '<div class="content-page-row' + (isExp ? ' expanded' : '') + '" onclick="toggleContentExpand(\'' + cp.id + '\')">';
         h += '<div class="cp-expand-icon">&#9654;</div>';
         h += '<span class="cp-type-badge ' + cp.page_type + '">' + cp.page_type + '</span>';
-        h += '<div class="cp-info"><div class="cp-title">' + esc(cp.page_name) + varianceBadge + (cp.stale ? ' <span style="font-size:.6rem;font-weight:600;padding:.1rem .35rem;border-radius:3px;background:rgba(245,158,11,.12);color:#D97706;vertical-align:middle;margin-left:.35rem;">STALE</span>' : '') + '</div>';
+        h += '<div class="cp-info"><div class="cp-title">' + esc(cp.page_name) + varianceBadge + (cp.stale ? ' <span style="font-size:.6rem;font-weight:600;padding:.1rem .35rem;border-radius:3px;background:rgba(245,158,11,.12);color:var(--color-amber-deep);vertical-align:middle;margin-left:.35rem;">STALE</span>' : '') + '</div>';
         if (cp.target_keyword) h += '<div class="cp-keyword">' + esc(cp.target_keyword) + '</div>';
         h += '</div>';
         h += '<select class="cp-status-select st-' + cp.status + '" onchange="setContentPageStatus(\'' + cp.id + '\', this.value)" onclick="event.stopPropagation()">';
@@ -6201,7 +6202,7 @@
           h += '<div class="cp-rtpba-preview">' + esc(cp.rtpba).substring(0,500) + (cp.rtpba.length > 500 ? '...' : '') + '</div>';
         }
         if (cp.generation_notes) {
-          h += '<div style="margin-bottom:.5rem;padding:.5rem;background:rgba(245,158,11,.08);border-radius:6px;font-size:.78rem;color:#D97706;">' + esc(cp.generation_notes) + '</div>';
+          h += '<div style="margin-bottom:.5rem;padding:.5rem;background:rgba(245,158,11,.08);border-radius:6px;font-size:.78rem;color:var(--color-amber-deep);">' + esc(cp.generation_notes) + '</div>';
         }
         if (cp.status === 'pending_audit') {
           h += '<div style="display:flex;gap:.5rem;align-items:center;margin-top:.5rem;margin-bottom:.5rem;">';
@@ -6274,18 +6275,18 @@
 
     if (activeBatch) {
       // Active batch in progress
-      var statusColors = {queued:'#D97706',agent_running:'#3B82F6',extracting:'#8B5CF6',processing:'#3B82F6'};
+      var statusColors = {queued:'var(--color-amber-deep)',agent_running:'var(--color-info)',extracting:'#8B5CF6',processing:'var(--color-info)'};
       var statusLabels = {queued:'Queued',agent_running:'Running',extracting:'Extracting',processing:'Processing'};
       badge.textContent = statusLabels[activeBatch.status] || activeBatch.status;
       badge.style.background = 'rgba(59,130,246,.1)';
-      badge.style.color = statusColors[activeBatch.status] || '#3B82F6';
+      badge.style.color = statusColors[activeBatch.status] || 'var(--color-info)';
       if (triggerBtn) triggerBtn.style.display = 'none';
 
       var progress = '';
       if (activeBatch.status === 'agent_running') {
-        progress = '<div style="margin-top:.5rem;"><div style="height:4px;background:var(--color-border);border-radius:2px;overflow:hidden;"><div style="height:100%;background:#3B82F6;width:' + Math.max(5, (activeBatch.pages_extracted / activeBatch.pages_total * 100)) + '%;transition:width .3s;border-radius:2px;"></div></div><p style="font-size:.72rem;color:var(--color-muted);margin-top:.25rem;">' + activeBatch.pages_extracted + ' / ' + activeBatch.pages_total + ' pages extracted</p></div>';
+        progress = '<div style="margin-top:.5rem;"><div style="height:4px;background:var(--color-border);border-radius:2px;overflow:hidden;"><div style="height:100%;background:var(--color-info);width:' + Math.max(5, (activeBatch.pages_extracted / activeBatch.pages_total * 100)) + '%;transition:width .3s;border-radius:2px;"></div></div><p style="font-size:.72rem;color:var(--color-muted);margin-top:.25rem;">' + activeBatch.pages_extracted + ' / ' + activeBatch.pages_total + ' pages extracted</p></div>';
       } else if (activeBatch.status === 'processing') {
-        progress = '<div style="margin-top:.5rem;"><div style="height:4px;background:var(--color-border);border-radius:2px;overflow:hidden;"><div style="height:100%;background:#8B5CF6;width:' + Math.max(5, (activeBatch.pages_processed / activeBatch.pages_total * 100)) + '%;transition:width .3s;border-radius:2px;"></div></div><p style="font-size:.72rem;color:var(--color-muted);margin-top:.25rem;">' + activeBatch.pages_processed + ' / ' + activeBatch.pages_total + ' pages processed</p></div>';
+        progress = '<div style="margin-top:.5rem;"><div style="height:4px;background:var(--color-border);border-radius:2px;overflow:hidden;"><div style="height:100%;background:var(--color-violet);width:' + Math.max(5, (activeBatch.pages_processed / activeBatch.pages_total * 100)) + '%;transition:width .3s;border-radius:2px;"></div></div><p style="font-size:.72rem;color:var(--color-muted);margin-top:.25rem;">' + activeBatch.pages_processed + ' / ' + activeBatch.pages_total + ' pages processed</p></div>';
       }
 
       contentEl.innerHTML = '<p style="font-size:.82rem;color:var(--color-body);">Batch audit is in progress for ' + activeBatch.pages_total + ' keyword pages.</p>' + progress;
@@ -6361,7 +6362,7 @@
       if (p1Keywords.length > 0) {
         badge.textContent = 'Ready';
         badge.style.background = 'rgba(245,158,11,.1)';
-        badge.style.color = '#D97706';
+        badge.style.color = 'var(--color-amber-deep)';
         if (triggerBtn) { triggerBtn.style.display = 'inline-flex'; triggerBtn.textContent = 'Run Batch Audit'; }
         contentEl.innerHTML = '<p style="font-size:.82rem;color:var(--color-muted);">' + p1Keywords.length + ' P1 keyword' + (p1Keywords.length !== 1 ? 's' : '') + ' with target pages ready for batch audit. This will run a multi-page Surge analysis and extract RTPBA content and schema for each page.</p>';
       } else {
@@ -6449,7 +6450,7 @@
             if (bm) eh += '<span style="font-size:.68rem;color:var(--color-muted);">for ' + esc(bm.therapist_name) + '</span>';
           }
           if (e.endorsement_type) eh += '<span class="end-type">' + esc(e.endorsement_type) + '</span>';
-          eh += '<span style="font-size:.72rem;color:' + (e.status === 'processed' ? 'var(--color-success)' : '#D97706') + ';">' + (e.status === 'processed' ? 'Processed' : 'Submitted') + '</span>';
+          eh += '<span style="font-size:.72rem;color:' + (e.status === 'processed' ? 'var(--color-success)' : 'var(--color-amber-deep)') + ';">' + (e.status === 'processed' ? 'Processed' : 'Submitted') + '</span>';
           if (e.status !== 'processed') {
             eh += '<button class="btn btn-ghost btn-sm" onclick="toast(\'Code block generation coming soon.\', \'info\')" style="font-size:.7rem;">Generate Code</button>';
           }
@@ -6515,7 +6516,7 @@
     document.getElementById('rptOverview').innerHTML =
       '<div class="stat-mini"><div class="stat-label">Data Streams</div><div class="stat-value" style="font-size:1rem;">' +
         '<span style="font-size:.72rem;font-weight:600;padding:.15rem .45rem;border-radius:4px;margin-right:.35rem;' + (gscOk ? 'background:rgba(0,212,126,.1);color:var(--color-primary-hover)' : 'background:rgba(239,68,68,.1);color:var(--color-danger)') + ';">GSC</span>' +
-        '<span style="font-size:.72rem;font-weight:600;padding:.15rem .45rem;border-radius:4px;margin-right:.35rem;' + (lfOk ? 'background:rgba(0,212,126,.1);color:var(--color-primary-hover)' : 'background:rgba(245,158,11,.1);color:#D97706') + ';">GBP</span>' +
+        '<span style="font-size:.72rem;font-weight:600;padding:.15rem .45rem;border-radius:4px;margin-right:.35rem;' + (lfOk ? 'background:rgba(0,212,126,.1);color:var(--color-primary-hover)' : 'background:rgba(245,158,11,.1);color:var(--color-amber-deep)') + ';">GBP</span>' +
         '<span style="font-size:.72rem;font-weight:600;padding:.15rem .45rem;border-radius:4px;background:rgba(0,212,126,.1);color:var(--color-primary-hover);">AI</span>' +
       '</div></div>' +
       '<div class="stat-mini"><div class="stat-label">Schedule</div><div class="stat-value" style="color:' + (isActive ? 'var(--color-success)' : 'var(--color-muted)') + ';">' + (isActive ? 'Active' : 'Inactive') + '</div><div class="stat-sub">1st of month</div></div>' +
@@ -8058,7 +8059,7 @@
     if (emailCt || callCt || es.entity_audit || es.website) {
       h += '<div class="prop-enrichment-pills">';
       if (emailCt) h += '<span class="epill" style="color:var(--color-info);border-color:rgba(59,130,246,.2);">&#128231; ' + emailCt + ' email' + (emailCt !== 1 ? 's' : '') + '</span>';
-      if (callCt) h += '<span class="epill" style="color:#A855F7;border-color:rgba(168,85,247,.2);">&#127908; ' + callCt + ' call' + (callCt !== 1 ? 's' : '') + '</span>';
+      if (callCt) h += '<span class="epill" style="color:var(--color-purple);border-color:rgba(168,85,247,.2);">&#127908; ' + callCt + ' call' + (callCt !== 1 ? 's' : '') + '</span>';
       if (es.entity_audit) h += '<span class="epill" style="color:var(--color-warning);border-color:rgba(245,158,11,.2);">&#128202; Audit</span>';
       if (es.website) h += '<span class="epill" style="color:var(--color-success);border-color:rgba(0,212,126,.2);">&#127760; Site</span>';
       h += '</div>';
