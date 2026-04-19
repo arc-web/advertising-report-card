@@ -18,13 +18,22 @@ var monitor = require('../_lib/monitor');
 var cronRuns = require('../_lib/cron-runs');
 
 // How long an audit can stay in agent_running before we consider it stale
-// (only used when the agent IS actively processing something)
-var STALE_THRESHOLD_HOURS = 2;
+// (only used when the agent IS actively processing something).
+// Override via AUDIT_STALE_THRESHOLD_HOURS env var — useful if audit latency
+// changes (e.g., Surge slowdown) without requiring a code deploy.
+var STALE_THRESHOLD_HOURS = parseFloat(process.env.AUDIT_STALE_THRESHOLD_HOURS || '2');
 
 // How long a 'dispatching' row can sit before we assume the cron crashed
 // between the atomic claim and agent dispatch. 2 minutes comfortably covers
-// network round-trip + agent accept latency.
-var DISPATCHING_STALE_MS = 2 * 60 * 1000;
+// network round-trip + agent accept latency. Override via env var for the
+// same reason as STALE_THRESHOLD_HOURS.
+var DISPATCHING_STALE_MS = parseFloat(process.env.AUDIT_DISPATCHING_STALE_MINUTES || '2') * 60 * 1000;
+
+// Safety rail on Step 0 mass-requeue: if we ever flip more than this many
+// rows back to queued in one tick, something is seriously wrong (agent wiped
+// its task list mid-bulk-run?). Log a warning but still do the requeue —
+// the data recovery is correct, we just want to be alerted.
+var REQUEUE_RUNAWAY_THRESHOLD = parseInt(process.env.AUDIT_REQUEUE_RUNAWAY_THRESHOLD || '10', 10);
 
 async function handler(req, res) {
   // Auth: admin JWT, CRON_SECRET, or AGENT_API_KEY (timing-safe)
@@ -174,6 +183,23 @@ async function handler(req, res) {
           }
         }
       }
+    }
+
+    // Runaway safety rail — if we just mass-requeued a lot of rows, surface
+    // it via monitor so someone can investigate (e.g., agent health flakiness,
+    // unexpected container restart loop). Still completes the work.
+    var totalStep0Requeued = staleRequeued + dispatchingRequeued;
+    if (totalStep0Requeued >= REQUEUE_RUNAWAY_THRESHOLD) {
+      monitor.warn('cron/process-audit-queue', 'Step 0 mass-requeue', {
+        detail: {
+          stale_requeued: staleRequeued,
+          dispatching_requeued: dispatchingRequeued,
+          requeue_reason: requeueReason,
+          agent_healthy: agentHealthy,
+          agent_active_tasks: agentActiveTasks,
+          threshold: REQUEUE_RUNAWAY_THRESHOLD
+        }
+      }).catch(function() {});
     }
 
     // ============================================================
