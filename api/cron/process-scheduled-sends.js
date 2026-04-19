@@ -15,6 +15,8 @@ module.exports = async function handler(req, res) {
   var user = await auth.requireAdminOrInternal(req, res);
   if (!user) return;
 
+  var cronSecret = process.env.CRON_SECRET || '';
+
   try {
     var now = new Date().toISOString();
     var scheduled = await sb.query(
@@ -31,7 +33,7 @@ module.exports = async function handler(req, res) {
       console.log('Processing scheduled send: Edition #' + nl.edition_number + ' (scheduled for ' + nl.scheduled_at + ')');
 
       try {
-        var baseUrl = 'https://' + (req.headers.host || 'clients.moonraker.ai');
+        var baseUrl = 'https://clients.moonraker.ai';
         var sendResp = await fetch(baseUrl + '/api/send-newsletter', {
           method: 'POST',
           headers: {
