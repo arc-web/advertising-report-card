@@ -109,6 +109,21 @@ function productDisplayName(product, tier) {
   return base + suffix;
 }
 
+// Compute Stripe subscription_data.cancel_at so committed plans auto-terminate
+// at the end of their term instead of auto-renewing forever. Anchored at
+// checkout time (Option A) — accept a 3-5 day ACH-clearing shortfall in the
+// client's favor rather than chase the exact first-payment timestamp via
+// webhooks. Returns a unix timestamp (seconds) or null for indefinite plans.
+function computeCancelAt(tier) {
+  var now = Math.floor(Date.now() / 1000);
+  var DAY = 24 * 3600;
+  if (tier.billing_term === 'annual')    return now + 365 * DAY;
+  if (tier.billing_term === 'quarterly') return now +  90 * DAY;
+  // 'monthly' billing_term = indefinite flexible plan, no cancel_at.
+  // null billing_term (e.g. entity_audit_premium) = one-off, never reaches here.
+  return null;
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -192,8 +207,13 @@ module.exports = async function handler(req, res) {
     };
     // Stripe requires subscription_data.metadata for subscription mode to get the
     // metadata onto the Subscription object itself, not just the Session.
+    // cancel_at here is what prevents committed plans (annual_monthly, annual_quarterly,
+    // quarterly_monthly) from auto-renewing past their term. Flexible monthly
+    // (billing_term='monthly') returns null and runs indefinitely.
     if (modeInfo.mode === 'subscription') {
       payload.subscription_data = { metadata: payload.metadata };
+      var cancelAt = computeCancelAt(tier);
+      if (cancelAt) payload.subscription_data.cancel_at = cancelAt;
     } else {
       payload.payment_intent_data = { metadata: payload.metadata };
     }
@@ -236,3 +256,4 @@ module.exports = async function handler(req, res) {
 
   return res.status(500).json({ error: 'tier has no amount_cents and no stripe_payment_link' });
 };
+
