@@ -1101,7 +1101,7 @@ section { padding: 4.5rem 0; }
     if (!CLIENT_SLUG) return;
 
     // Load client details first
-    sbFetch('contacts', 'slug=eq.' + CLIENT_SLUG + '&select=first_name,last_name,practice_name,city,state_province&limit=1')
+    fetch('/api/public-contact?slug=' + encodeURIComponent(CLIENT_SLUG)).then(function(r){return r.json()}).then(function(b){return b&&b.contact?[b.contact]:[]})
       .then(function(contacts) {
         if (contacts && contacts.length > 0) {
           var c = contacts[0];

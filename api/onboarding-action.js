@@ -52,8 +52,26 @@ module.exports = async function handler(req, res) {
     var verifiedContactId = tokenData.contact_id;
 
     // ── 2. Enforce action/table allowlists ──────────────────────
-    var allowedTables = ['practice_details', 'bio_materials', 'social_platforms', 'directory_listings'];
+    var allowedTables = ['practice_details', 'bio_materials', 'social_platforms', 'directory_listings', 'contacts'];
     if (allowedTables.indexOf(table) === -1) return res.status(400).json({ error: 'Table not allowed' });
+
+    // Contacts updates are restricted to a narrow field set so the onboarding
+    // page can save form fields but cannot flip status, change slug, or touch
+    // any server-internal column. create/delete are blocked entirely for contacts.
+    var CONTACT_WRITE_ALLOWLIST = [
+      'first_name', 'last_name', 'credentials', 'email', 'phone',
+      'practice_name', 'legal_business_name', 'website_url', 'team_size',
+      'service_delivery', 'practice_address_line1', 'practice_address_line2',
+      'city', 'state_province', 'postal_code', 'country', 'time_zone',
+      'npi_number', 'platforms_to_omit', 'gbp_url',
+      'agreement_signed', 'agreement_signed_at'
+    ];
+    if (table === 'contacts') {
+      if (action !== 'update_record') return res.status(400).json({ error: 'Only update_record allowed on contacts' });
+      if (!data || typeof data !== 'object') return res.status(400).json({ error: 'data required' });
+      var stray = Object.keys(data).filter(function(k) { return CONTACT_WRITE_ALLOWLIST.indexOf(k) === -1; });
+      if (stray.length > 0) return res.status(400).json({ error: 'Disallowed contacts fields: ' + stray.join(',') });
+    }
 
     var allowedActions = ['create_record', 'update_record', 'delete_record'];
     if (allowedActions.indexOf(action) === -1) return res.status(400).json({ error: 'Action not allowed' });
@@ -78,7 +96,15 @@ module.exports = async function handler(req, res) {
     } else {
       // update_record or delete_record
       filters = filters || {};
-      filters.contact_id = verifiedContactId;
+      if (table === 'contacts') {
+        // contacts has no contact_id column; its PK is `id`. Force the
+        // filter to target the verified contact's own row regardless of
+        // what the client sent (prevents patching another contact's row).
+        filters.id = verifiedContactId;
+        delete filters.contact_id;
+      } else {
+        filters.contact_id = verifiedContactId;
+      }
     }
 
     var baseUrl = sb.url() + '/rest/v1/' + table;

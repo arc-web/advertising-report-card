@@ -304,14 +304,14 @@ select.form-input { cursor: pointer; }
   }
 
   // Load contact and existing endorsements
-  fetch(SB_URL + '/rest/v1/contacts?slug=eq.' + CLIENT_SLUG + '&select=id,practice_name,first_name,last_name&limit=1', { headers: sbHeaders() })
+  fetch('/api/public-contact?slug=' + encodeURIComponent(CLIENT_SLUG))
     .then(function(r) { return r.json(); })
-    .then(function(contacts) {
-      if (!contacts || contacts.length === 0) {
+    .then(function(body) {
+      if (!body || !body.contact) {
         document.getElementById('loadingState').innerHTML = '<p style="color:var(--color-danger)">Account not found.</p>';
         return;
       }
-      var contact = contacts[0];
+      var contact = body.contact;
       contactId = contact.id;
 
       document.title = 'Endorsements - ' + (contact.practice_name || CLIENT_SLUG) + ' - Moonraker';

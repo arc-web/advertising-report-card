@@ -160,9 +160,9 @@ strong{font-weight:600;color:var(--color-heading)}
 
     // Parallel: contact + pricing
     Promise.all([
-      fetch(SB_URL + '/rest/v1/contacts?slug=eq.' + CLIENT_SLUG + '&select=id,slug,first_name,last_name,practice_name,email&limit=1', {
-        headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + SB_ANON }
-      }).then(function(r) { return r.json(); }),
+      fetch('/api/public-contact?slug=' + encodeURIComponent(CLIENT_SLUG))
+        .then(function(r) { return r.json(); })
+        .then(function(body) { return body && body.contact ? [body.contact] : []; }),
       fetch('/api/pricing?product=entity_audit_premium').then(function(r) { return r.json(); })
     ]).then(function(results) {
       var contacts = results[0];

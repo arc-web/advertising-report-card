@@ -717,7 +717,7 @@ section { padding: 4.5rem 0; }
   // ============================================================
   function init() {
     // Fetch contact by slug
-    sbFetch('contacts', 'slug=eq.' + CLIENT_SLUG + '&select=*&limit=1')
+    fetch('/api/public-contact?slug=' + encodeURIComponent(CLIENT_SLUG)).then(function(r){return r.json()}).then(function(b){return b&&b.contact?[b.contact]:[]})
       .then(function(contacts) {
         if (!contacts || contacts.length === 0) {
           showError('No account found for "' + CLIENT_SLUG + '". Please check the URL.');

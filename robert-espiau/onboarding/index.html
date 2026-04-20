@@ -1345,8 +1345,9 @@ strong { font-weight: 600; color: var(--color-heading); }
         { status: 'complete', completed_at: signedAt });
 
       // Update contact record
-      sbPatch('contacts', 'id=eq.' + contact.id,
-        { agreement_signed: true, agreement_signed_at: signedAt });
+      apiAction('update_record', 'contacts',
+        { agreement_signed: true, agreement_signed_at: signedAt },
+        { id: contact.id });
 
       // Show signed state (keep agreement visible for reference)
       document.getElementById('csaAlreadySigned').style.display = 'block';
@@ -1543,7 +1544,7 @@ strong { font-weight: 600; color: var(--color-heading); }
       postal_code: document.getElementById('ci_postal_code').value.trim(),
       country: document.getElementById('ci_country').value.trim()
     };
-    return sbPatch('contacts', 'id=eq.' + contact.id, data).then(function() {
+    return apiAction('update_record', 'contacts', data, { id: contact.id }).then(function() {
       Object.assign(contact, data);
     });
   };
@@ -1619,7 +1620,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 
     // Also update NPI on contact
     var npi = document.getElementById('bio_npi').value.trim();
-    if (npi) { sbPatch('contacts', 'id=eq.' + contact.id, { npi_number: npi }); }
+    if (npi) { apiAction('update_record', 'contacts', { npi_number: npi }, { id: contact.id }); }
 
     if (bioData) {
       delete data.contact_id;
@@ -1674,7 +1675,7 @@ strong { font-weight: 600; color: var(--color-heading); }
     socialData.platforms_to_omit = omit || null;
 
     // Save socials + omit to contacts
-    return sbPatch('contacts', 'id=eq.' + contact.id, socialData).then(function() {
+    return apiAction('update_record', 'contacts', socialData, { id: contact.id }).then(function() {
       Object.assign(contact, socialData);
 
       // Sync to social_platforms table via API
@@ -2019,7 +2020,7 @@ strong { font-weight: 600; color: var(--color-heading); }
 
   function init() {
     applyTextareaGuards();
-    sbFetch('contacts', 'slug=eq.' + CLIENT_SLUG + '&select=*&limit=1')
+    fetch('/api/public-contact?slug=' + encodeURIComponent(CLIENT_SLUG)).then(function(r){return r.json()}).then(function(b){return b&&b.contact?[b.contact]:[]})
       .then(function(contacts) {
         if (!contacts || contacts.length === 0) {
           document.getElementById('loadingState').innerHTML = '<p style="color:var(--color-danger)">No account found for "' + CLIENT_SLUG + '".</p>';
