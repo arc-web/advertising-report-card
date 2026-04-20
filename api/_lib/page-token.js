@@ -171,9 +171,20 @@ function isConfigured() {
 // ── Cookie helpers (C6: HttpOnly cookie exchange) ─────────────────
 //
 // Clean cutover from `window.__PAGE_TOKEN__` baked into HTML to an HttpOnly
-// cookie set by /api/page-token/request. Each scope has its own cookie and is
-// path-scoped to the client slug so one contact's token can't be sent to a
-// different client's page.
+// cookie set by /api/page-token/request. Each scope has its own cookie.
+//
+// Binding model (post-2026-04-20 Path fix):
+//   - The HMAC payload binds the token to contact_id + scope + exp.
+//     verify(token, scope) returns the contact_id; callers look up the
+//     authoritative slug from `contacts.slug` and enforce equality with the
+//     request's slug (body.slug / query.slug) at the endpoint layer.
+//   - The cookie itself is Path=/ so it is delivered on every same-origin
+//     write regardless of which subpath the fetch originated from. The
+//     previous Path=/<slug> scheme broke delivery for cross-subpath fetches
+//     in some browsers and added no security (a token leaked from page A
+//     would still be accepted if replayed on page B because no endpoint
+//     asserted a slug match — the cookie path only controlled *delivery*,
+//     not acceptance). Slug enforcement now lives server-side per endpoint.
 
 function cookieName(scope) {
   return 'mr_pt_' + scope;
@@ -197,17 +208,17 @@ function readCookie(req, name) {
 
 // Build a Set-Cookie header value. Express/Vercel's res.setHeader doesn't
 // uppercase cookie attributes — follow the HTTP spec casing for readability.
-// Path-scope to /<slug> so cross-client leakage is impossible even with
-// SameSite relaxed settings.
+// Path=/ so the cookie is delivered on every same-origin write regardless
+// of which subpath the fetch originates from. Slug binding is enforced
+// server-side per endpoint (see module-level docs above).
+// `slug` parameter is retained for call-site compatibility but ignored.
 function buildSetCookie(scope, slug, token, opts) {
   opts = opts || {};
   var ttl = opts.ttl_seconds || DEFAULT_TTL[scope] || 86400;
   var secure = opts.secure !== false;  // default true; tests can disable
-  var path = '/' + String(slug || '').replace(/^\/+/, '').replace(/\/+$/, '');
-  if (!path || path === '/') path = '/';
   var parts = [
     cookieName(scope) + '=' + token,
-    'Path=' + path,
+    'Path=/',
     'Max-Age=' + ttl,
     'HttpOnly',
     'SameSite=Lax'
@@ -217,9 +228,8 @@ function buildSetCookie(scope, slug, token, opts) {
 }
 
 function buildClearCookie(scope, slug) {
-  var path = '/' + String(slug || '').replace(/^\/+/, '').replace(/\/+$/, '');
-  if (!path || path === '/') path = '/';
-  return cookieName(scope) + '=; Path=' + path + '; Max-Age=0; HttpOnly; SameSite=Lax; Secure';
+  // `slug` retained for call-site compatibility; Path=/ matches buildSetCookie.
+  return cookieName(scope) + '=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure';
 }
 
 // Pull the most likely token for `expectedScope` out of a request. Cookie
@@ -229,6 +239,22 @@ function buildClearCookie(scope, slug) {
 // verify — call verify() with the result.
 function getTokenFromRequest(req, expectedScope) {
   return readCookie(req, cookieName(expectedScope));
+}
+
+// Enforce that a request-supplied slug matches the contact the token was
+// issued to. Since the HMAC payload only binds {contact_id, scope, exp} —
+// not slug — every write endpoint that accepts a slug (body / query) must
+// look up contacts.slug by the verified contact_id and compare. Returns
+// true if bound OR if no request-side slug was supplied (strict mode off);
+// returns false on mismatch. Caller 403s on false.
+//
+// Usage:
+//   var ok = pageToken.assertSlugBinding(body.slug || query.slug, contact.slug);
+//   if (!ok) return res.status(403).json({ error: 'Page token not valid for this client' });
+function assertSlugBinding(requestSlug, contactSlug) {
+  if (!requestSlug) return true; // no client-supplied slug to compare — endpoint-specific check upstream
+  if (!contactSlug) return false;
+  return String(requestSlug).trim().toLowerCase() === String(contactSlug).trim().toLowerCase();
 }
 
 module.exports = {
@@ -241,5 +267,6 @@ module.exports = {
   readCookie: readCookie,
   buildSetCookie: buildSetCookie,
   buildClearCookie: buildClearCookie,
-  getTokenFromRequest: getTokenFromRequest
+  getTokenFromRequest: getTokenFromRequest,
+  assertSlugBinding: assertSlugBinding
 };

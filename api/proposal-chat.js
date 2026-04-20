@@ -89,6 +89,25 @@ module.exports = async function handler(req, res) {
   var proposalData = await fetchProposalByContactId(verifiedContactId);
   var contactData = proposalData ? proposalData._contact : null;
 
+  // Slug binding — cookie is Path=/ so delivery is cross-subpath; if the
+  // request supplied a slug, enforce it matches the token's contact.
+  var ctxSlug = (context && context.slug) || null;
+  if (ctxSlug && contactData) {
+    // Reconstruct slug from contact fields if not directly present on contactData
+    // (proposal-chat's fetchProposalByContactId doesn't select slug explicitly
+    // today, so we do an explicit lookup only if needed).
+    var contactSlug = contactData.slug;
+    if (!contactSlug && sb.isConfigured()) {
+      try {
+        var sr = await sb.one('contacts?id=eq.' + encodeURIComponent(verifiedContactId) + '&select=slug&limit=1');
+        contactSlug = sr && sr.slug;
+      } catch (_) { /* fall through */ }
+    }
+    if (!pageToken.assertSlugBinding(ctxSlug, contactSlug)) {
+      return res.status(403).json({ error: 'Page token not valid for this client' });
+    }
+  }
+
   var systemPrompt = buildSystemPrompt(context, proposalData, contactData);
 
   // Call Anthropic with stream: true

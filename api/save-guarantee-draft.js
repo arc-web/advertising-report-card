@@ -114,6 +114,11 @@ module.exports = async function handler(req, res) {
     );
     if (!contact) return res.status(404).json({ error: 'Contact not found' });
     if (contact.lost) return res.status(403).json({ error: 'Contact is no longer active' });
+    // Slug binding — if body supplied a slug, must match the verified contact.
+    // Cookie is Path=/ so delivery is cross-subpath; slug enforcement lives here.
+    if (body.slug && !pageToken.assertSlugBinding(body.slug, contact.slug)) {
+      return res.status(403).json({ error: 'Page token not valid for this client' });
+    }
     if (['onboarding', 'prospect', 'active'].indexOf(contact.status) === -1) {
       return res.status(403).json({ error: 'Contact not in a valid state for PG draft' });
     }

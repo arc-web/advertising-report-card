@@ -105,6 +105,14 @@ module.exports = async function handler(req, res) {
       return res.status(403).json({ error: 'Token contact not found' });
     }
 
+    // 4a'. Slug binding — if body.slug was provided, enforce match with the
+    // verified contact. Cookie is Path=/ so delivery is cross-subpath; slug
+    // enforcement lives here. (The item.client_slug check below remains the
+    // primary row-level gate.)
+    if (body.slug && !pageToken.assertSlugBinding(body.slug, contact.slug)) {
+      return res.status(403).json({ error: 'Page token not valid for this client' });
+    }
+
     // 4b + 5. Load the item, check ownership + visibility
     var item = await sb.one('checklist_items?id=eq.' + encodeURIComponent(itemId)
       + '&select=id,client_slug,web_visible&limit=1');

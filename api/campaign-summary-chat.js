@@ -18,6 +18,7 @@
 
 var rateLimit = require('./_lib/rate-limit');
 var pageToken = require('./_lib/page-token');
+var sb = require('./_lib/supabase');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
@@ -51,6 +52,23 @@ module.exports = async function handler(req, res) {
   }
   if (!tokenData) {
     return res.status(401).json({ error: 'Invalid or expired page token' });
+  }
+
+  // Slug binding — if context.slug was provided, enforce it matches the
+  // verified contact's slug. Cookie is now Path=/ so delivery is cross-
+  // subpath; slug enforcement lives here.
+  var ctxSlug = (req.body && req.body.context && req.body.context.slug) || null;
+  if (ctxSlug && sb.isConfigured()) {
+    try {
+      var contact = await sb.one('contacts?id=eq.' + encodeURIComponent(tokenData.contact_id)
+        + '&select=slug&limit=1');
+      if (!contact || !pageToken.assertSlugBinding(ctxSlug, contact.slug)) {
+        return res.status(403).json({ error: 'Page token not valid for this client' });
+      }
+    } catch (e) {
+      console.error('[campaign-summary-chat] slug binding lookup failed:', e.message);
+      return res.status(500).json({ error: 'Auth lookup failed' });
+    }
   }
 
   // Rate limit: 20 req/min per IP (protects Anthropic API credits)

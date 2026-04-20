@@ -77,9 +77,15 @@ module.exports = async function handler(req, res) {
     if (allowedActions.indexOf(action) === -1) return res.status(400).json({ error: 'Action not allowed' });
 
     // ── 3. Defense-in-depth: contact must be onboarding or active, not lost ─
-    var contactCheck = await sb.query('contacts?select=id,status,lost&id=eq.' + encodeURIComponent(verifiedContactId) + '&limit=1');
+    var contactCheck = await sb.query('contacts?select=id,slug,status,lost&id=eq.' + encodeURIComponent(verifiedContactId) + '&limit=1');
     if (!contactCheck || contactCheck.length === 0) {
       return res.status(404).json({ error: 'Contact not found' });
+    }
+    // 3a. Slug binding: if the request provided a slug (body.slug), it must
+    // match the verified contact's slug. The cookie is now Path=/ so delivery
+    // is not path-scoped; slug enforcement happens here.
+    if (body.slug && !pageToken.assertSlugBinding(body.slug, contactCheck[0].slug)) {
+      return res.status(403).json({ error: 'Page token not valid for this client' });
     }
     if (contactCheck[0].lost) {
       return res.status(403).json({ error: 'Contact is no longer active' });

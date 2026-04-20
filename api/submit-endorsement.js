@@ -116,6 +116,14 @@ module.exports = async function handler(req, res) {
   }
   var contact = contactRows[0];
 
+  // Slug binding — if body.client_slug or body.slug was provided, enforce
+  // match with the verified contact. Cookie is Path=/ now, so delivery is
+  // not path-scoped; slug check lives here.
+  var requestSlug = body.client_slug || body.slug;
+  if (requestSlug && !pageToken.assertSlugBinding(requestSlug, contact.slug)) {
+    return res.status(403).json({ error: 'Page token not valid for this client' });
+  }
+
   // The prior anon RLS only allowed inserts for prospect/onboarding/active
   // contacts. Preserve that — there's no reason to collect endorsements for
   // leads (no campaign yet) or lost clients.
