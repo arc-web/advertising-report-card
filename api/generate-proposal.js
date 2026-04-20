@@ -345,11 +345,37 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
     + '<li><span class="check">&#10003;</span> Monthly progress reports with visibility and engagement metrics</li>';
   var guaranteeFeature = '<li><span class="check">&#10003;</span> <strong>12-month performance guarantee: if we don\'t hit our shared goal in 12 months, we continue working for free until you get there</strong></li>';
 
-  // Build investment cards for each selected campaign length
+  // Build investment cards for each selected campaign length.
+  // Pricing is pulled from pricing_tiers (upfront-ACH per cadence) so edits
+  // in /admin/pricing propagate into every new proposal without a code change.
+  // Runtime refresh for already-deployed proposals is handled by
+  // /shared/proposal-pricing-refresh.js.
+  function formatTierPrice(cents) {
+    if (typeof cents !== 'number') return '$—';
+    var d = cents / 100;
+    if (Number.isInteger(d)) return '$' + d.toLocaleString('en-US');
+    return '$' + d.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  var tierPriceByPlan = { annual: '$20,000', quarterly: '$5,000', monthly: '$1,667' };
+  try {
+    var pricingRows = await sb.query("pricing_tiers?product_key=eq.core_marketing&tier_key=in.(annual_upfront_ach,quarterly_upfront_ach,monthly_ach)&active=eq.true&select=tier_key,amount_cents");
+    var byKey = {};
+    (pricingRows || []).forEach(function(r) { byKey[r.tier_key] = r; });
+    if (byKey.annual_upfront_ach)    tierPriceByPlan.annual    = formatTierPrice(byKey.annual_upfront_ach.amount_cents);
+    if (byKey.quarterly_upfront_ach) tierPriceByPlan.quarterly = formatTierPrice(byKey.quarterly_upfront_ach.amount_cents);
+    if (byKey.monthly_ach)           tierPriceByPlan.monthly   = formatTierPrice(byKey.monthly_ach.amount_cents);
+  } catch (pricingErr) {
+    // Fall through to hardcoded defaults — proposal still renders, just with
+    // potentially-stale prices. /shared/proposal-pricing-refresh.js will
+    // overwrite on page load if the DB is reachable from the client.
+    console.error('[generate-proposal] pricing_tiers fetch failed, using defaults:', pricingErr.message);
+  }
+
   var campaignInfo = {
-    annual: { badge: '12-Month CORE Campaign', price: '$20,000', period: '12-month campaign', desc: 'Full annual engagement with performance guarantee', recommended: true },
-    quarterly: { badge: '3-Month Growth Engagement', price: '$5,000', period: '3-month campaign', desc: 'Foundation-building quarterly engagement' },
-    monthly: { badge: 'Monthly CORE Engagement', price: '$1,667', period: 'per month', desc: 'Flexible month-to-month engagement' }
+    annual:    { badge: '12-Month CORE Campaign',     price: tierPriceByPlan.annual,    period: '12-month campaign', desc: 'Full annual engagement with performance guarantee', recommended: true },
+    quarterly: { badge: '3-Month Growth Engagement',  price: tierPriceByPlan.quarterly, period: '3-month campaign',  desc: 'Foundation-building quarterly engagement' },
+    monthly:   { badge: 'Monthly CORE Engagement',    price: tierPriceByPlan.monthly,   period: 'per month',         desc: 'Flexible month-to-month engagement' }
   };
 
   var investmentCardsHtml = '<div class="investment-grid">';
