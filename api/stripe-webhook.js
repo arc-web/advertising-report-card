@@ -292,6 +292,82 @@ module.exports = async function handler(req, res) {
         results.action = 'no_status_change';
         results.reason = 'Contact status is ' + contact.status + ', not prospect';
       }
+
+      // ── Set cancel_at on committed subscription plans ──
+      // create-session.js can't set cancel_at directly (not a valid
+      // subscription_data field on Checkout Sessions), so we do it here
+      // once Stripe has created the actual Subscription. Anchoring in this
+      // handler means cancel_at tracks the real subscription start (after
+      // ACH clearing, etc.), not the raw checkout-click time.
+      //
+      // billing_term drives the window:
+      //   annual    → now + 365d  (annual_monthly, annual_quarterly)
+      //   quarterly → now +  90d  (quarterly_monthly)
+      //   monthly   → null         (flexible monthly, runs indefinitely)
+      //
+      // Idempotent: Stripe accepts the same cancel_at repeatedly. Failures
+      // are logged but do not block the 200 — operators can reapply by
+      // rerunning or patching the subscription manually.
+      if (session.mode === 'subscription' && session.subscription) {
+        var tierKey = (session.metadata && session.metadata.tier_key) || '';
+        if (tierKey) {
+          try {
+            var tierRow = await sb.one(
+              'pricing_tiers?product_key=eq.core_marketing&tier_key=eq.' +
+              encodeURIComponent(tierKey) + '&select=billing_term&limit=1'
+            );
+            var billingTerm = tierRow && tierRow.billing_term;
+            var cancelAt = null;
+            if (billingTerm === 'annual')    cancelAt = Math.floor(Date.now()/1000) + 365 * 86400;
+            else if (billingTerm === 'quarterly') cancelAt = Math.floor(Date.now()/1000) +  90 * 86400;
+
+            if (cancelAt) {
+              var stripeSecret = process.env.STRIPE_SECRET_KEY;
+              if (!stripeSecret) {
+                await monitor.logError('stripe-webhook', new Error('STRIPE_SECRET_KEY missing for cancel_at patch'), {
+                  client_slug: slug,
+                  detail: { stage: 'set_cancel_at', tier_key: tierKey, subscription_id: session.subscription }
+                });
+              } else {
+                var patchResp = await fetchT('https://api.stripe.com/v1/subscriptions/' + encodeURIComponent(session.subscription), {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': 'Bearer ' + stripeSecret,
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                  },
+                  body: 'cancel_at=' + cancelAt
+                }, 15000);
+                if (!patchResp.ok) {
+                  var patchErrBody = '';
+                  try { patchErrBody = await patchResp.text(); } catch (_) {}
+                  await monitor.critical('stripe-webhook', new Error('Stripe subscription PATCH cancel_at returned ' + patchResp.status), {
+                    client_slug: slug,
+                    detail: {
+                      stage: 'set_cancel_at',
+                      tier_key: tierKey,
+                      subscription_id: session.subscription,
+                      status: patchResp.status,
+                      body_preview: patchErrBody.substring(0, 500)
+                    }
+                  });
+                  results.cancel_at_failed = true;
+                } else {
+                  results.cancel_at_set = cancelAt;
+                }
+              }
+            }
+            // billingTerm==='monthly' or null: intentional no-op.
+          } catch (cancelAtErr) {
+            try {
+              await monitor.logError('stripe-webhook', cancelAtErr, {
+                client_slug: slug,
+                detail: { stage: 'set_cancel_at', tier_key: tierKey, subscription_id: session.subscription }
+              });
+            } catch (_) { /* don't mask the 200 */ }
+            results.cancel_at_failed = true;
+          }
+        }
+      }
     } else if (metadataProduct === 'strategy_call') {
       // ── 1-Hour Strategy Call payment ──
       // Log and notify only. Do NOT flip contact.status (a strategy-call
@@ -380,3 +456,4 @@ module.exports = async function handler(req, res) {
 // NOTE: This must be assigned AFTER `module.exports = handler` above,
 // otherwise the handler reassignment wipes it out.
 module.exports.config = { api: { bodyParser: false } };
+
