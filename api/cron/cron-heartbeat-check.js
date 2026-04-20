@@ -27,7 +27,8 @@ var EXPECTED = {
   'process-batch-pages':     { intervalSec: 300,         toleranceSec: 60 * 60 },
   'cleanup-rate-limits':     { intervalSec: 86400,       toleranceSec: 12 * 3600 },
   'sync-attribution-sheets': { intervalSec: 30 * 86400,  toleranceSec: 5 * 86400 },
-  'backfill-gbp-daily':      { intervalSec: 86400,       toleranceSec: 12 * 3600 }
+  'backfill-gbp-daily':      { intervalSec: 86400,       toleranceSec: 12 * 3600 },
+  'cleanup-stale-runs':      { intervalSec: 3600,        toleranceSec: 3 * 3600 }
 };
 
 module.exports = async function handler(req, res) {
