@@ -10,9 +10,9 @@
 //      touched. Any contact_id in filters or data from the request body is
 //      overridden with the verified value — a prospect cannot modify another
 //      prospect's data by swapping the UUID in their request body.
-//   3. The contact's status must still be 'onboarding' (defense-in-depth; also
-//      gives a clean rejection for clients who completed onboarding and try to
-//      reuse their page).
+//   3. The contact's status must be 'onboarding' or 'active' (active clients
+//      still need this surface to update profile fields after auto-promotion).
+//      lost=true is rejected in all cases.
 
 var sb = require('./_lib/supabase');
 var pageToken = require('./_lib/page-token');
@@ -76,13 +76,16 @@ module.exports = async function handler(req, res) {
     var allowedActions = ['create_record', 'update_record', 'delete_record'];
     if (allowedActions.indexOf(action) === -1) return res.status(400).json({ error: 'Action not allowed' });
 
-    // ── 3. Defense-in-depth: contact must still be in onboarding ─
-    var contactCheck = await sb.query('contacts?select=id,status&id=eq.' + encodeURIComponent(verifiedContactId) + '&limit=1');
+    // ── 3. Defense-in-depth: contact must be onboarding or active, not lost ─
+    var contactCheck = await sb.query('contacts?select=id,status,lost&id=eq.' + encodeURIComponent(verifiedContactId) + '&limit=1');
     if (!contactCheck || contactCheck.length === 0) {
       return res.status(404).json({ error: 'Contact not found' });
     }
-    if (contactCheck[0].status !== 'onboarding') {
-      return res.status(403).json({ error: 'Contact is not in onboarding' });
+    if (contactCheck[0].lost) {
+      return res.status(403).json({ error: 'Contact is no longer active' });
+    }
+    if (['onboarding', 'active'].indexOf(contactCheck[0].status) === -1) {
+      return res.status(403).json({ error: 'Contact not in a valid state for edits' });
     }
 
     // ── 4. Override contact_id with verified value ──────────────
