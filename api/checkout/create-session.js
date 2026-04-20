@@ -17,11 +17,12 @@
 
 var sb = require('../_lib/supabase');
 
-var ALLOWED_PRODUCTS = ['core_marketing', 'entity_audit_premium'];
+var ALLOWED_PRODUCTS = ['core_marketing', 'entity_audit_premium', 'addons'];
 
 var PRODUCT_NAMES = {
   core_marketing:        'CORE Marketing System',
-  entity_audit_premium:  'Premium Entity Audit'
+  entity_audit_premium:  'Premium Entity Audit',
+  addons:                'Moonraker Add-on Service'
 };
 
 // Look up the persistent Stripe Product for this product_key, creating it on
