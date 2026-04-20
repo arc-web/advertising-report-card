@@ -49,8 +49,7 @@ module.exports = async function handler(req, res) {
     rows = await sb.query(
       'pricing_tiers?product_key=eq.' + encodeURIComponent(product) +
       '&active=eq.true&order=sort_order.asc&select=' +
-      'tier_key,display_name,amount_cents,period,detail,payment_method,billing_term,billing_cadence,' +
-      'stripe_price_id,stripe_payment_link'
+      'tier_key,display_name,amount_cents,period,detail,payment_method,billing_term,billing_cadence'
     );
   } catch (e) {
     return res.status(500).json({ error: 'pricing fetch failed: ' + e.message });
@@ -66,9 +65,7 @@ module.exports = async function handler(req, res) {
       detail: r.detail || '',
       payment_method: r.payment_method,
       billing_term: r.billing_term,
-      billing_cadence: r.billing_cadence,
-      has_stripe_price_id: !!r.stripe_price_id,
-      has_payment_link: !!r.stripe_payment_link
+      billing_cadence: r.billing_cadence
     };
   });
 

@@ -1,30 +1,31 @@
 // /api/checkout/create-session.js
-// Converts a { slug, tier_key } pair into a payable Stripe URL.
-//
-// Flow:
-//   1. Look up the pricing_tiers row by (product_key inferred from caller, tier_key)
-//   2. If stripe_price_id is set: create a real Stripe Checkout Session with
-//      success_url, cancel_url, client_reference_id (contact.id), metadata, and
-//      customer_email. Return { url: session.url }.
-//   3. If only stripe_payment_link is set (legacy buy.stripe.com): return that URL
-//      directly. The payment link itself already handles success behaviour in Stripe
-//      Dashboard — but we can't plumb contact_id through it, which is why we want
-//      to migrate every tier to a stripe_price_id over time.
+// Creates a Stripe Checkout Session on the fly from pricing_tiers.amount_cents.
+// No pre-existing Stripe Price needed — line_items[0].price_data is built inline
+// so the DB row is the single source of truth for what gets charged.
 //
 // Request:
 //   POST /api/checkout/create-session
-//   { slug, product, tier_key, billing_term?, billing_cadence? }
+//   { slug, product, tier_key }
 //
 // Response:
 //   200 { url: string, mode: 'session'|'payment_link' }
 //   4xx { error }
+//
+// Legacy fallback: if a tier has a stripe_payment_link (buy.stripe.com/...)
+// but no amount_cents, we redirect to that link directly. This only matters
+// for rows that predate the inline-price_data flow.
 
 var sb = require('../_lib/supabase');
 
 var ALLOWED_PRODUCTS = ['core_marketing', 'entity_audit_premium'];
 
-// Encode a plain JS object as x-www-form-urlencoded Stripe expects,
-// with bracket notation for nested fields (line_items[0][price] etc).
+var PRODUCT_NAMES = {
+  core_marketing:        'CORE Marketing System',
+  entity_audit_premium:  'Premium Entity Audit'
+};
+
+// Encode nested JS object as x-www-form-urlencoded for Stripe's API
+// (Stripe accepts bracket notation like line_items[0][price_data][unit_amount]=166700).
 function encodeStripeForm(obj, prefix) {
   var parts = [];
   Object.keys(obj).forEach(function(key) {
@@ -48,11 +49,25 @@ function encodeStripeForm(obj, prefix) {
   return parts.join('&');
 }
 
+// Stripe subscription interval inferred from billing_cadence + billing_term.
+// Returns { mode: 'payment'|'subscription', recurring?: { interval, interval_count } }.
 function inferMode(tier) {
-  // Monthly / quarterly cadence = recurring subscription. Upfront / one-off = payment.
-  if (tier.billing_cadence === 'monthly' || tier.billing_cadence === 'quarterly') return 'subscription';
-  if (tier.period === '/month' || tier.period === '/quarter') return 'subscription';
-  return 'payment';
+  var cadence = tier.billing_cadence;
+  if (cadence === 'monthly') {
+    return { mode: 'subscription', recurring: { interval: 'month', interval_count: 1 } };
+  }
+  if (cadence === 'quarterly') {
+    // Stripe supports interval=month, interval_count=3 for quarterly recurring.
+    return { mode: 'subscription', recurring: { interval: 'month', interval_count: 3 } };
+  }
+  // upfront / null cadence => one-off payment
+  return { mode: 'payment' };
+}
+
+function productDisplayName(product, tier) {
+  var base = PRODUCT_NAMES[product] || product;
+  var suffix = tier.display_name ? ' — ' + tier.display_name : '';
+  return base + suffix;
 }
 
 module.exports = async function handler(req, res) {
@@ -73,7 +88,6 @@ module.exports = async function handler(req, res) {
   }
   if (!tier_key) return res.status(400).json({ error: 'tier_key required' });
 
-  // Fetch contact for metadata/customer_email
   var contact;
   try {
     contact = await sb.one('contacts?slug=eq.' + encodeURIComponent(slug) + '&select=id,email,first_name,last_name,practice_name&limit=1');
@@ -82,7 +96,6 @@ module.exports = async function handler(req, res) {
   }
   if (!contact) return res.status(404).json({ error: 'contact not found for slug' });
 
-  // Fetch tier
   var tiers;
   try {
     tiers = await sb.query(
@@ -101,20 +114,27 @@ module.exports = async function handler(req, res) {
   var successUrl = origin + '/' + slug + '/checkout/success?session_id={CHECKOUT_SESSION_ID}&tier=' + encodeURIComponent(tier_key);
   var cancelUrl  = origin + '/' + slug + '/checkout?canceled=1';
 
-  // ── Preferred path: Stripe Checkout Session ─────────────────────────
-  if (tier.stripe_price_id) {
+  // ── Preferred path: Stripe Checkout Session with inline price_data ──
+  if (typeof tier.amount_cents === 'number' && tier.amount_cents > 0) {
     var secret = process.env.STRIPE_SECRET_KEY;
     if (!secret) return res.status(500).json({ error: 'STRIPE_SECRET_KEY not configured' });
 
-    var mode = inferMode(tier);
+    var modeInfo = inferMode(tier);
+    var priceData = {
+      currency: 'usd',
+      unit_amount: tier.amount_cents,
+      product_data: { name: productDisplayName(product, tier) }
+    };
+    if (modeInfo.recurring) priceData.recurring = modeInfo.recurring;
+
     var payload = {
-      mode: mode,
+      mode: modeInfo.mode,
       success_url: successUrl,
       cancel_url: cancelUrl,
       client_reference_id: contact.id,
       customer_email: contact.email || undefined,
       allow_promotion_codes: true,
-      line_items: [{ price: tier.stripe_price_id, quantity: 1 }],
+      line_items: [{ price_data: priceData, quantity: 1 }],
       metadata: {
         contact_id: contact.id,
         slug: slug,
@@ -123,9 +143,9 @@ module.exports = async function handler(req, res) {
         practice_name: contact.practice_name || ''
       }
     };
-    // Stripe requires subscription_data.metadata for subscription-mode sessions
-    // so the metadata lives on the Subscription object as well, not only the Session.
-    if (mode === 'subscription') {
+    // Stripe requires subscription_data.metadata for subscription mode to get the
+    // metadata onto the Subscription object itself, not just the Session.
+    if (modeInfo.mode === 'subscription') {
       payload.subscription_data = { metadata: payload.metadata };
     } else {
       payload.payment_intent_data = { metadata: payload.metadata };
@@ -155,22 +175,17 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ url: data.url, mode: 'session', session_id: data.id });
   }
 
-  // ── Fallback: legacy buy.stripe.com payment link ─────────────────────
+  // ── Legacy fallback: buy.stripe.com payment link ───────────────────
   if (tier.stripe_payment_link) {
-    // Payment links accept prefilled_email as a query param. They do not carry
-    // our metadata — the stripe-webhook matches on customer_email or falls back
-    // to the slug-derived contact lookup in the payment line-item description.
     var url = tier.stripe_payment_link;
     try {
       var u = new URL(url);
       if (contact.email) u.searchParams.set('prefilled_email', contact.email);
-      // client_reference_id is supported on payment links and shows up on the
-      // checkout.session.completed event — use it so the webhook can match.
       u.searchParams.set('client_reference_id', contact.id);
       url = u.toString();
     } catch (_) { /* leave raw */ }
     return res.status(200).json({ url: url, mode: 'payment_link' });
   }
 
-  return res.status(500).json({ error: 'tier has neither stripe_price_id nor stripe_payment_link' });
+  return res.status(500).json({ error: 'tier has no amount_cents and no stripe_payment_link' });
 };

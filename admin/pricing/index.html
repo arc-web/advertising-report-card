@@ -19,10 +19,6 @@
   .refresh-btn { background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-body); padding: .5rem 1rem; border-radius: 8px; font-size: .8rem; cursor: pointer; min-height: 36px; }
   .refresh-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
 
-  .sync-btn { background: var(--color-primary); color: var(--color-navy); border: none; padding: .5rem 1rem; border-radius: 8px; font-size: .8rem; font-weight: 600; font-family: 'Outfit', sans-serif; cursor: pointer; min-height: 36px; transition: all .15s; }
-  .sync-btn:hover { filter: brightness(1.08); }
-  .sync-btn:disabled { opacity: .5; cursor: not-allowed; }
-
   /* ── Inline-scroll wrapper for any wide element ───────────────
      Per design system rule: page width and headings stay put;
      wider content scrolls horizontally inside its own container. */
@@ -49,7 +45,6 @@
   table.pricing input[type="number"]:focus, table.pricing input[type="text"]:focus { outline: none; border-color: var(--color-primary); }
   table.pricing .col-amount input { min-width: 100px; }
   table.pricing .col-period input { min-width: 80px; }
-  table.pricing .col-stripe-id input { min-width: 200px; }
   table.pricing .col-active { text-align: center; }
   table.pricing .col-save { text-align: right; }
 
@@ -68,9 +63,6 @@
   .pricing-hint { font-size: .78rem; color: var(--color-muted); padding: .75rem 1rem; border-top: 1px solid var(--color-border); background: var(--color-bg); }
   .pricing-hint code { background: var(--color-surface); padding: .1rem .3rem; border-radius: 4px; font-size: .72rem; }
 
-  .sync-result { margin-top: .75rem; padding: .75rem 1rem; border-radius: 8px; font-size: .82rem; display: none; }
-  .sync-result.ok { background: rgba(0,212,126,.08); border: 1px solid rgba(0,212,126,.25); color: var(--color-success); display: block; }
-  .sync-result.err { background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.25); color: var(--color-danger); display: block; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <script src="/shared/admin-auth.js"></script>
@@ -114,7 +106,6 @@
     <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">&#9776;</button>
     <div style="flex:1;"></div>
     <div class="topbar-right">
-      <button class="sync-btn" id="syncBtn" onclick="syncFromStripe()">Sync from Stripe</button>
       <button class="refresh-btn" onclick="loadPricing()">Refresh</button>
     </div>
   </div>
@@ -122,9 +113,7 @@
   <div class="content">
     <div class="container">
       <div class="section-header"><h2>Pricing</h2></div>
-      <p class="section-desc">Single source of truth for checkout prices. The checkout and entity-audit-checkout pages fetch these at page load. Amount is displayed at Stripe; the actual charge is whatever is configured on the matching Stripe Price or payment link.</p>
-
-      <div id="syncResult" class="sync-result"></div>
+      <p class="section-desc">Single source of truth for checkout prices. The checkout and entity-audit-checkout pages fetch these at page load, and <code>/api/checkout/create-session</code> builds a Stripe Checkout Session inline from the <code>Amount</code> value — no pre-existing Stripe Price required. Edit a value here and it takes effect on the next checkout.</p>
 
       <div id="pricingContainer">
         <div style="padding:2rem;text-align:center;color:var(--color-muted);">Loading pricing...</div>
@@ -220,7 +209,6 @@ function renderPricing() {
         '<th class="col-amount">Amount (USD)</th>' +
         '<th class="col-period">Period</th>' +
         '<th>Detail</th>' +
-        '<th class="col-stripe-id">Stripe Price ID</th>' +
         '<th class="col-active">Active</th>' +
         '<th class="col-save"></th>' +
       '</tr></thead><tbody>';
@@ -230,14 +218,13 @@ function renderPricing() {
         '<td class="col-amount"><input type="text" data-field="amount_cents" value="' + esc(fmtDollars(r.amount_cents)) + '" inputmode="decimal"></td>' +
         '<td class="col-period"><input type="text" data-field="period" value="' + esc(r.period || '') + '" placeholder="/month"></td>' +
         '<td class="col-detail"><input type="text" data-field="detail" value="' + esc(r.detail || '') + '" placeholder="Description shown under price"></td>' +
-        '<td class="col-stripe-id"><input type="text" data-field="stripe_price_id" value="' + esc(r.stripe_price_id || '') + '" placeholder="price_..."></td>' +
         '<td class="col-active"><label class="switch"><input type="checkbox" data-field="active"' + (r.active ? ' checked' : '') + '><span class="slider"></span></label></td>' +
         '<td class="col-save"><button class="save-btn" onclick="savePricingRow(this)" disabled>Save</button></td>' +
       '</tr>';
     });
     html += '</tbody></table>' +
       '</div>' +
-      '<div class="pricing-hint">Once a row has a <code>Stripe Price ID</code>, checkout creates a real Stripe Checkout Session (dynamic success URL + metadata). Without one, the legacy buy.stripe.com payment link is used as-is.</div>' +
+      '<div class="pricing-hint">Editing an amount takes effect on the very next checkout. Stripe Checkout Sessions are built inline via <code>price_data</code>; no pre-existing Stripe Price needed.</div>' +
       '</div>';
   });
   container.innerHTML = html;
@@ -289,40 +276,6 @@ window.savePricingRow = async function(btn) {
     btn.textContent = 'Save';
     btn.disabled = false;
     alert('Save failed: ' + (e.message || e));
-  }
-};
-
-window.syncFromStripe = async function() {
-  var btn = document.getElementById('syncBtn');
-  var result = document.getElementById('syncResult');
-  if (btn.disabled) return;
-  btn.disabled = true;
-  btn.textContent = 'Syncing...';
-  result.className = 'sync-result';
-  result.textContent = '';
-  try {
-    var resp = await fetch('/api/admin/sync-stripe-prices', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ apply: true })
-    });
-    var body = await resp.json();
-    if (!resp.ok) throw new Error((body && body.error) || ('HTTP ' + resp.status));
-    var updated = (body.updates || []).length;
-    var ambiguous = body.ambiguous || 0;
-    var noMatch = body.no_match || 0;
-    result.className = 'sync-result ok';
-    result.textContent = 'Synced ' + updated + ' tier(s) from Stripe. ' +
-      (ambiguous ? ambiguous + ' ambiguous (skipped). ' : '') +
-      (noMatch ? noMatch + ' with no matching Stripe price.' : '');
-    await loadPricing();
-  } catch (e) {
-    result.className = 'sync-result err';
-    result.textContent = 'Sync failed: ' + (e.message || e);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Sync from Stripe';
   }
 };
 
