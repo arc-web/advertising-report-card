@@ -220,6 +220,10 @@
     {
       "path": "/api/cron/cron-heartbeat-check",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-stale-runs",
+      "schedule": "0 * * * *"
     }
   ]
 }
