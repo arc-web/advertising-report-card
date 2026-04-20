@@ -121,7 +121,7 @@
 </div>
 
 <div class="preview-frame-container" id="frameContainer" style="display:none;">
-  <iframe id="contentPreviewFrame" frameborder="0" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
+  <iframe id="contentPreviewFrame" frameborder="0" sandbox="allow-scripts allow-popups"></iframe>
 </div>
 
 <div id="errorState" class="error-state" style="display:none;"></div>
@@ -152,21 +152,33 @@
     var page = data[0];
     document.getElementById('frameContainer').style.display = 'flex';
     var iframe = document.getElementById('contentPreviewFrame');
-    iframe.srcdoc = page.generated_html;
 
-    // Auto-resize iframe
+    // For bio pages, inject endorsements into the HTML string BEFORE
+    // assigning srcdoc. We dropped sandbox="allow-same-origin" so parent
+    // JS can no longer reach into iframe.contentDocument after load.
+    var htmlToRender = page.generated_html;
+    if (page.page_type === 'bio') {
+      Promise.resolve(buildEndorsementsHtml(page.contact_id, page.bio_material_id))
+        .then(function(endorsementsHtml) {
+          if (endorsementsHtml) {
+            // Replace the <section id="endorsement-section"> inner body if present.
+            htmlToRender = htmlToRender.replace(
+              /(<[a-z]+[^>]*id=["']endorsement-section["'][^>]*>)([\s\S]*?)(<\/[a-z]+>)/i,
+              '$1' + endorsementsHtml + '$3'
+            );
+          }
+          iframe.srcdoc = htmlToRender;
+        })
+        .catch(function() { iframe.srcdoc = htmlToRender; });
+    } else {
+      iframe.srcdoc = htmlToRender;
+    }
+
+    // Auto-resize: with sandbox tightened to exclude allow-same-origin the
+    // parent cannot read the iframe body's scrollHeight. Use a fixed tall
+    // height and let the iframe scroll internally if content exceeds it.
+    iframe.style.height = '2400px';
     iframe.onload = function() {
-      try {
-        var h = iframe.contentDocument.body.scrollHeight;
-        iframe.style.height = Math.max(h + 40, 600) + 'px';
-      } catch(e) {
-        iframe.style.height = '2000px';
-      }
-
-      // Dynamic endorsement injection for bio pages
-      if (page.page_type === 'bio') {
-        injectEndorsements(page.contact_id, page.bio_material_id, iframe);
-      }
     };
 
     // Update approve button if already approved
@@ -181,47 +193,34 @@
     document.getElementById('errorState').textContent = 'Something went wrong loading the preview. Please try refreshing.';
   });
 
-  // Dynamic endorsement injection for bio page previews
-  function injectEndorsements(contactId, bioMaterialId, iframe) {
+  // Build endorsement HTML for bio pages. Runs BEFORE srcdoc is set so we
+  // don't need to reach into iframe.contentDocument (sandbox is tightened
+  // to exclude allow-same-origin). Returns a Promise<string>; empty string
+  // if no matching endorsements.
+  function buildEndorsementsHtml(contactId, bioMaterialId) {
     var filter = 'contact_id=eq.' + contactId + '&status=eq.processed&order=sort_order,created_at.desc';
-    fetch(SB + '/rest/v1/endorsements?' + filter, {
+    return fetch(SB + '/rest/v1/endorsements?' + filter, {
       headers: { 'apikey': SK, 'Authorization': 'Bearer ' + SK }
     }).then(function(r) { return r.json(); }).then(function(endorsements) {
-      if (!endorsements || endorsements.length === 0) return;
-
-      // Filter to matching clinician
+      if (!endorsements || endorsements.length === 0) return '';
       var filtered = endorsements;
       if (bioMaterialId) {
         filtered = endorsements.filter(function(e) {
           return e.bio_material_id === bioMaterialId || !e.bio_material_id;
         });
       }
-      if (filtered.length === 0) return;
-
-      try {
-        var section = iframe.contentDocument.getElementById('endorsement-section');
-        if (!section) return;
-
-        var html = '';
-        filtered.forEach(function(e) {
-          html += '<div style="padding:1rem 0;border-bottom:1px solid rgba(0,0,0,.08);">';
-          html += '<p style="font-style:italic;margin-bottom:.5rem;">"' + esc(e.content) + '"</p>';
-          html += '<p style="font-weight:600;font-size:.9rem;">' + esc(e.endorser_name || 'Anonymous');
-          if (e.endorser_title) html += '<span style="font-weight:400;opacity:.7;">, ' + esc(e.endorser_title) + '</span>';
-          if (e.endorser_org) html += '<span style="font-weight:400;opacity:.7;"> at ' + esc(e.endorser_org) + '</span>';
-          html += '</p></div>';
-        });
-
-        // Replace section content but keep the container
-        section.innerHTML = '<h2 style="margin-bottom:1rem;">What Others Say</h2>' + html;
-
-        // Re-adjust iframe height
-        var h = iframe.contentDocument.body.scrollHeight;
-        iframe.style.height = Math.max(h + 40, 600) + 'px';
-      } catch(e) {
-        // Cross-origin or other iframe access error
-      }
-    }).catch(function() {});
+      if (filtered.length === 0) return '';
+      var html = '<h2 style="margin-bottom:1rem;">What Others Say</h2>';
+      filtered.forEach(function(e) {
+        html += '<div style="padding:1rem 0;border-bottom:1px solid rgba(0,0,0,.08);">';
+        html += '<p style="font-style:italic;margin-bottom:.5rem;">"' + esc(e.content) + '"</p>';
+        html += '<p style="font-weight:600;font-size:.9rem;">' + esc(e.endorser_name || 'Anonymous');
+        if (e.endorser_title) html += '<span style="font-weight:400;opacity:.7;">, ' + esc(e.endorser_title) + '</span>';
+        if (e.endorser_org) html += '<span style="font-weight:400;opacity:.7;"> at ' + esc(e.endorser_org) + '</span>';
+        html += '</p></div>';
+      });
+      return html;
+    }).catch(function() { return ''; });
   }
 
   function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }

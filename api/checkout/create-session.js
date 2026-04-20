@@ -24,6 +24,45 @@ var PRODUCT_NAMES = {
   entity_audit_premium:  'Premium Entity Audit'
 };
 
+// Look up the persistent Stripe Product for this product_key, creating it on
+// Stripe the first time we see it. Caching via pricing_products.stripe_product_id
+// means every future Checkout Session for that key reports under the same
+// Product in the Stripe Dashboard (grouped Payments tab, grouped subs, etc).
+async function ensureStripeProduct(productKey, stripeSecret) {
+  var row;
+  try {
+    row = await sb.one('pricing_products?product_key=eq.' + encodeURIComponent(productKey) + '&select=product_key,name,stripe_product_id&limit=1');
+  } catch (_) { row = null; }
+  if (row && row.stripe_product_id) return row.stripe_product_id;
+
+  var name = (row && row.name) || PRODUCT_NAMES[productKey] || productKey;
+  try {
+    var resp = await fetch('https://api.stripe.com/v1/products', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + stripeSecret,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: 'name=' + encodeURIComponent(name) +
+            '&metadata[product_key]=' + encodeURIComponent(productKey)
+    });
+    if (!resp.ok) return null;
+    var body = await resp.json();
+    if (!body || !body.id) return null;
+    // Persist so every subsequent checkout skips creation.
+    try {
+      await sb.mutate(
+        'pricing_products?product_key=eq.' + encodeURIComponent(productKey),
+        'PATCH',
+        { stripe_product_id: body.id, updated_at: new Date().toISOString() }
+      );
+    } catch (_) { /* non-fatal — reporting will just create again next call */ }
+    return body.id;
+  } catch (_) {
+    return null;
+  }
+}
+
 // Encode nested JS object as x-www-form-urlencoded for Stripe's API
 // (Stripe accepts bracket notation like line_items[0][price_data][unit_amount]=166700).
 function encodeStripeForm(obj, prefix) {
@@ -122,9 +161,17 @@ module.exports = async function handler(req, res) {
     var modeInfo = inferMode(tier);
     var priceData = {
       currency: 'usd',
-      unit_amount: tier.amount_cents,
-      product_data: { name: productDisplayName(product, tier) }
+      unit_amount: tier.amount_cents
     };
+    // Prefer a persistent Stripe Product so Dashboard reports can aggregate
+    // by tier. Fall back to inline product_data if the create/fetch failed
+    // (e.g. transient Stripe outage) — the checkout still succeeds.
+    var stripeProductId = await ensureStripeProduct(product, secret);
+    if (stripeProductId) {
+      priceData.product = stripeProductId;
+    } else {
+      priceData.product_data = { name: productDisplayName(product, tier) };
+    }
     if (modeInfo.recurring) priceData.recurring = modeInfo.recurring;
 
     var payload = {
