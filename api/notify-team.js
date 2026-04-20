@@ -28,7 +28,7 @@ module.exports = async function handler(req, res) {
 
   if (!event || !slug) return res.status(400).json({ error: 'Missing event or slug' });
 
-  var validEvents = ['payment_received', 'intro_call_complete', 'onboarding_complete', 'referral_partner'];
+  var validEvents = ['payment_received', 'intro_call_complete', 'onboarding_complete', 'referral_partner', 'addon_purchased', 'strategy_call_purchased'];
   if (validEvents.indexOf(event) === -1) return res.status(400).json({ error: 'Invalid event type' });
 
   try {
@@ -64,6 +64,19 @@ module.exports = async function handler(req, res) {
       subject = 'Referral Partner Logged: ' + clientName.trim() + ' via ' + partner.split(' (')[0];
       headerLabel = 'Referral Partner';
       content = buildReferralContent(contact, clientName, deepDiveUrl, partner, partnerEmail);
+
+    } else if (event === 'addon_purchased') {
+      var addonTierKey = body.tier_key || 'unknown';
+      var addonPrettyName = prettyTierName(addonTierKey);
+      subject = 'Add-on Purchased: ' + addonPrettyName + ' \u2014 ' + clientName.trim();
+      headerLabel = 'Add-on Purchased';
+      content = buildAddonContent(contact, clientName, deepDiveUrl, addonTierKey, addonPrettyName);
+
+    } else if (event === 'strategy_call_purchased') {
+      // Legacy buy.stripe.com flow — same email shape as an addon purchase.
+      subject = 'Strategy Call Purchased: ' + clientName.trim();
+      headerLabel = 'Strategy Call Purchased';
+      content = buildAddonContent(contact, clientName, deepDiveUrl, 'paid_strategy_call', 'Paid Strategy Call');
     }
 
     var htmlBody = email.wrap({
@@ -204,3 +217,32 @@ function buildReferralContent(contact, clientName, deepDiveUrl, partner, partner
     email.cta(deepDiveUrl, 'View Client');
 }
 
+// ── Add-on purchase helpers ──
+
+// Human-readable tier label. tier_key → Title Case. Falls back gracefully
+// when the key is missing or unrecognized.
+function prettyTierName(tierKey) {
+  if (!tierKey || tierKey === 'unknown') return 'Add-on';
+  return String(tierKey).replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+}
+
+// Uses the same branded email template as payment_received / onboarding_complete
+// so the team sees a consistent look-and-feel. No status is changed in the
+// database when an addon is purchased (the webhook only logs the payment and
+// fires this notification); the email just exists to alert the team to
+// fulfill the add-on.
+function buildAddonContent(contact, clientName, deepDiveUrl, tierKey, prettyName) {
+  var location = [contact.city, contact.state_province].filter(Boolean).join(', ');
+  var currentStatus = (contact.status || 'unknown').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  return clientHeader(contact, clientName) +
+    email.pRaw('An <strong>' + email.esc(prettyName) + '</strong> has been purchased. Client lifecycle status is unchanged &mdash; this is a one-off purchase that needs fulfillment outside the main campaign flow.') +
+    detailTable([
+      ['Add-on', prettyName],
+      ['Tier Key', tierKey],
+      ['Client Status', currentStatus],
+      ['Email', contact.email || ''],
+      ['Location', location]
+    ]) +
+    email.pRaw('<span style="color:#D97706;font-weight:600">Action needed:</span> Coordinate delivery of this add-on outside the CORE campaign pipeline. The payment is already logged in the client record.') +
+    email.cta(deepDiveUrl, 'View Client');
+}
