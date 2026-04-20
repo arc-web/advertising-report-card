@@ -140,7 +140,7 @@ module.exports = async function handler(req, res) {
   // Determine primary campaign display
   var primaryCampaign = campaigns.includes('annual') ? 'annual' : campaigns.includes('quarterly') ? 'quarterly' : 'monthly';
   var campaignDisplay = { annual: '12-Month CORE Campaign', quarterly: '3-Month Growth Engagement', monthly: 'Monthly CORE Engagement' };
-  var priceDisplay = { annual: '$20,000', quarterly: '$5,000', monthly: '$1,667' };
+  var priceDisplay = { annual: '$20,000', quarterly: '$5,000', monthly: '$2,000' };
   var periodDisplay = { annual: '12-month campaign', quarterly: '3-month campaign', monthly: 'per month' };
   var timelineLabel = { annual: '12-Month', quarterly: '3-Month', monthly: 'Monthly' };
 
@@ -357,7 +357,7 @@ Respond with ONLY valid JSON (no markdown, no backticks). The JSON must have the
     return '$' + d.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  var tierPriceByPlan = { annual: '$20,000', quarterly: '$5,000', monthly: '$1,667' };
+  var tierPriceByPlan = { annual: '$20,000', quarterly: '$5,000', monthly: '$2,000' };
   try {
     var pricingRows = await sb.query("pricing_tiers?product_key=eq.core_marketing&tier_key=in.(annual_upfront_ach,quarterly_upfront_ach,monthly_ach)&active=eq.true&select=tier_key,amount_cents");
     var byKey = {};
