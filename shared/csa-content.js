@@ -10,8 +10,10 @@
 //
 // Version: 2026-04-16 (SOW aligned with actual deliverables)
 
-window.renderCSA = function(contactParam) {
-    var contact = contactParam || window._onboardingContact;
+// Pure HTML builder. Can be called by any page that just needs to render
+// the CSA text, including /agreement which has no signature fields.
+window.buildCSAHtml = function(contactParam) {
+    var contact = contactParam || window._onboardingContact || {};
     var clientName = (contact.first_name || '') + ' ' + (contact.last_name || '');
     if (contact.credentials) clientName += ', ' + contact.credentials;
     var practiceName = contact.practice_name || 'the Client';
@@ -129,14 +131,45 @@ window.renderCSA = function(contactParam) {
     html += '<h4>Service Fees</h4>' +
       '<p>All fees for the Services must be paid in full at the start of the scheduled payment term, known as the Effective Date. The Effective Date of the Services is the date when payment is processed. Fees are determined by the campaign scope and payment term chosen by the Client. The Client\'s chosen plan and payment term are recorded in Moonraker\'s client management system. If payment is not received by the Effective Date, Moonraker reserves the right to withhold any Services for which payment is due.</p>';
 
+    html += '<h4>Pricing & Plans</h4>' +
+      '<p>Moonraker offers six pricing options for the CORE Marketing Campaign, grouped by whether a 12-month commitment is included. Annual commitment plans unlock the Performance Guarantee described in the next section; non-commitment plans do not.</p>' +
+      '<p><strong>Annual Commitment (12 months, Performance Guarantee included):</strong></p>' +
+      '<ul>' +
+      '<li><strong>Annual Paid Upfront:</strong> $20,000 one-time. Also includes a custom website built on Moonraker\'s hosting infrastructure.</li>' +
+      '<li><strong>Annual Paid Quarterly:</strong> $5,000 per quarter, four payments over 12 months.</li>' +
+      '<li><strong>Annual Paid Monthly:</strong> $1,667 per month for 12 months.</li>' +
+      '</ul>' +
+      '<p><strong>No Commitment (Performance Guarantee not included):</strong></p>' +
+      '<ul>' +
+      '<li><strong>Quarterly Upfront:</strong> $5,000 one-time for three months of service.</li>' +
+      '<li><strong>Quarterly Paid Monthly:</strong> $1,667 per month for three months.</li>' +
+      '<li><strong>Month-to-Month:</strong> $2,000 per month, continues until cancelled.</li>' +
+      '</ul>' +
+      '<p>Credit card payments add a 3.5% processing fee. ACH and bank transfer payments have no added fee. All prices are in US dollars. The Client\'s chosen plan is recorded in Moonraker\'s client management system at the time of signing.</p>';
+
     html += '<h4>Performance Guarantee</h4>' +
-      '<p>Moonraker will provide a performance guarantee when the Client selects a 12-month payment term. This guarantee may include, for example, a specific increase in website traffic or a designated number of booked consultation calls. The specific performance goal will be determined collaboratively by Moonraker and the Client and confirmed in writing. To accurately track performance against the guarantee, the Client agrees to grant Moonraker access to relevant systems, such as website analytics and booking platforms. Should Moonraker fail to help the Client achieve the established goal by the end of the 12-month term, Moonraker will continue providing the Services at no cost until the goal is met.</p>';
+      '<p>The Performance Guarantee is available exclusively to Clients on an annual commitment plan (Annual Paid Upfront, Annual Paid Quarterly, or Annual Paid Monthly). It is not available on quarterly or month-to-month plans.</p>' +
+      '<p><strong>How it works.</strong> After the intro call, the specific benchmark is determined collaboratively between the Client and Moonraker using the Client\'s practice metrics: average client lifetime value, consultation-to-client conversion rate, call-to-consultation rate, and consultation target. Once agreed, the benchmark is captured in a separate <strong>Signed Performance Guarantee</strong> document which both parties sign. That signed document is the controlling instrument for the guarantee terms.</p>' +
+      '<p><strong>The guarantee.</strong> If Moonraker does not achieve the agreed benchmark within 12 months from the signing date of the Signed Performance Guarantee, Moonraker will continue delivering the Services at no additional cost until the benchmark is achieved.</p>' +
+      '<p><strong>Scope.</strong> The Performance Guarantee counts only consultations originating from organic channels: Google Search, Google Maps, and AI Search. Consultations from paid advertising, referrals, or other sources do not count toward the benchmark. The Client agrees to grant Moonraker access to relevant systems (website analytics and booking platforms) so performance can be tracked accurately.</p>' +
+      '<p>If the Client upgrades from a non-commitment plan to an annual plan mid-engagement, the guarantee becomes available from that point forward and a new Signed Performance Guarantee is issued with the new 12-month window.</p>';
 
-    html += '<h4>Additional Fees</h4>' +
-      '<p>Any additional services requested by the Client that are not included in the Agreement will result in additional fees decided on by Moonraker. An excessive amount of work orders from the Client in relation to the Services may result in additional fees from Moonraker, including but not limited to the need to have additional work completed, multiple revisions, extensions of the Services, or additional purchase of resources.</p>';
+    html += '<h4>Additional Services & Add-ons</h4>' +
+      '<p>The following add-on services are available outside the base CORE Marketing Campaign and are billed separately. Availability notes indicate which are restricted to active Clients versus available to anyone.</p>' +
+      '<ul>' +
+      '<li><strong>Additional Service Page:</strong> $300 per page, beyond the 5 included in the CORE Marketing Campaign. Available to active Clients.</li>' +
+      '<li><strong>Additional Press Release:</strong> $300 per release. Available to anyone, including prospects and former Clients.</li>' +
+      '<li><strong>NAP Change (Name, Address, or Phone update with citation rebuild):</strong> $300 per change. Available to anyone with live Moonraker-placed citations, including former Clients.</li>' +
+      '<li><strong>Paid Strategy Call:</strong> $150 for a one-hour session with Scott Pope. Available to anyone.</li>' +
+      '<li><strong>Standalone Website:</strong> $600 per page, including sitemap planning, design, copywriting, Surge audit for each page, and deployment on Moonraker\'s hosting infrastructure. Does not include ongoing marketing.</li>' +
+      '</ul>' +
+      '<p>Add-ons purchased by active Clients do not alter the Client\'s plan, commitment terms, or Performance Guarantee. Additional pages purchased as add-ons are built to completion but are not added to the Client\'s tracked keyword set or ongoing reporting scope unless explicitly agreed in writing. Excessive revision requests or work orders outside the Agreement may incur additional fees.</p>';
 
-    html += '<h4>Cancellation of Services</h4>' +
-      '<p>The Client may cancel services in writing at any time. Moonraker will deactivate billing and complete all deliverables for the current billing cycle before initiating the Client offboarding process.</p>';
+    html += '<h4>Commitment & Cancellation</h4>' +
+      '<p><strong>Annual commitment plans.</strong> Clients on annual plans (Annual Paid Upfront, Annual Paid Quarterly, Annual Paid Monthly) agree to a 12-month commitment. The Client may cancel in writing at any time, subject to the early termination fee below. Moonraker will complete all deliverables for the current billing cycle before offboarding.</p>' +
+      '<p><strong>Early termination fee (annual commitments).</strong> If the Client cancels an annual plan before the 12-month commitment is complete, the Client agrees to pay 50% of the remaining unbilled balance on the original plan. Example: a Client on the Annual Paid Quarterly plan who cancels after the first quarterly payment has $15,000 in unbilled balance and owes a $7,500 early termination fee. The Annual Paid Upfront plan has no unbilled balance and therefore no early termination fee; however, amounts already paid under the upfront plan are non-refundable regardless of when cancellation occurs, consistent with the Refund Policy below.</p>' +
+      '<p><strong>Non-commitment plans.</strong> The Quarterly Upfront, Quarterly Paid Monthly, and Month-to-Month plans may be cancelled at any time in writing with no early termination fee. Cancellation takes effect at the end of the current billing period, and Moonraker completes deliverables for that period before offboarding.</p>' +
+      '<p><strong>Cancellation process.</strong> Submit a written cancellation request to support@moonraker.ai. For annual commitment cancellations, Moonraker will issue a termination invoice for the early termination fee; the Client\'s recurring subscription (if any) is cancelled once that invoice is paid. All Client-owned assets (website content, copy, images, analytics access, and Google Business Profile ownership) remain with the Client after offboarding.</p>';
 
     html += '<h4>Refund Policy</h4>' +
       '<p>The Client acknowledges and agrees that no refunds will be provided by Moonraker for any work that has been completed in accordance with the Agreement. All payments made to Moonraker are final and non-refundable, regardless of the Client\'s satisfaction with the outcomes of the Services rendered.</p>';
@@ -179,21 +212,41 @@ window.renderCSA = function(contactParam) {
       '<li><strong>Approve Campaign Content in a Timely Manner:</strong> The Client will respond to content approval requests from Moonraker within 48 hours, either with approval or a request for updates. If the Client does not respond within 7 days, Moonraker may go ahead and publish updates on the Client\'s behalf. Changes can still be made after content goes live.</li>' +
       '</ul>';
 
-    document.getElementById('csaDocument').innerHTML = html;
+    return html;
+};
 
-    // Pre-fill signature fields
-    document.getElementById('sigName').value = clientName.replace(/,.*/, '').trim();
-    document.getElementById('sigEmail').value = contact.email || '';
-    document.getElementById('sigDate').value = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+// Full render: inserts HTML into #csaDocument, prefills signature fields, wires
+// the validation listeners. Used by onboarding Step 8. The signature-field
+// wiring is null-guarded so renderCSA() can be called on the read-only
+// /agreement page which doesn't have those fields. Note: the /agreement page
+// calls buildCSAHtml() directly rather than renderCSA(), since it never signs.
+window.renderCSA = function(contactParam) {
+    var contact = contactParam || window._onboardingContact || {};
+    var html = window.buildCSAHtml(contact);
+    var clientName = (contact.first_name || '') + ' ' + (contact.last_name || '');
+    if (contact.credentials) clientName += ', ' + contact.credentials;
 
-    // Enable sign button when consent + name + signature are all provided
-    // validateSignFields is a global so the canvas code can call it too
-    window.validateSignFields = function() {
-      var name = document.getElementById('sigName').value.trim();
-      var consent = document.getElementById('sigConsent').checked;
-      var hasSig = typeof sigHasDrawn !== 'undefined' ? sigHasDrawn : false;
-      document.getElementById('signBtn').disabled = !(consent && name.length > 1 && hasSig);
-    };
-    document.getElementById('sigConsent').addEventListener('change', validateSignFields);
-    document.getElementById('sigName').addEventListener('input', validateSignFields);
-  }
+    var csaDoc = document.getElementById('csaDocument');
+    if (csaDoc) csaDoc.innerHTML = html;
+
+    var sigName = document.getElementById('sigName');
+    var sigEmail = document.getElementById('sigEmail');
+    var sigDate = document.getElementById('sigDate');
+    var sigConsent = document.getElementById('sigConsent');
+    var signBtn = document.getElementById('signBtn');
+
+    if (sigName) sigName.value = clientName.replace(/,.*/, '').trim();
+    if (sigEmail) sigEmail.value = contact.email || '';
+    if (sigDate) sigDate.value = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+    if (sigName && sigConsent && signBtn) {
+      window.validateSignFields = function() {
+        var name = sigName.value.trim();
+        var consent = sigConsent.checked;
+        var hasSig = typeof sigHasDrawn !== 'undefined' ? sigHasDrawn : false;
+        signBtn.disabled = !(consent && name.length > 1 && hasSig);
+      };
+      sigConsent.addEventListener('change', validateSignFields);
+      sigName.addEventListener('input', validateSignFields);
+    }
+};
