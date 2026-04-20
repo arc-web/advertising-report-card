@@ -44,6 +44,18 @@
 
   .refresh-btn { background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-body); padding: .5rem 1rem; border-radius: 8px; font-size: .8rem; cursor: pointer; min-height: 36px; }
   .refresh-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+  .cleanup-btn { background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-body); padding: .5rem 1rem; border-radius: 8px; font-size: .8rem; cursor: pointer; min-height: 36px; display: inline-flex; align-items: center; gap: .4rem; }
+  .cleanup-btn:hover:not(:disabled) { border-color: var(--color-danger); color: var(--color-danger); }
+  .cleanup-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── Age-based row tinting for Unfinished Runs ───────────────
+     Subtle background tint signals which rows are likely zombies
+     vs legitimately mid-execution. Tints are additive with the
+     row's existing border so dark mode stays readable. */
+  table.cron tr.stale-amber td { background: rgba(245,158,11,.06); }
+  table.cron tr.stale-red td   { background: rgba(239,68,68,.08); }
+  table.cron tr.stale-amber td:first-child { box-shadow: inset 3px 0 0 var(--color-warning); }
+  table.cron tr.stale-red td:first-child   { box-shadow: inset 3px 0 0 var(--color-danger); }
 
   /* ── Inline-scroll wrapper for any wide element ───────────────
      Per design system rule: page width and headings stay put;
@@ -134,8 +146,14 @@
       </table>
     </div>
 
-    <div class="section-header" style="margin-top:2.5rem;"><h3>Currently Running</h3></div>
-    <p class="section-desc">Rows with status='running' — no <code>completed_at</code> yet. Persistent entries here indicate a cron hung or crashed mid-execution.</p>
+    <div class="section-header" style="margin-top:2.5rem;">
+      <h3>Unfinished Runs</h3>
+      <button class="cleanup-btn" id="cleanupBtn" onclick="cleanupStaleRuns()" title="Mark all rows still 'running' more than 1h after start as errored">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4h11"/><path d="M6 4V2.5h4V4"/><path d="M3.5 4l.5 9a1 1 0 001 1h6a1 1 0 001-1l.5-9"/><path d="M6.5 7v5M9.5 7v5"/></svg>
+        Clean up stale runs
+      </button>
+    </div>
+    <p class="section-desc">Rows with status='running' and no <code>completed_at</code>. Legitimately-live runs clear within seconds. Rows older than the cron's expected interval are tinted amber (probably stuck), older than 2× are tinted red (almost certainly crashed or timed out). The hourly <code>cleanup-stale-runs</code> cron auto-expires anything past 1h; the button above runs it on demand.</p>
     <div class="table-scroll">
       <table class="cron">
         <thead>
@@ -153,6 +171,8 @@
     </div>
   </div>
 </div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <script>
 function esc(s) {
@@ -230,12 +250,20 @@ async function loadHealth() {
 
   var rtbody = document.getElementById('runningTbody');
   if (data.running.length === 0) {
-    rtbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--color-muted);">No crons currently running</td></tr>';
+    rtbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--color-muted);">No unfinished runs</td></tr>';
   } else {
     var now = Date.now();
     rtbody.innerHTML = data.running.map(function(r) {
       var ageSec = Math.floor((now - new Date(r.started_at).getTime()) / 1000);
-      return '<tr>' +
+      // Tint based on age vs the cron's expected interval. Crons with unknown
+      // intervals (null expected_interval_sec) get no tint — we don't want to
+      // falsely color rows we can't reason about.
+      var tintClass = '';
+      if (r.expected_interval_sec != null) {
+        if (ageSec >= 2 * r.expected_interval_sec) tintClass = 'stale-red';
+        else if (ageSec >= r.expected_interval_sec) tintClass = 'stale-amber';
+      }
+      return '<tr' + (tintClass ? ' class="' + tintClass + '"' : '') + '>' +
         '<td><strong>' + esc(r.cron_name) + '</strong></td>' +
         '<td class="mono">' + fmtTime(r.started_at) + '</td>' +
         '<td>' + fmtAge(ageSec) + '</td>' +
@@ -245,6 +273,38 @@ async function loadHealth() {
   }
 
   document.getElementById('lastRefresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+function toast(msg, type) {
+  var t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.className = 'toast show' + (type === 'error' ? ' error' : ' success');
+  setTimeout(function() { t.className = 'toast'; }, 3000);
+}
+
+async function cleanupStaleRuns() {
+  var btn = document.getElementById('cleanupBtn');
+  var original = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = 'Cleaning…';
+  try {
+    var resp = await fetch('/api/admin/cleanup-stale-runs', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    var body = await resp.json().catch(function() { return {}; });
+    if (!resp.ok) throw new Error((body && body.error) || ('HTTP ' + resp.status));
+    var n = body.cleaned || 0;
+    toast(n === 0 ? 'No stale runs to clean up' : ('Cleaned up ' + n + ' stale run' + (n === 1 ? '' : 's')));
+    await loadHealth();
+  } catch (e) {
+    toast('Cleanup failed: ' + (e.message || e), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
 }
 
 adminAuth.ready(function() {
