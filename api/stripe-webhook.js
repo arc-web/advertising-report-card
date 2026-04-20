@@ -140,8 +140,14 @@ module.exports = async function handler(req, res) {
 
     var results = { slug: slug, session_id: session.id };
 
-    // Entity Audit: $2,000 (200000 cents) or $2,070 (207000 cents for CC)
-    var isEntityAudit = amountTotal === 200000 || amountTotal === 207000;
+    // Entity Audit identified by metadata first (new inline Checkout flow)
+    // then falls back to amount detection for legacy buy.stripe.com links
+    // that don't carry metadata. Guard the amount fallback against
+    // metadataProduct being a DIFFERENT recognized product (e.g. an addon
+    // priced at $2,000 like Standalone Website), otherwise we'd mis-route.
+    var isEntityAudit = metadataProduct === 'entity_audit_premium' || (
+      !metadataProduct && (amountTotal === 200000 || amountTotal === 207000)
+    );
 
     if (isEntityAudit) {
       // ── Premium Entity Audit payment ──
@@ -369,7 +375,7 @@ module.exports = async function handler(req, res) {
         }
       }
     } else if (metadataProduct === 'strategy_call') {
-      // ── 1-Hour Strategy Call payment ──
+      // ── 1-Hour Strategy Call payment (legacy payment-link flow) ──
       // Log and notify only. Do NOT flip contact.status (a strategy-call
       // purchaser might be a lead, prospect, or returning active client;
       // the purchase itself carries no lifecycle signal). Do NOT schedule
@@ -400,6 +406,47 @@ module.exports = async function handler(req, res) {
           await monitor.logError('stripe-webhook', scNotifyErr, {
             client_slug: slug,
             detail: { stage: 'notify_team_strategy_call', session_id: session.id }
+          });
+        } catch (_) { /* don't mask the 200 */ }
+        results.notify_team_failed = true;
+      }
+    } else if (metadataProduct === 'addons') {
+      // ── Add-on purchase from /<slug>/offers ──
+      // Log and notify only. Add-ons are by definition outside the main
+      // campaign lifecycle: an active client buying a $300 press release
+      // shouldn't have their status, plan_type, or commitment touched.
+      // The tier_key metadata tells the team which add-on was purchased
+      // so they know what to deliver. payments row insert below captures
+      // the canonical record.
+      var addonTierKey = (session.metadata && session.metadata.tier_key) || '(unknown)';
+      results.action = 'addon_logged';
+      results.addon_tier_key = addonTierKey;
+      try {
+        var addonNotifyResp = await fetchT('https://clients.moonraker.ai/api/notify-team', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (process.env.CRON_SECRET || '') },
+          body: JSON.stringify({ event: 'addon_purchased', slug: slug, tier_key: addonTierKey })
+        }, 15000);
+        if (!addonNotifyResp.ok) {
+          var addonNotifyErrBody = '';
+          try { addonNotifyErrBody = await addonNotifyResp.text(); } catch (_) {}
+          await monitor.logError('stripe-webhook', new Error('notify-team returned ' + addonNotifyResp.status), {
+            client_slug: slug,
+            detail: {
+              stage: 'notify_team_addon',
+              tier_key: addonTierKey,
+              status: addonNotifyResp.status,
+              body_preview: addonNotifyErrBody.substring(0, 500),
+              session_id: session.id
+            }
+          });
+          results.notify_team_failed = true;
+        }
+      } catch (addonNotifyErr) {
+        try {
+          await monitor.logError('stripe-webhook', addonNotifyErr, {
+            client_slug: slug,
+            detail: { stage: 'notify_team_addon', tier_key: addonTierKey, session_id: session.id }
           });
         } catch (_) { /* don't mask the 200 */ }
         results.notify_team_failed = true;
@@ -436,7 +483,11 @@ module.exports = async function handler(req, res) {
         amount_cents: amountTotal,
         payment_method: session.payment_method_types ? session.payment_method_types[0] : null,
         status: paymentStatus,
-        description: isEntityAudit ? 'Entity Audit' : 'CORE Marketing System'
+        description: isEntityAudit
+          ? 'Entity Audit'
+          : (metadataProduct === 'addons'
+              ? ('Add-on: ' + ((session.metadata && session.metadata.tier_key) || 'unknown'))
+              : (metadataProduct === 'strategy_call' ? 'Strategy Call' : 'CORE Marketing System'))
       }, 'return=minimal');
     } catch (logErr) {
       console.log('Failed to log payment:', logErr.message);
